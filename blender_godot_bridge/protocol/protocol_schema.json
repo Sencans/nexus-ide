@@ -1,0 +1,78 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "BlenderGodotBridgeProtocol",
+  "description": "Protocolo de comunicación IPC por TCP Sockets locales entre Godot y Blender",
+  "definitions": {
+    "EditCommand": {
+      "type": "object",
+      "required": ["command", "op_type", "params"],
+      "properties": {
+        "command": {
+          "type": "string",
+          "enum": ["edit_op"]
+        },
+        "op_type": {
+          "type": "string",
+          "enum": ["extrude", "subdivide", "modify_vertex", "create_mesh"]
+        },
+        "params": {
+          "type": "object",
+          "properties": {
+            "mesh_name": { "type": "string" },
+            "face_index": { "type": "integer" },
+            "amount": { "type": "number" },
+            "vertex_index": { "type": "integer" },
+            "position": {
+              "type": "array",
+              "minItems": 3,
+              "maxItems": 3,
+              "items": { "type": "number" }
+            },
+            "shape": { "type": "string" }
+          }
+        }
+      }
+    },
+    "GeometryResponse": {
+      "type": "object",
+      "required": ["status", "mesh_name", "vertices", "indices", "normals", "uvs", "selection"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["ok", "error"]
+        },
+        "message": { "type": "string" },
+        "mesh_name": { "type": "string" },
+        "vertices": {
+          "type": "array",
+          "items": { "type": "number" },
+          "description": "Coordenadas planas [x1, y1, z1, x2, y2, z2, ...]"
+        },
+        "indices": {
+          "type": "array",
+          "items": { "type": "integer" },
+          "description": "Indices de vértices que forman caras triangulares [t1_a, t1_b, t1_c, ...]"
+        },
+        "normals": {
+          "type": "array",
+          "items": { "type": "number" },
+          "description": "Vectores normales planos asociados [nx1, ny1, nz1, ...]"
+        },
+        "uvs": {
+          "type": "array",
+          "items": { "type": "number" },
+          "description": "Coordenadas UV planas asociadas [u1, v1, u2, v2, ...]"
+        },
+        "selection": {
+          "type": "object",
+          "required": ["vertices", "edges", "faces"],
+          "properties": {
+            "vertices": { "type": "array", "items": { "type": "integer" } },
+            "edges": { "type": "array", "items": { "type": "integer" } },
+            "faces": { "type": "array", "items": { "type": "integer" } }
+          }
+        }
+      }
+    }
+  }
+}

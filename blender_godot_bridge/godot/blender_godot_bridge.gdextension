@@ -1,0 +1,15 @@
+[configuration]
+
+entry_symbol = "blender_bridge_library_init"
+compatibility_minimum = "4.1"
+
+[libraries]
+
+windows.debug.x86_64 = "bin/libblender_bridge.windows.template_debug.x86_64.dll"
+windows.release.x86_64 = "bin/libblender_bridge.windows.template_release.x86_64.dll"
+linux.debug.x86_64 = "bin/libblender_bridge.linux.template_debug.x86_64.so"
+linux.release.x86_64 = "bin/libblender_bridge.linux.template_release.x86_64.so"
+macos.debug.x86_64 = "bin/libblender_bridge.macos.template_debug.x86_64.dylib"
+macos.release.x86_64 = "bin/libblender_bridge.macos.template_release.x86_64.dylib"
+macos.debug.arm64 = "bin/libblender_bridge.macos.template_debug.arm64.dylib"
+macos.release.arm64 = "bin/libblender_bridge.macos.template_release.arm64.dylib"

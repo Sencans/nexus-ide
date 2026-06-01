@@ -1,0 +1,15 @@
+[gd_scene load_steps=2 format=3 uid="uid://c1y7v3x4n5d1b"]
+
+[ext_resource type="Script" path="res://geometry_bridge_3d.gd" id="1_x7r2e"]
+
+[node name="Main" type="Node3D"]
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(-0.866025, -0.433013, 0.25, 0, 0.5, 0.866025, -0.5, 0.75, -0.433013, 0, 0, 0)
+shadow_enabled = true
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
+
+[node name="GeometryBridge3D" type="GeometryBridge3D" parent="."]
+script = ExtResource("1_x7r2e")
