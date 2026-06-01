@@ -1016,7 +1016,19 @@ if (mesh) {
 
         let workspaceRoot;
         if (typeof process !== 'undefined' && process.cwd) {
-            workspaceRoot = localStorage.getItem('nexus_workspace_root') || process.cwd();
+            let defaultWorkspace = process.cwd();
+            if (typeof require !== 'undefined' && fs && path) {
+                try {
+                    const os = require('os');
+                    defaultWorkspace = path.join(os.homedir(), 'NexusProjects');
+                    if (!fs.existsSync(defaultWorkspace)) {
+                        fs.mkdirSync(defaultWorkspace, { recursive: true });
+                    }
+                } catch (e) {
+                    console.error("Error setting default workspace:", e);
+                }
+            }
+            workspaceRoot = localStorage.getItem('nexus_workspace_root') || defaultWorkspace;
         } else {
             workspaceRoot = localStorage.getItem('nexus_workspace_root') || '/workspace';
         }
