@@ -345,6 +345,45 @@
 </head>
 <body>
 
+    <!-- INICIO: COMPROBACIÓN DE REQUISITOS -->
+    <div id="nexus-requirements-screen" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:radial-gradient(circle at center, #1b1b22, #0d0d12); z-index:99998; display:none; flex-direction:column; justify-content:center; align-items:center; color:#fff; font-family:'Outfit', 'Inter', sans-serif; transition:opacity .3s ease; padding: 20px; box-sizing: border-box;">
+        <div style="width: 100%; max-width: 650px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 16px; padding: 30px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); backdrop-filter: blur(25px); display:flex; flex-direction:column; gap:20px; box-sizing: border-box;">
+            <div style="display:flex; align-items:center; gap: 15px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:15px;">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2" style="filter: drop-shadow(0 0 8px #7c3aed);"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                <div>
+                    <h2 style="font-size:22px; margin:0; font-weight:600; letter-spacing:0.5px;">Requisitos del Sistema</h2>
+                    <p style="margin:4px 0 0 0; color:#8b949e; font-size:13px;">Nexus IDE requiere y recomienda herramientas de desarrollo instaladas en tu sistema.</p>
+                </div>
+            </div>
+            
+            <div id="nexus-req-list" style="display:flex; flex-direction:column; gap:12px; margin: 10px 0;">
+                <!-- Carga dinámica -->
+            </div>
+            
+            <div id="nexus-req-log-container" style="display:none; flex-direction:column; gap:8px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; color:#8b949e;">
+                    <span>Consola del Instalador</span>
+                    <span id="nexus-req-install-status" style="color:#7c3aed; font-weight:bold;">Instalando...</span>
+                </div>
+                <div id="nexus-req-log" style="height: 120px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; font-family:'Fira Code', 'Courier New', monospace; font-size: 11px; padding: 10px; overflow-y: auto; color: #39ff14; white-space: pre-wrap; text-align: left;"></div>
+            </div>
+            
+            <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid rgba(255,255,255,0.1); padding-top:20px; margin-top:10px;">
+                <button id="btn-req-skip" style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:#fff; padding:10px 18px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:500; transition:all 0.2s;">
+                    Ignorar y Abrir IDE
+                </button>
+                <div style="display:flex; gap:10px;">
+                    <button id="btn-req-check" style="background:transparent; border:1px solid #7c3aed; color:#7c3aed; padding:10px 18px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:500; transition:all 0.2s;">
+                        Volver a Comprobar
+                    </button>
+                    <button id="btn-req-install" style="background:#7c3aed; border:none; color:#fff; padding:10px 22px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600; box-shadow:0 0 15px rgba(124,58,237,0.4); transition:all 0.2s;">
+                        Instalar Faltantes
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- INICIO: SPLASH SCREEN / LOGIN -->
     <div id="splash-screen" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:#161b22; z-index:99999; display:flex; justify-content:center; align-items:center; transition:opacity .3s ease;">
         <div style="text-align: center; color: #e6edf3; display:flex; flex-direction:column; align-items:center; gap: 12px;">
@@ -6371,7 +6410,20 @@ except Exception as e:
                         });
                     });
                     
-                    req.on('error', (err) => reject(err));
+                    if (options.signal) {
+                        options.signal.addEventListener('abort', () => {
+                            req.destroy();
+                            reject(new DOMException('The user aborted a request.', 'AbortError'));
+                        });
+                    }
+                    
+                    req.on('error', (err) => {
+                        if (options.signal && options.signal.aborted) {
+                            // Already rejected by abort listener
+                            return;
+                        }
+                        reject(err);
+                    });
                     if (options.body) {
                         req.write(options.body);
                     }
@@ -6585,19 +6637,26 @@ Reglas críticas de comportamiento:
 - Si el usuario te pide crear y ejecutar un script, escribe el archivo primero con [WRITE_FILE] y luego ejecútalo con [RUN_COMMAND].
 - Explica qué estás haciendo de forma concisa antes o después de usar los comandos.`,
 
-                    "chat_system_prompt": `Eres el asistente de IA de Nexus IDE. Responde en español a las consultas del desarrollador sobre programación, depuración y mejores prácticas. En este modo (Modo Chat) no tienes capacidad de escribir archivos ni ejecutar comandos de forma autónoma, pero SÍ puedes crear y actualizar animaciones/juegos 3D interactivos en el Motor 3D usando el bloque [RUN_3D_SCRIPT] y [END_RUN_3D_SCRIPT].
+                    "chat_system_prompt": `Eres el asistente de IA de Nexus IDE. Responde en español a las consultas del desarrollador sobre programación, depuración y mejores prácticas.
+¡IMPORTANTE! Si el desarrollador te pide crear, escribir o modificar un archivo, o bien ejecutar un comando en la terminal, NO te limites a mostrar el código como texto estático. Debes actuar directamente en el entorno de desarrollo usando la siguiente sintaxis de automatización para que el IDE lo haga en el acto:
 
-Para crear o actualizar el videojuego 3D animado en el Motor 3D interactivo (Babylon.js), usa la siguiente sintaxis exacta:
+1. Para escribir o modificar un archivo completo, envuélvelo así:
+[WRITE_FILE: ruta_relativa_o_absoluta_del_archivo]
+(aquí va el código completo sin resumir)
+[END_WRITE_FILE]
+
+2. Para ejecutar comandos en la terminal (compilar, instalar dependencias, correr scripts, etc.), usa:
+[RUN_COMMAND]
+(aquí el comando a ejecutar, ej: npm install express, o python app.py)
+[END_RUN_COMMAND]
+
+3. Para interactuar con el Motor 3D (Babylon.js), usa:
 [RUN_3D_SCRIPT]
-// Tu script de JS compatible con Babylon.js
-// El script se ejecutará continuamente en el bucle de renderizado.
-// Recibe 3 parámetros implícitos: \`mesh\` (el objeto Mesh activo), \`scene\` (la escena completa de Babylon.js) y \`BABYLON\` (la librería global).
-// Ejemplo:
-// mesh.rotation.y += 0.02;
-// O para interactuar con la escena:
-// if (!scene.metadata) scene.metadata = { score: 0 };
+// Código Javascript compatible con Babylon.js
+// Parámetros: mesh (objeto Mesh activo), scene (escena de Babylon.js) y BABYLON
 [END_RUN_3D_SCRIPT]
-Al responder, si el usuario te pide crear un juego 3D o simular físicas/fuegos artificiales/etc., genera este bloque de código y explica tu lógica en español de forma concisa.`,
+
+Al responder, explica brevemente qué archivos vas a crear o qué comandos vas a correr, y luego escribe los bloques correspondientes para que se ejecuten.`,
 
                     "planner_system_prompt": `Eres el Agente Planificador de un equipo de desarrollo colaborativo de IA en Nexus IDE.
 Tu tarea es analizar la solicitud del desarrollador y el estado actual del espacio de trabajo, y diseñar un plan de acción detallado paso a paso para cumplir con el requerimiento.
@@ -6859,17 +6918,26 @@ Critical behavioral rules:
 - If the user asks to create and run a script, write the file first with [WRITE_FILE] and then run it with [RUN_COMMAND].
 - Explain what you are doing concisely before or after running commands.`,
 
-                    "chat_system_prompt": `You are the AI assistant of Nexus IDE. Respond in English to the developer's queries on coding, debugging, and best practices. In this mode (Chat Mode) you cannot write files or run commands autonomously, but you CAN create and update interactive 3D animations/games in the 3D Engine using [RUN_3D_SCRIPT] and [END_RUN_3D_SCRIPT].
+                    "chat_system_prompt": `You are the AI assistant of Nexus IDE. Respond in English to the developer's queries on coding, debugging, and best practices.
+IMPORTANT! If the developer asks you to create, write, or modify a file, or execute a command in the terminal, DO NOT just show the code as static text. You must act directly on the development environment using the following automation syntax so that the IDE executes it instantly:
 
-To create or update the animated 3D game in the interactive 3D Engine (Babylon.js), use the following exact syntax:
+1. To write or modify a full file, wrap it like this:
+[WRITE_FILE: relative_or_absolute_file_path]
+(complete code content here, do not summarize)
+[END_WRITE_FILE]
+
+2. To execute commands in the terminal (install dependencies, run scripts, compile, etc.), use:
+[RUN_COMMAND]
+(command to execute, e.g.: npm install express, or python app.py)
+[END_RUN_COMMAND]
+
+3. To interact with the 3D Engine (Babylon.js), use:
 [RUN_3D_SCRIPT]
-// Your Babylon.js compatible JS script
-// The script will execute continuously in the render loop.
-// It receives 3 implicit parameters: \`mesh\` (active Mesh), \`scene\` (the Babylon scene), and \`BABYLON\` (global library).
-// Example:
-// mesh.rotation.y += 0.02;
+// Babylon.js compatible JS script
+// Parameters: mesh (active Mesh), scene (Babylon scene), and BABYLON
 [END_RUN_3D_SCRIPT]
-When responding, if the user asks you to create a 3D game or simulate physics/fireworks/etc., generate this code block and explain your logic in English concisely.`,
+
+When responding, briefly explain what files you will create or what commands you will run, and then write the corresponding blocks to execute them.`,
 
                     "planner_system_prompt": `You are the Planner Agent of a collaborative AI development team in Nexus IDE.
 Your task is to analyze the developer's request and the current workspace state, and design a detailed step-by-step action plan to fulfill the requirement.
@@ -7118,7 +7186,23 @@ Règles de comportement critiques :
 - Si l'utilisateur vous demande de créer et d'exécuter un script, écrivez d'abord le fichier avec [WRITE_FILE] et exécutez-le ensuite avec [RUN_COMMAND].
 - Expliquez ce que vous faites de manière concise avant ou après l'utilisation des commandes.`,
 
-                    "chat_system_prompt": `Vous êtes l'assistant d'IA de Nexus IDE. Répondez en français aux requêtes du développeur concernant le code, le débogage et les meilleures pratiques. Dans ce mode (Mode Chat), vous ne pouvez pas modifier de fichiers ni exécuter de commandes, mais vous POUVEZ générer des démos 3D animées dans le moteur 3D interactif en utilisant le bloc [RUN_3D_SCRIPT] et [END_RUN_3D_SCRIPT].`,
+                    "chat_system_prompt": `Vous êtes l'assistant d'IA de Nexus IDE. Répondez en français aux requêtes du développeur concernant le code, le débogage et les meilleures pratiques.
+IMPORTANT ! Si le développeur vous demande de créer, d'écrire ou de modifier un fichier, ou d'exécuter une commande dans le terminal, agissez directement en utilisant la syntaxe d'automatisation suivante pour que l'IDE l'exécute instantanément :
+
+1. Pour écrire ou modifier un fichier complet, utilisez :
+[WRITE_FILE: chemin_du_fichier]
+(contenu complet ici)
+[END_WRITE_FILE]
+
+2. Pour exécuter des commandes dans le terminal, utilisez :
+[RUN_COMMAND]
+(commande à exécuter)
+[END_RUN_COMMAND]
+
+3. Pour interagir avec le moteur 3D (Babylon.js), utilisez :
+[RUN_3D_SCRIPT]
+// Votre script Babylon.js
+[END_RUN_3D_SCRIPT]`,
 
                     "planner_system_prompt": `Vous êtes l'Agent Planificateur d'une équipe de développement d'IA dans Nexus IDE. Votre tâche est de concevoir un plan d'action détaillé pour répondre à la demande. Répondez toujours en français. Système d'exploitation : {operatingSystem}.`,
                     "coder_system_prompt": `Vous êtes l'Agent Coder de l'équipe collaborative d'IA dans Nexus IDE. Votre tâche est d'implémenter le plan du Planificateur. Répondez toujours en français. Système d'exploitation : {operatingSystem}. Utilisez [WRITE_FILE], [RUN_COMMAND].`,
@@ -7290,7 +7374,23 @@ Reglas de comportamento críticas:
 - Se o usuário pedir para criar e executar um script, escreva o arquivo primeiro com [WRITE_FILE] e depois execute-o com [RUN_COMMAND].
 - Explique o que está fazendo de forma concisa antes ou após usar os comandos.`,
 
-                    "chat_system_prompt": `Você é o assistente de IA do Nexus IDE. Responda em português às dúvidas do desenvolvedor sobre programação, depuração e melhores práticas. Neste modo (Chat), você NÃO pode escrever arquivos ou rodar comandos automaticamente, mas PODE criar animações 3D interativas no motor gráfico usando o bloco [RUN_3D_SCRIPT] e [END_RUN_3D_SCRIPT].`,
+                    "chat_system_prompt": `Você é o assistente de IA do Nexus IDE. Responda em português às dúvidas do desenvolvedor sobre programação, depuração e melhores práticas.
+IMPORTANTE! Se o desenvolvedor solicitar para criar, escrever ou modificar um arquivo, ou executar um comando no terminal, aja diretamente utilizando a seguinte sintaxe de automatização para que o IDE execute instantaneamente:
+
+1. Para gravar ou modificar um arquivo completo, utilize:
+[WRITE_FILE: caminho_do_arquivo]
+(conteúdo completo aqui)
+[END_WRITE_FILE]
+
+2. Para executar comandos no terminal, utilize:
+[RUN_COMMAND]
+(comando a ser executado)
+[END_RUN_COMMAND]
+
+3. Para interagir com o motor 3D (Babylon.js), utilize:
+[RUN_3D_SCRIPT]
+// Seu script Babylon.js
+[END_RUN_3D_SCRIPT]`,
 
                     "planner_system_prompt": `Você é o Agente Planejador da equipe colaborativa de IA no Nexus IDE. Sua tarefa é analisar o requisito e propor um plano de ação estruturado em Markdown. Responda sempre em português. Sistema operacional: {operatingSystem}.`,
                     "coder_system_prompt": `Você é o Agente Desenvolvedor (Coder) no Nexus IDE. Implemente o plano do Planejador. Responda sempre em português. Sistema operacional: {operatingSystem}. Use [WRITE_FILE], [RUN_COMMAND].`,
@@ -7463,7 +7563,23 @@ Kritische Verhaltensregeln:
 - Wenn der Benutzer Sie auffordert, ein Skript zu erstellen und auszuführen, schreiben Sie die Datei zuerst mit [WRITE_FILE] und führen Sie sie dann mit [RUN_COMMAND] aus.
 - Erklären Sie kurz und bündig, was Sie tun, bevor oder nachdem Sie Befehle ausführen.`,
 
-                    "chat_system_prompt": `Sie sind der KI-Assistent von Nexus IDE. Antworten Sie auf Deutsch auf die Fragen des Entwicklers. In diesem Modus (Chat-Modus) können Sie keine Dateien schreiben oder Befehle ausführen, aber Sie KÖNNEN 3D-Szenen im Babylon.js-Viewer mit [RUN_3D_SCRIPT] erstellen.`,
+                    "chat_system_prompt": `Sie sind der KI-Assistent von Nexus IDE. Antworten Sie auf Deutsch auf die Fragen des Entwicklers.
+WICHTIG! Wenn der Entwickler Sie auffordert, eine Datei zu erstellen, zu schreiben oder zu ändern oder einen Befehl im Terminal auszuführen, handeln Sie direkt mithilfe der folgenden Automatisierungssyntax, damit die IDE sie sofort ausführt:
+
+1. Um eine vollständige Datei zu schreiben oder zu ändern, verwenden Sie:
+[WRITE_FILE: dateipfad]
+(vollständiger Inhalt hier)
+[END_WRITE_FILE]
+
+2. Um Befehle im Terminal auszuführen, verwenden Sie:
+[RUN_COMMAND]
+(auszuführender Befehl)
+[END_RUN_COMMAND]
+
+3. Um mit der 3D-Engine (Babylon.js) zu interagieren, verwenden Sie:
+[RUN_3D_SCRIPT]
+// Ihr Babylon.js-Skript
+[END_RUN_3D_SCRIPT]`,
 
                     "planner_system_prompt": `Sie sind der Planer-Agent des kollaborativen KI-Entwicklungsteams in Nexus IDE. Ihre Aufgabe ist es, einen Aktionsplan in Markdown zu erstellen. Antworten Sie immer auf Deutsch. Betriebssystem: {operatingSystem}.`,
                     "coder_system_prompt": `Sie sind der Entwickler-Agent (Coder) in Nexus IDE. Implementieren Sie den Plan des Planers. Antworten Sie immer auf Deutsch. Betriebssystem: {operatingSystem}. Verwenden Sie [WRITE_FILE] und [RUN_COMMAND].`,
@@ -8192,7 +8308,7 @@ ${plannerPlan}
 Código y comandos propuestos por el Desarrollador:
 ${coderCode}`;
 
-                reviewerResult = await sendRequestToAI(reviewer, reviewerPrompt, sysPrompt, history);
+                reviewerResult = await sendRequestToAI(reviewer, reviewerPrompt, sysPrompt, history, signal);
                 stepCallback('reviewer', 'completed', reviewerResult);
             } catch (err) {
                 stepCallback('reviewer', 'error', err.message);
@@ -8206,15 +8322,15 @@ ${coderCode}`;
             };
         }
 
-        async function generatePlannerPlan(promptText, history = []) {
+        async function generatePlannerPlan(promptText, history = [], signal = null) {
             const { planner } = getModelsForCollaboration();
             const currentOS = (typeof process !== 'undefined') ? process.platform : 'win32';
             const operatingSystemName = currentOS === 'win32' ? 'Windows (win32, PowerShell)' : (currentOS === 'darwin' ? 'macOS (darwin, Bash)' : 'Linux (linux, Bash)');
             const sysPrompt = getPlannerSystemPrompt(operatingSystemName);
-            return await sendRequestToAI(planner, promptText, sysPrompt, history);
+            return await sendRequestToAI(planner, promptText, sysPrompt, history, signal);
         }
 
-        async function executeCoderAndReviewer(promptText, plannerPlan, history = [], stepCallback) {
+        async function executeCoderAndReviewer(promptText, plannerPlan, history = [], stepCallback, signal = null) {
             const { coder, reviewer } = getModelsForCollaboration();
             const currentOS = (typeof process !== 'undefined') ? process.platform : 'win32';
             const operatingSystemName = currentOS === 'win32' ? 'Windows (win32, PowerShell)' : (currentOS === 'darwin' ? 'macOS (darwin, Bash)' : 'Linux (linux, Bash)');
@@ -8229,7 +8345,7 @@ ${promptText}
 
 Plan de acción diseñado por el Planificador:
 ${plannerPlan}`;
-                coderCode = await sendRequestToAI(coder, coderPrompt, sysPrompt, history);
+                coderCode = await sendRequestToAI(coder, coderPrompt, sysPrompt, history, signal);
                 stepCallback('coder', 'completed', coderCode);
             } catch (err) {
                 stepCallback('coder', 'error', err.message);
@@ -8295,7 +8411,7 @@ ${coderCode}`;
             }
         }
 
-        async function sendRequestToAI(modelId, promptText, systemText, history = []) {
+        async function sendRequestToAI(modelId, promptText, systemText, history = [], signal = null) {
             const apiKey = getApiKeyForModel(modelId);
             if (!apiKey) {
                 throw new Error(`No se ha configurado la API Key para el proveedor de este modelo. Haz clic en el engranaje ⚙ para configurarla.`);
@@ -8305,7 +8421,8 @@ ${coderCode}`;
             let url = '';
             let options = {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
+                headers: { 'Content-Type': 'application/json' },
+                signal: signal
             };
             
             // conversational memory is limited to the last 6 messages
@@ -8615,7 +8732,81 @@ ${coderCode}`;
             const splashScreen = document.getElementById('splash-screen');
             const ideContainer = document.getElementById('ide-container');
 
-            function showIde() {
+            const requirements = [
+                { id: 'git', name: 'Git SCM', checkCmd: 'git --version', wingetId: 'Git.Git', icon: '🌳', desc: 'Control de versiones y descarga de plugins.' },
+                { id: 'node', name: 'Node.js & NPM', checkCmd: 'node --version', wingetId: 'OpenJS.NodeJS.LTS', icon: '🟢', desc: 'Entorno de ejecución principal y npm.' },
+                { id: 'python', name: 'Python 3', checkCmd: 'python --version', wingetId: 'Python.Python.3.11', icon: '🐍', desc: 'Ejecución de base de datos SQLite y scripts.' },
+                { id: 'docker', name: 'Docker Desktop', checkCmd: 'docker --version', wingetId: 'Docker.DockerDesktop', icon: '🐳', desc: 'Panel de contenedores y servicios locales.' },
+                { id: 'godot', name: 'Godot Engine', checkCmd: 'godot --version', wingetId: 'GodotEngine.GodotEngine', icon: '🛠️', desc: 'Edición y ejecución del motor de videojuegos.' }
+            ];
+
+            let missingReqs = [];
+
+            async function checkAndDisplayRequirements() {
+                const reqListEl = document.getElementById('nexus-req-list');
+                const reqScreen = document.getElementById('nexus-requirements-screen');
+                
+                reqListEl.innerHTML = '<div style="color:#8b949e; text-align:center; padding:20px;">Comprobando requerimientos del sistema...</div>';
+                missingReqs = [];
+                
+                const results = [];
+                for (const req of requirements) {
+                    const isInstalled = await new Promise((resolve) => {
+                        const { exec } = require('child_process');
+                        exec(req.checkCmd, (err) => {
+                            resolve(!err);
+                        });
+                    });
+                    results.push({ ...req, installed: isInstalled });
+                    if (!isInstalled) {
+                        missingReqs.push(req);
+                    }
+                }
+                
+                // Si no hay requisitos faltantes, continuar
+                if (missingReqs.length === 0) {
+                    reqScreen.style.display = 'none';
+                    return true;
+                }
+                
+                // Mostrar pantalla de requisitos
+                reqScreen.style.display = 'flex';
+                splashScreen.style.display = 'none';
+                
+                reqListEl.innerHTML = '';
+                results.forEach(req => {
+                    const item = document.createElement('div');
+                    item.className = 'req-item';
+                    item.style.cssText = 'display:flex; align-items:center; justify-content:space-between; padding:12px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.04); border-radius:10px;';
+                    item.innerHTML = `
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <div style="font-size:20px;">${req.icon}</div>
+                            <div style="text-align: left;">
+                                <div style="font-weight:600; font-size:14px; color:#f0f6fc;">${req.name}</div>
+                                <div style="font-size:11px; color:#8b949e; margin-top:2px;">${req.desc}</div>
+                            </div>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            ${req.installed ? 
+                                `<span style="font-size:12px; font-weight:600; padding:4px 8px; border-radius:6px; background:rgba(57,255,20,0.1); color:#39ff14;">Detectado 🟢</span>` : 
+                                `<span style="font-size:12px; font-weight:600; padding:4px 8px; border-radius:6px; background:rgba(218,54,51,0.1); color:#ff7b72;">No detectado 🔴</span>`
+                            }
+                        </div>
+                    `;
+                    reqListEl.appendChild(item);
+                });
+                
+                return false;
+            }
+
+            async function showIde() {
+                const hasAll = await checkAndDisplayRequirements();
+                if (hasAll) {
+                    proceedToShowIde();
+                }
+            }
+
+            function proceedToShowIde() {
                 splashScreen.style.opacity = '0';
                 setTimeout(() => {
                     splashScreen.style.display = 'none';
@@ -8625,6 +8816,89 @@ ${coderCode}`;
                     initializeIdeCore();
                 }, 300);
             }
+
+            document.getElementById('btn-req-skip').addEventListener('click', () => {
+                const reqScreen = document.getElementById('nexus-requirements-screen');
+                reqScreen.style.display = 'none';
+                proceedToShowIde();
+            });
+
+            document.getElementById('btn-req-check').addEventListener('click', async () => {
+                const hasAll = await checkAndDisplayRequirements();
+                if (hasAll) {
+                    proceedToShowIde();
+                }
+            });
+
+            document.getElementById('btn-req-install').addEventListener('click', async () => {
+                if (missingReqs.length === 0) return;
+                
+                const logContainer = document.getElementById('nexus-req-log-container');
+                const logEl = document.getElementById('nexus-req-log');
+                const btnInstall = document.getElementById('btn-req-install');
+                const btnSkip = document.getElementById('btn-req-skip');
+                const btnCheck = document.getElementById('btn-req-check');
+                const statusEl = document.getElementById('nexus-req-install-status');
+                
+                logContainer.style.display = 'flex';
+                logEl.textContent = 'Iniciando instalación de componentes faltantes...\n';
+                btnInstall.disabled = true;
+                btnInstall.style.opacity = '0.5';
+                btnSkip.disabled = true;
+                btnSkip.style.opacity = '0.5';
+                btnCheck.disabled = true;
+                btnCheck.style.opacity = '0.5';
+                
+                const { spawn } = require('child_process');
+                
+                for (const req of missingReqs) {
+                    logEl.textContent += `\nDescargando e instalando ${req.name} (${req.wingetId})...\n`;
+                    logEl.textContent += `Ejecutando: winget install --id ${req.wingetId} -e --accept-source-agreements --accept-package-agreements\n`;
+                    logEl.scrollTop = logEl.scrollHeight;
+                    
+                    statusEl.textContent = `Instalando ${req.name}...`;
+                    
+                    const code = await new Promise((resolve) => {
+                        const child = spawn('winget', [
+                            'install', 
+                            '--id', req.wingetId, 
+                            '-e', 
+                            '--silent',
+                            '--accept-source-agreements', 
+                            '--accept-package-agreements'
+                        ], { shell: true });
+                        
+                        child.stdout.on('data', (data) => {
+                            logEl.textContent += data.toString();
+                            logEl.scrollTop = logEl.scrollHeight;
+                        });
+                        
+                        child.stderr.on('data', (data) => {
+                            logEl.textContent += data.toString();
+                            logEl.scrollTop = logEl.scrollHeight;
+                        });
+                        
+                        child.on('close', (exitCode) => {
+                            resolve(exitCode);
+                        });
+                    });
+                    
+                    logEl.textContent += `\nProceso finalizado con código de salida: ${code}\n`;
+                    logEl.scrollTop = logEl.scrollHeight;
+                }
+                
+                statusEl.textContent = 'Completado';
+                statusEl.style.color = '#39ff14';
+                logEl.textContent += '\n¡Instalación completada! Por favor, vuelve a comprobar o pulsa "Ignorar y Abrir IDE".';
+                logEl.scrollTop = logEl.scrollHeight;
+                
+                btnInstall.disabled = false;
+                btnInstall.style.opacity = '1';
+                btnSkip.disabled = false;
+                btnSkip.style.opacity = '1';
+                btnCheck.disabled = false;
+                btnCheck.style.opacity = '1';
+            });
 
             document.getElementById('btnGoogleLogin').addEventListener('click', () => {
                 document.getElementById('google-connecting').classList.remove('hidden');
@@ -9409,7 +9683,11 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                             const botMsg = document.createElement('div');
                             botMsg.style.cssText = `padding:10px; border-radius:6px; background:#1e1e1e; border:1px solid #333; margin-right:20px; margin-bottom:10px; color:#fff; word-break: break-word;`;
                             
-                            if (chatMode === 'agent' || response.includes('[RUN_3D_SCRIPT]')) {
+                            const hasActions = response.includes('[RUN_3D_SCRIPT]') || 
+                                               response.includes('[WRITE_FILE:') || 
+                                               response.includes('[RUN_COMMAND]');
+                            
+                            if (chatMode === 'agent' || hasActions) {
                                 botMsg.innerHTML = formatAgentActions(response);
                                 chatMessages.appendChild(botMsg);
                                 
