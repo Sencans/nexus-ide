@@ -171,6 +171,13 @@
             -webkit-backdrop-filter: blur(12px);
             transition: all 0.2s ease;
         }
+        .right-panel.collapsed {
+            width: 0px !important;
+            border-left: none !important;
+            overflow: hidden !important;
+            opacity: 0;
+            pointer-events: none;
+        }
         .chat-header { display: flex; flex-direction: column; background-color: var(--bg-panel); border-bottom: 1px solid var(--border-color); }
         
         /* Selector de Modelo IA */
@@ -342,6 +349,79 @@
             border: 1px solid #2ea44f;
             font-weight: bold;
         }
+
+        /* RESPONSIVE LAYOUT SYSTEM */
+        .topbar-btn span:first-child {
+            display: inline-block;
+        }
+        
+        @media (max-width: 1100px) {
+            .sidebar-panel {
+                width: 200px;
+            }
+            .right-panel {
+                width: 260px;
+            }
+        }
+
+        @media (max-width: 992px) {
+            .topbar .btn-text {
+                display: none;
+            }
+            .topbar-btn {
+                padding: 4px 8px;
+                font-size: 14px;
+            }
+        }
+
+        @media (max-width: 850px) {
+            .main-container {
+                position: relative;
+            }
+            .sidebar-panel {
+                position: absolute !important;
+                left: 50px;
+                top: 0;
+                bottom: 0;
+                z-index: 1000;
+                width: 240px;
+                box-shadow: 5px 0 25px rgba(0, 0, 0, 0.5);
+                border-right: 1px solid var(--border-color);
+            }
+            .right-panel {
+                position: absolute !important;
+                right: 0;
+                top: 0;
+                bottom: 0;
+                z-index: 1000;
+                width: 280px;
+                box-shadow: -5px 0 25px rgba(0, 0, 0, 0.5);
+                border-left: 1px solid var(--border-color);
+            }
+            .editor-area.split-view {
+                grid-template-columns: 1fr;
+                grid-template-rows: 1fr 1fr;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .topbar {
+                overflow-x: auto;
+                white-space: nowrap;
+                justify-content: flex-start;
+            }
+            .topbar-brand {
+                margin-right: 8px;
+                font-size: 12px;
+            }
+            .topbar-btn {
+                padding: 3px 6px;
+                font-size: 12px;
+            }
+            .bottom-panel {
+                height: 150px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -429,13 +509,14 @@
             
             <div style="flex:1;"></div> <!-- Spacer -->
             
-            <button class="topbar-btn" id="btnSettings" title="Configuración">⚙</button>
-            <button class="topbar-btn engine" id="btn3dEngine" title="Motor Gráfico 3D">🎮 Motor 3D</button>
-            <button class="topbar-btn engine" id="btnGodotEditor" style="background:#478cbf; color:white; border-color:#478cbf;" title="Abrir Editor de Godot (Ctrl+F9)">🛠️ Editor Godot</button>
-            <button class="topbar-btn engine" id="btnGodotPlay" style="background:#3a75a2; color:white; border-color:#3a75a2;" title="Ejecutar Juego en Godot (F9)">▶ Jugar Godot</button>
-            <button class="topbar-btn special" id="btnLiveView" title="Ver en vivo (F5)">▶ Vista en Vivo</button>
-            <button class="topbar-btn" id="btnMdPreview" style="display:none; background:#2ea44f; color:white; border-color:#2ea44f;" title="Previsualización Markdown">👁️ Preview</button>
-            <button class="topbar-btn" id="btnSplit">⧉ Split Editor</button>
+            <button class="topbar-btn" id="btnToggleChat" title="Alternar Chat (Ctrl+Alt+C)"><span>💬</span><span class="btn-text"> Chat</span></button>
+            <button class="topbar-btn" id="btnSettings" title="Configuración"><span>⚙</span><span class="btn-text"> Ajustes</span></button>
+            <button class="topbar-btn engine" id="btn3dEngine" title="Motor Gráfico 3D"><span>🎮</span><span class="btn-text"> Motor 3D</span></button>
+            <button class="topbar-btn engine" id="btnGodotEditor" style="background:#478cbf; color:white; border-color:#478cbf;" title="Abrir Editor de Godot (Ctrl+F9)"><span>🛠️</span><span class="btn-text"> Editor Godot</span></button>
+            <button class="topbar-btn engine" id="btnGodotPlay" style="background:#3a75a2; color:white; border-color:#3a75a2;" title="Ejecutar Juego en Godot (F9)"><span>▶</span><span class="btn-text"> Jugar Godot</span></button>
+            <button class="topbar-btn special" id="btnLiveView" title="Ver en vivo (F5)"><span>▶</span><span class="btn-text"> Vista en Vivo</span></button>
+            <button class="topbar-btn" id="btnMdPreview" style="display:none; background:#2ea44f; color:white; border-color:#2ea44f;" title="Previsualización Markdown"><span>👁️</span><span class="btn-text"> Preview</span></button>
+            <button class="topbar-btn" id="btnSplit"><span>⧉</span><span class="btn-text"> Split Editor</span></button>
             <div id="agent-badge" class="topbar-badge" style="display:none;">AGENTE ACTIVO</div>
         </div>
 
@@ -9686,6 +9767,10 @@ if (mesh) {
                 document.getElementById('btnLiveView').addEventListener('click', openLiveViewWindow);
                 document.getElementById('btnSettings').addEventListener('click', openConfigWindow);
                 document.getElementById('btnMdPreview').addEventListener('click', openMarkdownPreviewWindow);
+                document.getElementById('btnToggleChat').addEventListener('click', () => {
+                    const rp = document.getElementById('right-panel');
+                    rp.classList.toggle('collapsed');
+                });
 
                 function createNewFilePrompt() {
                     showInputPrompt(
@@ -9944,7 +10029,7 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                     if (isSplit) {
                         editorArea.classList.add('split-view');
                         pane2.classList.remove('hidden');
-                        document.getElementById('btnSplit').textContent = '⧉ Cerrar Split';
+                        document.getElementById('btnSplit').innerHTML = '<span>⧉</span><span class="btn-text"> Cerrar Split</span>';
                         
                         // Inicializar editor 2 si no existe
                         if (isMonacoLoaded && !monacoEditor2) {
@@ -9983,7 +10068,7 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                     } else {
                         editorArea.classList.remove('split-view');
                         pane2.classList.add('hidden');
-                        document.getElementById('btnSplit').textContent = '⧉ Split Editor';
+                        document.getElementById('btnSplit').innerHTML = '<span>⧉</span><span class="btn-text"> Split Editor</span>';
                         activePane = 1;
                     }
                     setTimeout(() => {
@@ -10664,12 +10749,36 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                       const bp = document.getElementById('bottom-panel');
                       bp.classList.toggle('hidden');
                   }
+                  if (ctrl && e.altKey && e.key.toLowerCase() === 'c') {
+                      e.preventDefault();
+                      document.getElementById('btnToggleChat').click();
+                  }
                 });
 
                 // Auto layout on resize
                 window.addEventListener('resize', () => {
                     if (monacoEditor) monacoEditor.layout();
                     if (monacoEditor2) monacoEditor2.layout();
+                    
+                    // Fit active Nexus Windows inside the resized viewport
+                    if (typeof NexusWindowManager !== 'undefined' && NexusWindowManager.windows) {
+                        for (let winId in NexusWindowManager.windows) {
+                            const win = NexusWindowManager.windows[winId];
+                            if (win && win.el) {
+                                win.width = Math.min(win.width, window.innerWidth - 40);
+                                win.height = Math.min(win.height, window.innerHeight - 80);
+                                win.x = Math.min(win.x, window.innerWidth - win.width - 20);
+                                win.y = Math.min(win.y, window.innerHeight - win.height - 40);
+                                win.x = Math.max(20, win.x);
+                                win.y = Math.max(44, win.y);
+                                
+                                win.el.style.width = win.width + 'px';
+                                win.el.style.height = win.height + 'px';
+                                win.el.style.left = win.x + 'px';
+                                win.el.style.top = win.y + 'px';
+                            }
+                        }
+                    }
                 });
             }
         });
