@@ -63,7 +63,8 @@
             border-bottom: 1px solid var(--border-color); 
             transition: all 0.2s ease;
         }
-        .topbar-brand { font-weight: bold; margin-right: 20px; color: #fff; display: flex; align-items: center; gap: 8px; }
+        .topbar-brand { font-weight: bold; margin-right: 20px; color: #fff; display: flex; align-items: center; gap: 8px; cursor: pointer; transition: color 0.2s ease, opacity 0.2s ease; user-select: none; }
+        .topbar-brand:hover { color: #a78bfa; opacity: 0.9; }
         .topbar-btn { 
             background: none; 
             border: none; 
@@ -345,6 +346,13 @@
 </head>
 <body>
 
+    <!-- INICIO: CENTRO DE INICIO (HOME) & PROYECTOS FULLSCREEN -->
+    <div id="nexus-home-screen" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:radial-gradient(circle at center, #10141f, #07090e); z-index:99990; display:none; flex-direction:column; color:#fff; font-family:'Outfit', 'Inter', sans-serif; transition:opacity .3s ease, transform .3s ease; padding: 25px; box-sizing: border-box; overflow: hidden; opacity: 0;">
+        <div id="nexus-home-content" style="width: 100%; height: 100%; display: flex; flex-direction: column; background: rgba(16, 20, 31, 0.4); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.6); backdrop-filter: blur(30px); overflow: hidden; box-sizing: border-box;">
+            <!-- Carga dinámica -->
+        </div>
+    </div>
+
     <!-- INICIO: COMPROBACIÓN DE REQUISITOS -->
     <div id="nexus-requirements-screen" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:radial-gradient(circle at center, #1b1b22, #0d0d12); z-index:99998; display:none; flex-direction:column; justify-content:center; align-items:center; color:#fff; font-family:'Outfit', 'Inter', sans-serif; transition:opacity .3s ease; padding: 20px; box-sizing: border-box;">
         <div style="width: 100%; max-width: 650px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 16px; padding: 30px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); backdrop-filter: blur(25px); display:flex; flex-direction:column; gap:20px; box-sizing: border-box;">
@@ -410,7 +418,7 @@
         
         <!-- TOPBAR -->
         <div class="topbar">
-            <div class="topbar-brand">
+            <div class="topbar-brand" onclick="openProjectDashboardModal()" title="Abrir Centro de Inicio (Home)">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
                 Nexus IDE
             </div>
@@ -4514,12 +4522,6 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
         }
 
         function openProjectDashboardModal() {
-          if (NexusWindowManager.windows['nexus-win-project-dashboard']) {
-            NexusWindowManager.windows['nexus-win-project-dashboard'].restore();
-            NexusWindowManager.windows['nexus-win-project-dashboard'].focus();
-            return;
-          }
-
           const req = window.nodeRequire || window.require || (typeof require !== 'undefined' ? require : null);
           const fs = req ? req('fs') : null;
           const path = req ? req('path') : null;
@@ -4579,8 +4581,13 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
             console.error("Error al leer carpetas del directorio padre:", err);
           }
 
-          // Combinar y eliminar duplicados
-          let allProjects = Array.from(new Set([...history, ...localDirs, ...parentDirs]));
+          // Combinar y eliminar duplicados de rutas absolutas
+          const allProjectsSet = new Set();
+          if (workspaceRoot) allProjectsSet.add(workspaceRoot);
+          history.forEach(p => { if (p) allProjectsSet.add(p); });
+          localDirs.forEach(p => { if (p) allProjectsSet.add(p); });
+          parentDirs.forEach(p => { if (p) allProjectsSet.add(p); });
+          let allProjects = Array.from(allProjectsSet);
 
           function renderDashboardContent() {
             let listHtml = '';
@@ -4594,13 +4601,13 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
               `;
             } else {
               allProjects.forEach(projPath => {
-                const name = path.basename(projPath) || projPath;
+                const name = path ? (path.basename(projPath) || projPath) : projPath;
                 const isCurrent = projPath === workspaceRoot;
                 const escProjPath = projPath.replace(/\\/g, '/');
                 
                 let statsText = '';
                 try {
-                  if (fs.existsSync(projPath)) {
+                  if (fs && fs.existsSync(projPath)) {
                     const stats = fs.statSync(projPath);
                     const modified = new Date(stats.mtime).toLocaleDateString();
                     statsText = `Modificado: ${modified}`;
@@ -4699,8 +4706,7 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
             allProvidersList.forEach(p => {
               let isConnected = false;
               if (p.id === 'ollama') {
-                const host = apiKeysState['ollama'] && apiKeysState['ollama'].host;
-                isConnected = !!host;
+                isConnected = !!(apiKeysState['ollama'] || localStorage.getItem('nexus_ollama_url'));
               } else {
                 isConnected = !!(apiKeysState[p.id] && apiKeysState[p.id].key);
               }
@@ -4793,15 +4799,18 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                     <p style="font-size: 12px; color: #8b949e; margin: 4px 0 0 0;">Crea, administra y alterna de manera fluida entre tus espacios de trabajo</p>
                   </div>
                   
-                  <div style="display: flex; gap: 10px;">
+                  <div style="display: flex; gap: 10px; align-items: center;">
                     <button class="dash-btn" onclick="window.createNewProjectFolderPrompt()">
                       <span>➕</span> Nueva Carpeta
                     </button>
                     <button class="dash-btn" onclick="openNewProjectTemplateModal()">
                       <span>🚀</span> Nueva Plantilla
                     </button>
-                    <button class="dash-btn dash-primary-btn" onclick="selectWorkspaceFolder()">
+                    <button class="dash-btn" onclick="window.selectWorkspaceFolder()">
                       <span>📂</span> Abrir Carpeta
+                    </button>
+                    <button class="dash-btn dash-primary-btn" onclick="window.closeProjectDashboard()" style="background:#238636; border-color:#2ea44f;">
+                      <span>💻</span> Ir al Editor
                     </button>
                   </div>
                 </div>
@@ -4884,14 +4893,23 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
             `;
           }
 
-          const win = new NexusWindow({
-            id: 'nexus-win-project-dashboard',
-            title: 'Centro de Inicio (Home) & Proyectos',
-            icon: '🏠',
-            width: 780,
-            height: 520,
-            content: renderDashboardContent()
-          });
+          const container = document.getElementById('nexus-home-content');
+          if (container) {
+            container.innerHTML = renderDashboardContent();
+          }
+
+          const homeScreen = document.getElementById('nexus-home-screen');
+          if (homeScreen) {
+            homeScreen.style.display = 'flex';
+            setTimeout(() => { homeScreen.style.opacity = '1'; }, 50);
+          }
+
+          window.closeProjectDashboard = () => {
+            if (homeScreen) {
+              homeScreen.style.opacity = '0';
+              setTimeout(() => { homeScreen.style.display = 'none'; }, 300);
+            }
+          };
 
           window.downloadDesktopExecutable = () => {
             const url = 'https://github.com/Sencans/nexus-ide/releases';
@@ -4918,8 +4936,10 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
               currentHistory.unshift(projPath);
               localStorage.setItem('nexus_projects_history', JSON.stringify(currentHistory));
             }
-            changeWorkspace(projPath);
-            if (win) win.close();
+            if (window.changeWorkspace) {
+              window.changeWorkspace(projPath);
+            }
+            window.closeProjectDashboard();
           };
 
           window.removeProjectFromHistory = (projPath, e) => {
@@ -4935,12 +4955,8 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
             
             allProjects = allProjects.filter(p => p !== projPath);
             history = history.filter(p => p !== projPath);
-            const winEl = document.getElementById('nexus-win-project-dashboard');
-            if (winEl) {
-              const body = winEl.querySelector('.nw-content');
-              if (body) {
-                body.innerHTML = renderDashboardContent();
-              }
+            if (container) {
+              container.innerHTML = renderDashboardContent();
             }
           };
 
@@ -4952,25 +4968,22 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
               (folderName) => {
                 if (!folderName) return;
                 try {
-                  const newPath = path.join(workspaceRoot, folderName);
-                  if (fs.existsSync(newPath)) {
+                  const newPath = path ? path.join(workspaceRoot, folderName) : folderName;
+                  if (fs && fs.existsSync(newPath)) {
                     showToast("La carpeta ya existe", "warning");
                     return;
                   }
-                  fs.mkdirSync(newPath, { recursive: true });
+                  if (fs) {
+                    fs.mkdirSync(newPath, { recursive: true });
+                  }
                   showToast(`Carpeta '${folderName}' creada`, "success");
                   
                   if (!allProjects.includes(newPath)) {
                     allProjects.push(newPath);
                     localDirs.push(newPath);
                   }
-                  
-                  const winEl = document.getElementById('nexus-win-project-dashboard');
-                  if (winEl) {
-                    const body = winEl.querySelector('.nw-content');
-                    if (body) {
-                      body.innerHTML = renderDashboardContent();
-                    }
+                  if (container) {
+                    container.innerHTML = renderDashboardContent();
                   }
                   renderExplorer();
                 } catch(e) {
@@ -4978,13 +4991,6 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                 }
               }
             );
-          };
-          
-          win.onClose = () => {
-            delete window.switchProject;
-            delete window.removeProjectFromHistory;
-            delete window.createNewProjectFolderPrompt;
-            delete window.downloadDesktopExecutable;
           };
         }
 
@@ -9571,6 +9577,7 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                     );
                 }
 
+                window.selectWorkspaceFolder = selectWorkspaceFolder;
                 function selectWorkspaceFolder() {
                     if (isElectron && ipcRenderer) {
                         ipcRenderer.invoke('open-directory').then(dir => {
@@ -9599,6 +9606,7 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                     );
                 }
 
+                window.changeWorkspace = changeWorkspace;
                 function changeWorkspace(dir) {
                     workspaceRoot = dir;
                     localStorage.setItem('nexus_workspace_root', dir);
