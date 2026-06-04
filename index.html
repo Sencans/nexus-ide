@@ -793,7 +793,10 @@
                         <button onclick="applyChatPreset('gravity3d')" style="background:#0d1117; border:1px solid #30363d; border-radius:4px; color:#d29922; font-size:10px; padding:3px 6px; cursor:pointer; font-weight:bold; white-space:nowrap; transition:background 0.2s;">☄️ Simular Gravedad</button>
                     </div>
                     <textarea id="chat-input" class="chat-input" rows="3" placeholder="Haz una pregunta o pide cambios en tu código..."></textarea>
-                    <button id="sendBtn" class="chat-btn">Enviar a IA</button>
+                    <div style="display:flex; width: 100%;">
+                        <button id="sendBtn" class="chat-btn" style="flex: 1;">Enviar a IA</button>
+                        <button id="stopBtn" class="chat-btn" style="background:#852222; border-color:#852222; display:none; margin-left: 6px; flex: 0 0 80px; justify-content: center; align-items: center; gap: 4px;">🛑 Detener</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -2814,6 +2817,13 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                             <input id="cfg-editor-formatonsave" type="checkbox" ${currentSettings.formatOnSave ? 'checked' : ''} style="cursor:pointer;width:16px;height:16px;">
                             <label for="cfg-editor-formatonsave" style="font-size:13px;color:#e6edf3;cursor:pointer;user-select:none;">${NexusLocalization.t('editor_formatonsave')}</label>
                         </div>
+                        <div style="border-top: 1px solid #30363d; margin-top: 6px; padding-top: 10px;">
+                            <label style="font-size:11px;color:#8b949e;display:block;margin-bottom:4px;">🤖 Permisos de Ejecución del Agente</label>
+                            <select id="cfg-agent-permissions" style="width:100%;box-sizing:border-box;background:#161b22;border:1px solid #30363d;border-radius:4px;color:#fff;padding:8px 12px;font-size:13px;outline:none;">
+                                <option value="always" ${localStorage.getItem('nexus_agent_permissions') !== 'never' ? 'selected' : ''}>⚠️ Pedir confirmación para todo</option>
+                                <option value="never" ${localStorage.getItem('nexus_agent_permissions') === 'never' ? 'selected' : ''}>⚡ No pedir permisos (Ejecutar directo)</option>
+                            </select>
+                        </div>
                         <button onclick="saveEditorConfig()" style="background:#7c3aed;border:none;border-radius:4px;color:#fff;padding:8px 16px;cursor:pointer;font-size:13px;font-weight:bold;margin-top:10px;align-self:flex-start;font-family:inherit;">${NexusLocalization.t('btn_save_config')}</button>
                     </div>
                   `;
@@ -2880,7 +2890,8 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
             if (active) { active.classList.add('active'); active.style.borderLeft = '2px solid #7c3aed'; }
             const currentKey = getKey(id);
             const isOllama = (id === 'ollama');
-            const ollamaUrl = localStorage.getItem('nexus_ollama_url') || 'http://localhost:11434';
+            let ollamaUrl = localStorage.getItem('nexus_ollama_url') || 'http://127.0.0.1:11434';
+            ollamaUrl = ollamaUrl.replace('localhost', '127.0.0.1');
             const ollamaCustomModel = localStorage.getItem('nexus_ollama_custom_model') || 'qwen2.5-coder:7b';
             
             let ollamaInputs = '';
@@ -2888,7 +2899,7 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                 ollamaInputs = `
                   <div style="margin-bottom:12px">
                     <label style="font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">${NexusLocalization.t('api_ollama_url')}</label>
-                    <input id="cfg-ollama-url-input" type="text" value="${ollamaUrl}" placeholder="http://localhost:11434" style="width:100%;box-sizing:border-box;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#e6edf3;padding:8px 12px;font-size:13px;font-family:monospace;outline:none;" onfocus="this.style.borderColor='#7c3aed'" onblur="this.style.borderColor='#30363d'">
+                    <input id="cfg-ollama-url-input" type="text" value="${ollamaUrl}" placeholder="http://127.0.0.1:11434" style="width:100%;box-sizing:border-box;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#e6edf3;padding:8px 12px;font-size:13px;font-family:monospace;outline:none;" onfocus="this.style.borderColor='#7c3aed'" onblur="this.style.borderColor='#30363d'">
                   </div>
                   <div style="margin-bottom:16px">
                     <label style="font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">${NexusLocalization.t('api_ollama_model')}</label>
@@ -2925,7 +2936,7 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                 const urlInput = document.getElementById('cfg-ollama-url-input');
                 const modelInput = document.getElementById('cfg-ollama-model-input');
                 if (urlInput) {
-                    localStorage.setItem('nexus_ollama_url', urlInput.value.trim() || 'http://localhost:11434');
+                    localStorage.setItem('nexus_ollama_url', urlInput.value.trim() || 'http://127.0.0.1:11434');
                 }
                 if (modelInput) {
                     localStorage.setItem('nexus_ollama_custom_model', modelInput.value.trim() || 'qwen2.5-coder:7b');
@@ -2974,6 +2985,9 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
               const minimap = document.getElementById('cfg-editor-minimap').checked;
               const wordWrap = document.getElementById('cfg-editor-wordwrap').checked ? 'on' : 'off';
               const formatOnSave = document.getElementById('cfg-editor-formatonsave').checked;
+              
+              const agentPermissions = document.getElementById('cfg-agent-permissions').value || 'always';
+              localStorage.setItem('nexus_agent_permissions', agentPermissions);
               
               const current = getSavedSettings();
               const updated = { ...current, fontSize, fontFamily, tabSize, minimap, wordWrap, formatOnSave };
@@ -4664,6 +4678,70 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
             const isAtRoot = activeParentPath === workspaceRoot || activeParentPath === path.dirname(activeParentPath);
             const escParentPath = activeParentPath.replace(/\\/g, '/');
 
+            // Visor de IAs Conectadas
+            const allProvidersList = [
+              { id: 'openai', name: 'OpenAI' },
+              { id: 'anthropic', name: 'Anthropic' },
+              { id: 'google', name: 'Google AI' },
+              { id: 'groq', name: 'Groq' },
+              { id: 'mistral', name: 'Mistral' },
+              { id: 'deepseek', name: 'DeepSeek' },
+              { id: 'moonshot', name: 'Moonshot' },
+              { id: 'xai', name: 'xAI' },
+              { id: 'openrouter', name: 'OpenRouter' },
+              { id: 'ollama', name: 'Ollama' }
+            ];
+
+            let iasHtml = '';
+            allProvidersList.forEach(p => {
+              let isConnected = false;
+              if (p.id === 'ollama') {
+                const host = apiKeysState['ollama'] && apiKeysState['ollama'].host;
+                isConnected = !!host;
+              } else {
+                isConnected = !!(apiKeysState[p.id] && apiKeysState[p.id].key);
+              }
+
+              if (isConnected) {
+                iasHtml += `
+                  <div style="
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                    font-size: 10px;
+                    background: rgba(16, 185, 129, 0.1);
+                    color: #10b981;
+                    padding: 4px 8px;
+                    border-radius: 12px;
+                    border: 1px solid rgba(16, 185, 129, 0.25);
+                    font-weight: 500;
+                  " title="Configurada y lista para usar">
+                    <span style="width: 6px; height: 6px; background: #10b981; border-radius: 50%; display: inline-block;"></span>
+                    ${p.name}
+                  </div>
+                `;
+              } else {
+                iasHtml += `
+                  <div style="
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                    font-size: 10px;
+                    background: rgba(255, 255, 255, 0.03);
+                    color: #8b949e;
+                    padding: 4px 8px;
+                    border-radius: 12px;
+                    border: 1px solid rgba(255, 255, 255, 0.05);
+                    font-weight: 400;
+                    opacity: 0.5;
+                  " title="Sin API Key configurada">
+                    <span style="width: 6px; height: 6px; background: #4b5563; border-radius: 50%; display: inline-block;"></span>
+                    ${p.name}
+                  </div>
+                `;
+              }
+            });
+
             return `
               <div style="display: flex; flex-direction: column; height: 100%; background: #0d1117; color: #e6edf3; font-family: 'Segoe UI', system-ui, sans-serif; overflow: hidden;">
                 <style>
@@ -4707,7 +4785,7 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                 <div style="padding: 20px; border-bottom: 1px solid #30363d; background: linear-gradient(135deg, rgba(124, 58, 237, 0.1) 0%, transparent 100%); display: flex; justify-content: space-between; align-items: center;">
                   <div>
                     <h2 style="font-size: 18px; font-weight: 700; margin: 0; color: #e6edf3; display: flex; align-items: center; gap: 8px;">
-                      <span>📁</span> Gestor de Proyectos
+                      <span>🏠</span> Centro de Inicio (Home) & Proyectos
                     </h2>
                     <p style="font-size: 12px; color: #8b949e; margin: 4px 0 0 0;">Crea, administra y alterna de manera fluida entre tus espacios de trabajo</p>
                   </div>
@@ -4758,8 +4836,32 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                       </div>
                     </div>
 
-                    <div style="margin-top: auto; font-size: 9px; color: #8b949e; text-align: center; border-top: 1px solid #30363d; padding-top: 12px;">
-                      Atajo de teclado: <kbd style="background: #21262d; padding: 2px 4px; border-radius: 4px; border: 1px solid #30363d; font-family: monospace; font-size: 9px; color: #c9d1d9;">Ctrl+Alt+P</kbd>
+                    <div style="border-top: 1px solid #30363d; padding-top: 16px;">
+                      <span style="font-size: 10px; font-weight: bold; color: #8b949e; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 8px;">🔌 IAs Conectadas</span>
+                      <div style="display: flex; flex-wrap: wrap; gap: 6px; max-height: 120px; overflow-y: auto; padding-right: 4px;">
+                        ${iasHtml}
+                      </div>
+                    </div>
+
+                    <div style="margin-top: auto; display: flex; flex-direction: column; gap: 8px; border-top: 1px solid #30363d; padding-top: 12px;">
+                      <button onclick="window.downloadDesktopExecutable()" class="dash-btn" style="
+                        width: 100%;
+                        justify-content: center;
+                        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+                        border: none;
+                        color: #fff;
+                        font-weight: bold;
+                        padding: 8px 12px;
+                        font-size: 11px;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        transition: transform 0.2s, filter 0.2s;
+                      " onmouseover="this.style.transform='translateY(-1px)'; this.style.filter='brightness(1.1)';" onmouseout="this.style.transform='none'; this.style.filter='none';">
+                        ⬇️ Descargar Ejecutable
+                      </button>
+                      <div style="font-size: 9px; color: #8b949e; text-align: center;">
+                        Atajo de teclado: <kbd style="background: #21262d; padding: 2px 4px; border-radius: 4px; border: 1px solid #30363d; font-family: monospace; font-size: 9px; color: #c9d1d9;">Ctrl+Alt+P</kbd>
+                      </div>
                     </div>
                   </div>
 
@@ -4781,12 +4883,25 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
 
           const win = new NexusWindow({
             id: 'nexus-win-project-dashboard',
-            title: 'Gestor de Proyectos & Dashboard',
-            icon: '📁',
+            title: 'Centro de Inicio (Home) & Proyectos',
+            icon: '🏠',
             width: 780,
             height: 520,
             content: renderDashboardContent()
           });
+
+          window.downloadDesktopExecutable = () => {
+            const url = 'https://github.com/Sencans/nexus-ide/releases';
+            if (typeof require !== 'undefined') {
+              try {
+                require('electron').shell.openExternal(url);
+              } catch(e) {
+                window.open(url, '_blank');
+              }
+            } else {
+              window.open(url, '_blank');
+            }
+          };
 
           window.switchProject = (projPath) => {
             let currentHistory = [];
@@ -4865,6 +4980,7 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
             delete window.switchProject;
             delete window.removeProjectFromHistory;
             delete window.createNewProjectFolderPrompt;
+            delete window.downloadDesktopExecutable;
           };
         }
 
@@ -8060,9 +8176,13 @@ WICHTIG! Wenn der Entwickler Sie auffordert, eine Datei zu erstellen, zu schreib
             ];
             
             providersList.forEach(p => {
-                const hasKey = apiKeysState[p.id] && apiKeysState[p.id].key;
-                if (hasKey) {
+                if (p.id === 'ollama') {
                     available.push(p);
+                } else {
+                    const hasKey = apiKeysState[p.id] && apiKeysState[p.id].key;
+                    if (hasKey) {
+                        available.push(p);
+                    }
                 }
             });
             
@@ -8092,9 +8212,9 @@ WICHTIG! Wenn der Entwickler Sie auffordert, eine Datei zu erstellen, zu schreib
             const reviewerSelect = document.getElementById('role-reviewer-select');
             
             if (plannerSelect && coderSelect && reviewerSelect) {
-                const prevPlanner = plannerSelect.value;
-                const prevCoder = coderSelect.value;
-                const prevReviewer = reviewerSelect.value;
+                const prevPlanner = plannerSelect.value || localStorage.getItem('nexus_multi_agent_role_planner');
+                const prevCoder = coderSelect.value || localStorage.getItem('nexus_multi_agent_role_coder');
+                const prevReviewer = reviewerSelect.value || localStorage.getItem('nexus_multi_agent_role_reviewer');
                 
                 plannerSelect.innerHTML = '';
                 coderSelect.innerHTML = '';
@@ -8114,7 +8234,7 @@ WICHTIG! Wenn der Entwickler Sie auffordert, eine Datei zu erstellen, zu schreib
                     else if (group.group === 'OpenRouter') provId = 'openrouter';
                     else if (group.group === 'Ollama (Local)') provId = 'ollama';
                     
-                    const isConfigured = apiKeysState[provId] && apiKeysState[provId].key;
+                    const isConfigured = provId === 'ollama' || (apiKeysState[provId] && apiKeysState[provId].key);
                     if (isConfigured) {
                         group.models.forEach(([id, name]) => {
                             activeModelList.push({ id, name, provId });
@@ -8184,7 +8304,7 @@ WICHTIG! Wenn der Entwickler Sie auffordert, eine Datei zu erstellen, zu schreib
                 else if (group.group === 'OpenRouter') provId = 'openrouter';
                 else if (group.group === 'Ollama (Local)') provId = 'ollama';
                 
-                const isConfigured = apiKeysState[provId] && apiKeysState[provId].key;
+                const isConfigured = provId === 'ollama' || (apiKeysState[provId] && apiKeysState[provId].key);
                 if (isConfigured) {
                     group.models.forEach(([id, name]) => {
                         activeModels.push(id);
@@ -8240,6 +8360,10 @@ WICHTIG! Wenn der Entwickler Sie auffordert, eine Datei zu erstellen, zu schreib
         }
 
         function getModelName(modelId) {
+            if (modelId === 'ollama/custom') {
+                const customModel = localStorage.getItem('nexus_ollama_custom_model') || 'qwen2.5-coder:7b';
+                return `Ollama: ${customModel}`;
+            }
             for (const group of modelList) {
                 const found = group.models.find(m => m[0] === modelId);
                 if (found) return found[1];
@@ -8256,7 +8380,7 @@ WICHTIG! Wenn der Entwickler Sie auffordert, eine Datei zu erstellen, zu schreib
             return 'Economía de Tokens';
         }
 
-        async function sendCollaborativeRequest(promptText, systemText, history = [], stepCallback) {
+        async function sendCollaborativeRequest(promptText, systemText, history = [], stepCallback, signal = null) {
             const { planner, coder, reviewer } = getModelsForCollaboration();
             const currentOS = (typeof process !== 'undefined') ? process.platform : 'win32';
             const operatingSystemName = currentOS === 'win32' ? 'Windows (win32, PowerShell)' : (currentOS === 'darwin' ? 'macOS (darwin, Bash)' : 'Linux (linux, Bash)');
@@ -8267,7 +8391,7 @@ WICHTIG! Wenn der Entwickler Sie auffordert, eine Datei zu erstellen, zu schreib
             try {
                 const sysPrompt = getPlannerSystemPrompt(operatingSystemName);
 
-                plannerPlan = await sendRequestToAI(planner, promptText, sysPrompt, history);
+                plannerPlan = await sendRequestToAI(planner, promptText, sysPrompt, history, signal);
                 stepCallback('planner', 'completed', plannerPlan);
             } catch (err) {
                 stepCallback('planner', 'error', err.message);
@@ -8286,7 +8410,7 @@ ${promptText}
 Plan de acción diseñado por el Planificador:
 ${plannerPlan}`;
 
-                coderCode = await sendRequestToAI(coder, coderPrompt, sysPrompt, history);
+                coderCode = await sendRequestToAI(coder, coderPrompt, sysPrompt, history, signal);
                 stepCallback('coder', 'completed', coderCode);
             } catch (err) {
                 stepCallback('coder', 'error', err.message);
@@ -8330,42 +8454,156 @@ ${coderCode}`;
             return await sendRequestToAI(planner, promptText, sysPrompt, history, signal);
         }
 
+        async function runAgentCodeValidation(coderCode) {
+            const { exec } = require('child_process');
+            
+            // 1. Extraer y escribir archivos
+            const writeFileRegex = /\[WRITE_FILE:\s*(.+?)\]([\s\S]*?)\[END_WRITE_FILE\]/g;
+            let match;
+            let filesWritten = false;
+            while ((match = writeFileRegex.exec(coderCode)) !== null) {
+                let filePath = match[1].trim();
+                const content = match[2];
+                if (!path.isAbsolute(filePath)) {
+                    filePath = path.resolve(workspaceRoot, filePath);
+                }
+                try {
+                    const parent = path.dirname(filePath);
+                    if (!fs.existsSync(parent)) {
+                        fs.mkdirSync(parent, { recursive: true });
+                    }
+                    fs.writeFileSync(filePath, content, 'utf8');
+                    filesWritten = true;
+                    
+                    // Sincronizar contenido si está abierto en el editor
+                    if (openFiles.includes(filePath)) {
+                        const model = fileModels[filePath];
+                        if (model) {
+                            model.setValue(content);
+                        }
+                    }
+                } catch (e) {
+                    return { success: false, error: `Error al escribir el archivo '${path.basename(filePath)}': ${e.message}` };
+                }
+            }
+
+            if (filesWritten) {
+                renderExplorer();
+            }
+
+            // 2. Extraer comandos y ejecutarlos secuencialmente
+            const runCommandRegex = /\[RUN_COMMAND\]([\s\S]*?)\[END_RUN_COMMAND\]/g;
+            const commands = [];
+            while ((match = runCommandRegex.exec(coderCode)) !== null) {
+                commands.push(match[1].trim());
+            }
+
+            if (commands.length === 0) {
+                return { success: true };
+            }
+
+            for (const cmd of commands) {
+                try {
+                    const result = await new Promise((resolve) => {
+                        exec(cmd, { cwd: workspaceRoot, timeout: 15000 }, (error, stdout, stderr) => {
+                            if (error) {
+                                resolve({
+                                    success: false,
+                                    error: `Comando fallido: "${cmd}"\nCódigo de salida: ${error.code || 'Desconocido'}\nStdout:\n${stdout}\nStderr:\n${stderr || error.message}`
+                                });
+                            } else {
+                                resolve({ success: true, stdout, stderr });
+                            }
+                        });
+                    });
+
+                    if (!result.success) {
+                        return result;
+                    }
+                } catch (err) {
+                    return { success: false, error: `Error inesperado al ejecutar el comando "${cmd}": ${err.message}` };
+                }
+            }
+
+            return { success: true };
+        }
+
         async function executeCoderAndReviewer(promptText, plannerPlan, history = [], stepCallback, signal = null) {
             const { coder, reviewer } = getModelsForCollaboration();
             const currentOS = (typeof process !== 'undefined') ? process.platform : 'win32';
             const operatingSystemName = currentOS === 'win32' ? 'Windows (win32, PowerShell)' : (currentOS === 'darwin' ? 'macOS (darwin, Bash)' : 'Linux (linux, Bash)');
             
-            // Paso 2: Codificación
+            // Paso 2: Codificación con Bucle de Auto-Corrección
             stepCallback('coder', 'processing', `Codificando con ${getModelName(coder)}...`);
+            
             let coderCode = '';
-            try {
-                const sysPrompt = getCoderSystemPrompt(operatingSystemName);
-                const coderPrompt = `Solicitud original del usuario:
+            let attempts = 0;
+            const maxAttempts = 3;
+            let validationResult = { success: false, error: '' };
+            let currentHistory = [...history];
+
+            const sysPrompt = getCoderSystemPrompt(operatingSystemName);
+            let coderPrompt = `Solicitud original del usuario:
 ${promptText}
 
 Plan de acción diseñado por el Planificador:
 ${plannerPlan}`;
-                coderCode = await sendRequestToAI(coder, coderPrompt, sysPrompt, history, signal);
+
+            while (attempts < maxAttempts) {
+                attempts++;
+                if (attempts > 1) {
+                    stepCallback('coder', 'processing', `Error detectado. Auto-corrigiendo código (Intento ${attempts}/${maxAttempts})...`);
+                }
+                
+                try {
+                    coderCode = await sendRequestToAI(coder, coderPrompt, sysPrompt, currentHistory, signal);
+                    
+                    // Validar código y comandos (escribiendo y probando autónomamente)
+                    validationResult = await runAgentCodeValidation(coderCode);
+                    
+                    if (validationResult.success) {
+                        break; // Éxito en las pruebas
+                    }
+                    
+                    // Si hay un error, actualizar prompt de reintento
+                    coderPrompt = `Tu código o comandos anteriores fueron ejecutados pero fallaron con el siguiente error:
+                    
+[ERROR DE EJECUCIÓN]
+${validationResult.error}
+
+Por favor, analiza el error, identifica qué falló en los archivos creados o en los comandos ejecutados, y proporciona una versión corregida completa de todos los archivos y comandos en el mismo formato de tags.`;
+                    
+                } catch (err) {
+                    if (attempts === maxAttempts) {
+                        stepCallback('coder', 'error', err.message);
+                        throw err;
+                    }
+                }
+            }
+
+            if (!validationResult.success) {
+                stepCallback('coder', 'error', `Pruebas fallidas tras ${maxAttempts} intentos. Último error:\n${validationResult.error}`);
+            } else {
                 stepCallback('coder', 'completed', coderCode);
-            } catch (err) {
-                stepCallback('coder', 'error', err.message);
-                throw err;
             }
 
             // Paso 3: Revisión
             stepCallback('reviewer', 'processing', `Revisando con ${getModelName(reviewer)}...`);
             let reviewerResult = '';
             try {
-                const sysPrompt = getReviewerSystemPrompt(operatingSystemName);
+                const sysPromptReviewer = getReviewerSystemPrompt(operatingSystemName);
                 const reviewerPrompt = `Solicitud original del usuario:
 ${promptText}
 
 Plan diseñado por el Planificador:
 ${plannerPlan}
 
-Código y comandos propuestos por el Desarrollador:
-${coderCode}`;
-                reviewerResult = await sendRequestToAI(reviewer, reviewerPrompt, sysPrompt, history);
+Código y comandos finales propuestos por el Desarrollador (Validados):
+${coderCode}
+
+${!validationResult.success ? `NOTA: La validación del código falló tras varios intentos con el siguiente error de consola:\n${validationResult.error}` : 'NOTA: El código se compiló/ejecutó con éxito en las pruebas automáticas.'}`;
+
+                reviewerResult = await sendRequestToAI(reviewer, reviewerPrompt, sysPromptReviewer, currentHistory, signal);
                 stepCallback('reviewer', 'completed', reviewerResult);
             } catch (err) {
                 stepCallback('reviewer', 'error', err.message);
@@ -8379,13 +8617,16 @@ ${coderCode}`;
         }
 
         function getProviderForModel(modelId) {
+            const found = AI_MODELS_FULL.find(m => m.id === modelId);
+            if (found) return found.provider;
+            
             if (modelId.startsWith('gemini-')) return 'google';
             if (modelId.startsWith('claude-')) return 'anthropic';
             if (modelId.startsWith('gpt-') || modelId.startsWith('o3-') || modelId.startsWith('o1-')) return 'openai';
             if (modelId.startsWith('llama-') || modelId.startsWith('deepseek-r1-distill-')) return 'groq';
             if (modelId.startsWith('mistral-') || modelId.startsWith('open-mistral-') || modelId.startsWith('codestral-')) return 'mistral';
             if (modelId.startsWith('deepseek-')) return 'deepseek';
-            if (modelId.startsWith('moonshot-')) return 'moonshot';
+            if (modelId.startsWith('moonshot-') || modelId.startsWith('kimi-')) return 'moonshot';
             if (modelId.startsWith('grok-')) return 'xai';
             if (modelId.startsWith('openrouter/')) return 'openrouter';
             if (modelId.startsWith('ollama/')) return 'ollama';
@@ -8485,7 +8726,8 @@ ${coderCode}`;
                 options.body = JSON.stringify({ model: cleanModelId, messages: messages });
             }
             else if (provider === 'ollama') {
-                const ollamaServerUrl = localStorage.getItem('nexus_ollama_url') || 'http://localhost:11434';
+                let ollamaServerUrl = localStorage.getItem('nexus_ollama_url') || 'http://127.0.0.1:11434';
+                ollamaServerUrl = ollamaServerUrl.replace('localhost', '127.0.0.1');
                 url = ollamaServerUrl.replace(/\/$/, '') + '/v1/chat/completions';
                 if (apiKey && apiKey !== 'no-key-required' && apiKey !== 'local-active') {
                     options.headers['Authorization'] = `Bearer ${apiKey}`;
@@ -8645,80 +8887,229 @@ ${coderCode}`;
             return html;
         }
 
-        function executeAgentCommands(text) {
+        function escapeHtml(str) {
+            return str
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        function parseAgentActions(text) {
+            const actions = [];
             const run3DScriptRegex = /\[RUN_3D_SCRIPT\]([\s\S]*?)\[END_RUN_3D_SCRIPT\]/g;
             let match;
-            let executed = false;
-            
             while ((match = run3DScriptRegex.exec(text)) !== null) {
-                const code = match[1].trim();
-                const filePath = path.resolve(workspaceRoot, 'script_juego.js');
-                try {
-                    fs.writeFileSync(filePath, code, 'utf8');
-                    showToast("Script del juego guardado en script_juego.js", 'success');
-                    
-                    if (openFiles.includes(filePath)) {
-                        const model = fileModels[filePath];
-                        if (model) model.setValue(code);
-                    } else {
-                        openFileInEditor(filePath);
-                    }
-                } catch(e) {
-                    console.error("Error al escribir script_juego.js:", e);
-                }
-                
-                openMotor3DWindow();
-                
-                if (babylonScene) {
-                    try {
-                        babylonCustomScript = new Function("mesh", "scene", "BABYLON", code);
-                        is3DPlaying = true;
-                        showToast("Script del juego cargado en el Motor 3D", "success");
-                    } catch(e) {
-                        showToast("Error de Sintaxis en Script: " + e.message, "error");
-                    }
-                } else {
-                    window.pending3DScript = code;
-                }
-                executed = true;
+                actions.push({
+                    type: '3d_script',
+                    content: match[1].trim(),
+                    label: 'Ejecutar Script en el Motor 3D'
+                });
             }
 
             const writeFileRegex = /\[WRITE_FILE:\s*(.+?)\]([\s\S]*?)\[END_WRITE_FILE\]/g;
-            
             while ((match = writeFileRegex.exec(text)) !== null) {
-                let filePath = match[1].trim();
-                const content = match[2];
-                
-                if (!path.isAbsolute(filePath)) {
-                    filePath = path.resolve(workspaceRoot, filePath);
-                }
-                
-                try {
-                    const parent = path.dirname(filePath);
-                    if (!fs.existsSync(parent)) {
-                        fs.mkdirSync(parent, { recursive: true });
-                    }
-                    fs.writeFileSync(filePath, content, 'utf8');
-                    showToast(`Archivo escrito: ${path.basename(filePath)}`, 'success');
-                    
-                    if (openFiles.includes(filePath)) {
-                        const model = fileModels[filePath];
-                        if (model) model.setValue(content);
-                    }
-                    executed = true;
-                } catch (e) {
-                    showToast(`Error al escribir archivo: ${e.message}`, 'error');
-                }
+                actions.push({
+                    type: 'write_file',
+                    path: match[1].trim(),
+                    content: match[2],
+                    label: `Escribir archivo: ${match[1].trim()}`
+                });
             }
-            
+
             const runCommandRegex = /\[RUN_COMMAND\]([\s\S]*?)\[END_RUN_COMMAND\]/g;
             while ((match = runCommandRegex.exec(text)) !== null) {
-                const cmd = match[1].trim();
-                showToast(`Agente ejecutando: ${cmd}`, 'info');
-                sendTerminalCommand(cmd);
-                executed = true;
+                actions.push({
+                    type: 'run_command',
+                    command: match[1].trim(),
+                    label: `Ejecutar comando: ${match[1].trim()}`
+                });
             }
-            
+
+            return actions;
+        }
+
+        function showActionPermissionsModal(actions) {
+            return new Promise((resolve) => {
+                const backdrop = document.createElement('div');
+                backdrop.id = 'nexus-agent-permission-backdrop';
+                backdrop.style.cssText = `
+                    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+                    background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(5px);
+                    display: flex; justify-content: center; align-items: center;
+                    z-index: 10000; font-family: 'Segoe UI', system-ui, sans-serif;
+                `;
+                
+                const modal = document.createElement('div');
+                modal.style.cssText = `
+                    width: 600px; max-width: 90%; max-height: 80vh; background: #161b22;
+                    border: 1px solid #30363d; border-radius: 12px;
+                    box-shadow: 0 24px 64px rgba(0,0,0,0.8); display: flex;
+                    flex-direction: column; overflow: hidden; animation: winOpen 0.15s ease;
+                `;
+                
+                let actionItemsHtml = '';
+                actions.forEach((act, idx) => {
+                    let typeIcon = '📝';
+                    let contentToShow = '';
+                    if (act.type === '3d_script') {
+                        typeIcon = '🎮';
+                        contentToShow = act.content;
+                    } else if (act.type === 'write_file') {
+                        typeIcon = '📄';
+                        contentToShow = act.content;
+                    } else if (act.type === 'run_command') {
+                        typeIcon = '💻';
+                        contentToShow = act.command;
+                    }
+                    
+                    actionItemsHtml += `
+                        <div style="padding: 12px; border-bottom: 1px solid #21262d; display: flex; flex-direction: column; gap: 6px;">
+                            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                                <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
+                                    <input type="checkbox" id="perm-check-${idx}" checked style="cursor: pointer; width: 16px; height: 16px; accent-color: #7c3aed; flex-shrink: 0;">
+                                    <span style="font-size: 13px; font-weight: 500; color: #e6edf3; font-family: 'JetBrains Mono', Consolas, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                        ${typeIcon} ${act.label}
+                                    </span>
+                                </div>
+                                <button onclick="window.togglePermContent(${idx})" style="background: #21262d; border: 1px solid #30363d; border-radius: 4px; color: #8b949e; font-size: 10px; padding: 3px 8px; cursor: pointer; transition: all 0.2s; white-space: nowrap;">🔍 Ver Detalle</button>
+                            </div>
+                            <pre style="margin: 4px 0 0 26px; padding: 8px; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; font-size: 11px; color: #c9d1d9; overflow-x: auto; max-height: 180px; white-space: pre-wrap; word-break: break-all; display: none; font-family: 'JetBrains Mono', Consolas, monospace; line-height: 1.4;" id="perm-content-${idx}">${escapeHtml(contentToShow)}</pre>
+                        </div>
+                    `;
+                });
+                
+                modal.innerHTML = `
+                    <div style="padding: 18px 24px; background: #0d1117; border-bottom: 1px solid #30363d; display: flex; align-items: center; justify-content: space-between;">
+                        <div style="font-weight: 700; font-size: 15px; color: #ffb454; display: flex; align-items: center; gap: 8px;">
+                            🛡️ Seguridad del Agente: Confirmación de Acciones
+                        </div>
+                    </div>
+                    <div style="padding: 14px 24px; font-size: 12px; color: #8b949e; background: #161b22; border-bottom: 1px solid #30363d; line-height: 1.5;">
+                        El Agente de Inteligencia Artificial está solicitando realizar cambios en tu espacio de trabajo. Revisa y selecciona qué acciones deseas autorizar:
+                    </div>
+                    <div style="flex: 1; overflow-y: auto; background: #0d1117; max-height: 40vh;">
+                        ${actionItemsHtml}
+                    </div>
+                    <div style="padding: 16px 24px; background: #0d1117; border-top: 1px solid #30363d; display: flex; gap: 12px; justify-content: flex-end;">
+                        <button id="perm-btn-reject" class="dash-btn" style="padding: 8px 16px; font-size: 12px; border-color: #f85149; color: #f85149; background: transparent;">✕ Denegar Todo</button>
+                        <button id="perm-btn-approve" class="dash-btn dash-primary-btn" style="padding: 8px 16px; font-size: 12px; background: #3fb950; border-color: #3fb950; color: #fff;">✓ Autorizar Seleccionadas</button>
+                    </div>
+                `;
+                
+                backdrop.appendChild(modal);
+                document.body.appendChild(backdrop);
+                
+                window.togglePermContent = (idx) => {
+                    const box = document.getElementById(`perm-content-${idx}`);
+                    if (box) {
+                        box.style.display = box.style.display === 'none' ? 'block' : 'none';
+                    }
+                };
+                
+                document.getElementById('perm-btn-reject').addEventListener('click', () => {
+                    backdrop.remove();
+                    resolve([]);
+                });
+                
+                document.getElementById('perm-btn-approve').addEventListener('click', () => {
+                    const approved = [];
+                    actions.forEach((act, idx) => {
+                        const chk = document.getElementById(`perm-check-${idx}`);
+                        if (chk && chk.checked) {
+                            approved.push(act);
+                        }
+                    });
+                    backdrop.remove();
+                    resolve(approved);
+                });
+            });
+        }
+
+        async function executeAgentCommands(text) {
+            const actions = parseAgentActions(text);
+            if (actions.length === 0) return false;
+
+            const requirePermission = localStorage.getItem('nexus_agent_permissions') !== 'never';
+            let approvedActions = [];
+
+            if (requirePermission) {
+                approvedActions = await showActionPermissionsModal(actions);
+            } else {
+                approvedActions = actions;
+            }
+
+            if (approvedActions.length === 0) {
+                showToast("Acciones del agente canceladas o denegadas por el usuario", "info");
+                return false;
+            }
+
+            let executed = false;
+
+            for (const action of approvedActions) {
+                if (action.type === '3d_script') {
+                    const code = action.content;
+                    const filePath = path.resolve(workspaceRoot, 'script_juego.js');
+                    try {
+                        fs.writeFileSync(filePath, code, 'utf8');
+                        showToast("Script del juego guardado en script_juego.js", 'success');
+                        
+                        if (openFiles.includes(filePath)) {
+                            const model = fileModels[filePath];
+                            if (model) model.setValue(code);
+                        } else {
+                            openFileInEditor(filePath);
+                        }
+                    } catch(e) {
+                        console.error("Error al escribir script_juego.js:", e);
+                    }
+                    
+                    openMotor3DWindow();
+                    
+                    if (babylonScene) {
+                        try {
+                            babylonCustomScript = new Function("mesh", "scene", "BABYLON", code);
+                            is3DPlaying = true;
+                            showToast("Script del juego cargado en el Motor 3D", "success");
+                        } catch(e) {
+                            showToast("Error de Sintaxis en Script: " + e.message, "error");
+                        }
+                    } else {
+                        window.pending3DScript = code;
+                    }
+                    executed = true;
+                } else if (action.type === 'write_file') {
+                    let filePath = action.path;
+                    const content = action.content;
+                    
+                    if (!path.isAbsolute(filePath)) {
+                        filePath = path.resolve(workspaceRoot, filePath);
+                    }
+                    
+                    try {
+                        const parent = path.dirname(filePath);
+                        if (!fs.existsSync(parent)) {
+                            fs.mkdirSync(parent, { recursive: true });
+                        }
+                        fs.writeFileSync(filePath, content, 'utf8');
+                        showToast(`Archivo escrito: ${path.basename(filePath)}`, 'success');
+                        
+                        if (openFiles.includes(filePath)) {
+                            const model = fileModels[filePath];
+                            if (model) model.setValue(content);
+                        }
+                        executed = true;
+                    } catch (e) {
+                        showToast(`Error al escribir archivo: ${e.message}`, 'error');
+                    }
+                } else if (action.type === 'run_command') {
+                    showToast(`Agente ejecutando: ${action.command}`, 'info');
+                    sendTerminalCommand(action.command);
+                    executed = true;
+                }
+            }
+
             if (executed) {
                 renderExplorer();
             }
@@ -8814,6 +9205,10 @@ ${coderCode}`;
                     ideContainer.style.display = 'flex';
                     setTimeout(() => { ideContainer.style.opacity = '1'; }, 50);
                     initializeIdeCore();
+                    // Abrir automáticamente el Centro de Inicio (Home) & Proyectos
+                    setTimeout(() => {
+                        openProjectDashboardModal();
+                    }, 250);
                 }, 300);
             }
 
@@ -9218,7 +9613,7 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                             items = [
                                 { label: 'Nuevo Archivo', shortcut: 'Ctrl+N', action: createNewFilePrompt },
                                 { label: 'Nueva Carpeta', shortcut: '', action: createNewFolderPrompt },
-                                { label: 'Gestor de Proyectos / Dashboard', shortcut: 'Ctrl+Alt+P', action: openProjectDashboardModal },
+                                { label: 'Centro de Inicio (Home) & Proyectos', shortcut: 'Ctrl+Alt+P', action: openProjectDashboardModal },
                                 { label: 'Nuevo Proyecto desde Plantilla', shortcut: 'Ctrl+Shift+N', action: openNewProjectTemplateModal },
                                 { label: 'Nuevo Proyecto 3D', shortcut: '', action: createNewProjectPrompt },
                                 { label: 'Abrir Carpeta', shortcut: 'Ctrl+O', action: selectWorkspaceFolder },
@@ -9422,12 +9817,33 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                     });
                 });
 
+                let chatAbortController = null;
+
+                function setChatRunningState(running) {
+                    const stopBtn = document.getElementById('stopBtn');
+                    if (stopBtn) {
+                        stopBtn.style.display = running ? 'inline-flex' : 'none';
+                    }
+                    if (!running) {
+                        chatAbortController = null;
+                    }
+                }
+
+                document.getElementById('stopBtn').addEventListener('click', () => {
+                    if (chatAbortController) {
+                        chatAbortController.abort();
+                    }
+                });
+
                 // Enviar mensaje a la IA
                 document.getElementById('sendBtn').addEventListener('click', async () => {
                     const input = document.getElementById('chat-input');
                     const text = input.value.trim();
                     if (!text) return;
                     input.value = '';
+                    
+                    chatAbortController = new AbortController();
+                    setChatRunningState(true);
                     
                     const chatMessages = document.getElementById('chat-messages');
                     const msg = document.createElement('div');
@@ -9450,7 +9866,7 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                             loadingMsg.id = progressCardId;
                             loadingMsg.style.cssText = `padding:12px; border-radius:8px; background:#1e1e1e; border:1px solid #333; margin-right:20px; margin-bottom:10px; color:#fff; display:flex; flex-direction:column; gap:8px; box-shadow: 0 4px 10px rgba(0,0,0,0.3);`;
                             loadingMsg.innerHTML = `
-                                <div style="font-weight:bold; font-size:12px; display:flex; align-items:center; gap:6px; color:#a78bfa;">
+                                <div id="${progressCardId}-header" style="font-weight:bold; font-size:12px; display:flex; align-items:center; gap:6px; color:#a78bfa;">
                                     <span class="pulse-dot" style="display:inline-block; width:8px; height:8px; background:#a78bfa; border-radius:50%; box-shadow: 0 0 8px #a78bfa;"></span>
                                     👥 Colaboración Multi-Agente Activa
                                 </div>
@@ -9494,17 +9910,44 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
 
                     try {
                         if (isMultiAgent) {
+                            const { planner, coder, reviewer } = getModelsForCollaboration();
                             const stepCallback = (role, status, valueOrError) => {
                                 const row = document.getElementById(`${progressCardId}-${role}`);
                                 if (!row) return;
                                 const badge = row.querySelector('.status-badge');
                                 
+                                // Clean up non-active rows' active highlights
+                                ['planner', 'coder', 'reviewer'].forEach(r => {
+                                    const otherRow = document.getElementById(`${progressCardId}-${r}`);
+                                    if (otherRow && r !== role) {
+                                        const otherBadge = otherRow.querySelector('.status-badge');
+                                        if (otherBadge && otherBadge.textContent.includes('Listo')) {
+                                            otherRow.style.background = 'rgba(46, 160, 67, 0.08)';
+                                            otherRow.style.border = '1px solid rgba(46, 160, 67, 0.2)';
+                                        } else {
+                                            otherRow.style.background = 'rgba(255,255,255,0.02)';
+                                            otherRow.style.border = '1px solid transparent';
+                                        }
+                                    }
+                                });
+
                                 if (status === 'processing') {
-                                    row.style.background = 'rgba(124, 58, 237, 0.08)';
-                                    row.style.border = '1px solid rgba(124, 58, 237, 0.2)';
+                                    row.style.background = 'rgba(124, 58, 237, 0.15)';
+                                    row.style.border = '1px solid rgba(124, 58, 237, 0.5)';
                                     if (badge) {
                                         badge.innerHTML = `⚙️ Procesando...`;
                                         badge.style.color = '#a78bfa';
+                                    }
+                                    const headerEl = document.getElementById(`${progressCardId}-header`);
+                                    if (headerEl) {
+                                        let roleLabel = 'Agente';
+                                        if (role === 'planner') roleLabel = 'Planificador';
+                                        else if (role === 'coder') roleLabel = 'Desarrollador';
+                                        else if (role === 'reviewer') roleLabel = 'Revisor';
+                                        headerEl.innerHTML = `
+                                            <span class="pulse-dot" style="display:inline-block; width:8px; height:8px; background:#a78bfa; border-radius:50%; box-shadow: 0 0 8px #a78bfa;"></span>
+                                            👥 Colaboración: Ejecutando ${roleLabel}...
+                                        `;
                                     }
                                 } else if (status === 'completed') {
                                     row.style.background = 'rgba(46, 160, 67, 0.08)';
@@ -9519,6 +9962,13 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                                     if (badge) {
                                         badge.innerHTML = `❌ Error`;
                                         badge.style.color = '#f85149';
+                                    }
+                                    const headerEl = document.getElementById(`${progressCardId}-header`);
+                                    if (headerEl) {
+                                        headerEl.innerHTML = `
+                                            <span style="display:inline-block; width:8px; height:8px; background:#f85149; border-radius:50%;"></span>
+                                            ⚠️ Colaboración: Error en ${role === 'planner' ? 'Planificador' : (role === 'coder' ? 'Desarrollador' : 'Revisor')}
+                                        `;
                                     }
                                 }
                             };
@@ -9535,7 +9985,7 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                             stepCallback('planner', 'processing', `Planificando con ${getModelName(planner)}...`);
                             let plannerPlan = '';
                             try {
-                                plannerPlan = await generatePlannerPlan(textWithContext, chatHistory.slice(0, -1));
+                                plannerPlan = await generatePlannerPlan(textWithContext, chatHistory.slice(0, -1), chatAbortController.signal);
                                 stepCallback('planner', 'completed', plannerPlan);
                             } catch(e) {
                                 stepCallback('planner', 'error', e.message);
@@ -9584,8 +10034,11 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                                 document.getElementById(`${planId}-reject`).disabled = true;
                                 document.getElementById(`${planId}-approve`).textContent = "Desarrollando...";
                                 
+                                chatAbortController = new AbortController();
+                                setChatRunningState(true);
+                                
                                 try {
-                                    const results = await executeCoderAndReviewer(textWithContext, plannerPlan, chatHistory.slice(0, -1), stepCallback);
+                                    const results = await executeCoderAndReviewer(textWithContext, plannerPlan, chatHistory.slice(0, -1), stepCallback, chatAbortController.signal);
                                     
                                     originalLoadingMsg.remove();
                                     approvalCard.remove();
@@ -9640,12 +10093,18 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                                     chatMessages.appendChild(botMsg);
                                     chatMessages.scrollTop = chatMessages.scrollHeight;
 
-                                    executeAgentCommands(results.reviewer.response);
+                                    await executeAgentCommands(results.reviewer.response);
 
                                 } catch(err) {
-                                    showToast(`Error al procesar el código: ${err.message}`, "error");
+                                    if (err.name === 'AbortError') {
+                                        showToast("Solicitud cancelada por el usuario.", "info");
+                                    } else {
+                                        showToast(`Error al procesar el código: ${err.message}`, "error");
+                                    }
                                     originalLoadingMsg.remove();
                                     approvalCard.remove();
+                                } finally {
+                                    setChatRunningState(false);
                                 }
                             });
 
@@ -9674,7 +10133,7 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                                 chatHistory = chatHistory.slice(-10);
                             }
 
-                            const response = await sendRequestToAI(selectedModelId, textWithContext, sysPrompt, chatHistory.slice(0, -1));
+                            const response = await sendRequestToAI(selectedModelId, textWithContext, sysPrompt, chatHistory.slice(0, -1), chatAbortController.signal);
                             loadingMsg.remove();
 
                             // Registrar la respuesta en el historial
@@ -9692,7 +10151,7 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                                 chatMessages.appendChild(botMsg);
                                 
                                 // Ejecutar las acciones recibidas
-                                executeAgentCommands(response);
+                                await executeAgentCommands(response);
                             } else {
                                 botMsg.innerHTML = formatMarkdown(response);
                                 chatMessages.appendChild(botMsg);
@@ -9701,12 +10160,19 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                         
                         chatMessages.scrollTop = chatMessages.scrollHeight;
                     } catch(e) {
-                        loadingMsg.remove();
+                        if (loadingMsg) loadingMsg.remove();
                         const errMsg = document.createElement('div');
-                        errMsg.style.cssText = `padding:10px; border-radius:6px; background:#4a1e1e; border:1px solid #852222; margin-right:20px; margin-bottom:10px; color:#ff8080;`;
-                        errMsg.textContent = "Error: " + e.message;
+                        if (e.name === 'AbortError') {
+                            errMsg.style.cssText = `padding:10px; border-radius:6px; background:#22303f; border:1px solid #388bfd; margin-right:20px; margin-bottom:10px; color:#58a6ff;`;
+                            errMsg.textContent = "Solicitud cancelada por el usuario.";
+                        } else {
+                            errMsg.style.cssText = `padding:10px; border-radius:6px; background:#4a1e1e; border:1px solid #852222; margin-right:20px; margin-bottom:10px; color:#ff8080;`;
+                            errMsg.textContent = "Error: " + e.message;
+                        }
                         chatMessages.appendChild(errMsg);
                         chatMessages.scrollTop = chatMessages.scrollHeight;
+                    } finally {
+                        setChatRunningState(false);
                     }
                 });
 
