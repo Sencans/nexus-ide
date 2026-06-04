@@ -4520,8 +4520,9 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
             return;
           }
 
-          const fs = require('fs');
-          const path = require('path');
+          const req = window.nodeRequire || window.require || (typeof require !== 'undefined' ? require : null);
+          const fs = req ? req('fs') : null;
+          const path = req ? req('path') : null;
 
           // Historial de proyectos desde localStorage:
           let history = [];
@@ -4540,17 +4541,17 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
           // Escanear subcarpetas del workspaceRoot actual
           let localDirs = [];
           try {
-            if (fs.existsSync(workspaceRoot)) {
+            if (fs && fs.existsSync(workspaceRoot)) {
               localDirs = fs.readdirSync(workspaceRoot)
                 .filter(file => {
                   try {
-                    const fullPath = path.join(workspaceRoot, file);
+                    const fullPath = path ? path.join(workspaceRoot, file) : file;
                     return fs.statSync(fullPath).isDirectory() && !file.startsWith('.') && file !== 'node_modules';
                   } catch(e) {
                     return false;
                   }
                 })
-                .map(dir => path.join(workspaceRoot, dir));
+                .map(dir => path ? path.join(workspaceRoot, dir) : dir);
             }
           } catch(err) {
             console.error("Error al leer subcarpetas del workspace:", err);
@@ -4559,18 +4560,20 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
           // Escanear carpetas hermanas (directorio padre del workspaceRoot)
           let parentDirs = [];
           try {
-            const parentPath = path.dirname(workspaceRoot);
-            if (fs.existsSync(parentPath) && parentPath !== workspaceRoot && parentPath !== path.dirname(parentPath)) {
-              parentDirs = fs.readdirSync(parentPath)
-                .filter(file => {
-                  try {
-                    const fullPath = path.join(parentPath, file);
-                    return fs.statSync(fullPath).isDirectory() && !file.startsWith('.') && file !== 'node_modules';
-                  } catch(e) {
-                    return false;
-                  }
-                })
-                .map(dir => path.join(parentPath, dir));
+            if (fs && path) {
+              const parentPath = path.dirname(workspaceRoot);
+              if (fs.existsSync(parentPath) && parentPath !== workspaceRoot && parentPath !== path.dirname(parentPath)) {
+                parentDirs = fs.readdirSync(parentPath)
+                  .filter(file => {
+                    try {
+                      const fullPath = path.join(parentPath, file);
+                      return fs.statSync(fullPath).isDirectory() && !file.startsWith('.') && file !== 'node_modules';
+                    } catch(e) {
+                      return false;
+                    }
+                  })
+                  .map(dir => path.join(parentPath, dir));
+              }
             }
           } catch(err) {
             console.error("Error al leer carpetas del directorio padre:", err);
@@ -4674,8 +4677,8 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
               });
             }
 
-            const activeParentPath = path.dirname(workspaceRoot);
-            const isAtRoot = activeParentPath === workspaceRoot || activeParentPath === path.dirname(activeParentPath);
+            const activeParentPath = path ? path.dirname(workspaceRoot) : workspaceRoot;
+            const isAtRoot = path ? (activeParentPath === workspaceRoot || activeParentPath === path.dirname(activeParentPath)) : true;
             const escParentPath = activeParentPath.replace(/\\/g, '/');
 
             // Visor de IAs Conectadas
@@ -4809,7 +4812,7 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                     <div>
                       <span style="font-size: 10px; font-weight: bold; color: #8b949e; text-transform: uppercase; letter-spacing: 0.05em;">Proyecto Activo</span>
                       <div style="font-size: 16px; font-weight: bold; color: #7c3aed; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                        ${path.basename(workspaceRoot) || workspaceRoot}
+                        ${path ? (path.basename(workspaceRoot) || workspaceRoot) : workspaceRoot}
                       </div>
                       <div style="font-size: 10px; color: #8b949e; word-break: break-all; margin-top: 4px; font-family: monospace;">
                         ${workspaceRoot}
@@ -4892,9 +4895,10 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
 
           window.downloadDesktopExecutable = () => {
             const url = 'https://github.com/Sencans/nexus-ide/releases';
-            if (typeof require !== 'undefined') {
+            const reqElec = window.nodeRequire || window.require || (typeof require !== 'undefined' ? require : null);
+            if (reqElec) {
               try {
-                require('electron').shell.openExternal(url);
+                reqElec('electron').shell.openExternal(url);
               } catch(e) {
                 window.open(url, '_blank');
               }
@@ -5927,7 +5931,25 @@ except Exception as e:
             window.exports = undefined;
             if (nodeRequire) window.nodeRequire = nodeRequire;
 
-            const localLoaderPath = (typeof path !== 'undefined' && typeof workspaceRoot !== 'undefined') ? path.join(workspaceRoot, 'node_modules/monaco-editor/min/vs/loader.js') : '';
+            let monacoParentPath = '';
+            let localLoaderPath = '';
+            if (typeof path !== 'undefined' && typeof fs !== 'undefined') {
+                const checkPaths = [];
+                if (typeof __dirname !== 'undefined') {
+                    checkPaths.push(__dirname);
+                }
+                if (typeof workspaceRoot !== 'undefined') {
+                    checkPaths.push(workspaceRoot);
+                }
+                for (const p of checkPaths) {
+                    const testPath = path.join(p, 'node_modules/monaco-editor/min/vs/loader.js');
+                    if (fs.existsSync(testPath)) {
+                        monacoParentPath = p;
+                        localLoaderPath = testPath;
+                        break;
+                    }
+                }
+            }
 
             // 6.0s Timeout Fallback to restore globals and trigger callbacks/warning
             const safetyTimeout = setTimeout(() => {
@@ -5953,15 +5975,16 @@ except Exception as e:
                 window.module = undefined;
                 window.exports = undefined;
 
-                amdRequire.config({
-                    paths: { vs: vsPath },
-                    nodeRequire: nodeRequire
-                });
+                const configObj = { paths: { vs: vsPath } };
+                if (isLocal && nodeRequire) {
+                    configObj.nodeRequire = nodeRequire;
+                }
+                amdRequire.config(configObj);
                 
                 window.MonacoEnvironment = {
                     getWorkerUrl: function (workerId, label) {
                         if (isLocal) {
-                            const minPath = 'file:///' + path.join(workspaceRoot, 'node_modules/monaco-editor/min').replace(/\\/g, '/');
+                            const minPath = 'file:///' + path.join(monacoParentPath || workspaceRoot, 'node_modules/monaco-editor/min').replace(/\\/g, '/');
                             return `data:text/javascript;charset=utf-8,${encodeURIComponent(`
                                 self.MonacoEnvironment = { baseUrl: '${minPath}' };
                                 importScripts('${minPath}/vs/base/worker/workerMain.js');
@@ -5999,7 +6022,7 @@ except Exception as e:
                     window.module = undefined;
                     window.exports = undefined;
 
-                    const vsPath = 'file:///' + path.join(workspaceRoot, 'node_modules/monaco-editor/min/vs').replace(/\\/g, '/');
+                    const vsPath = 'file:///' + path.join(monacoParentPath || workspaceRoot, 'node_modules/monaco-editor/min/vs').replace(/\\/g, '/');
                     configureAndLoad(amdRequire, vsPath, true);
                     return;
                 } catch (err) {
