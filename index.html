@@ -881,10 +881,13 @@
                         <button onclick="applyChatPreset('game3d')" style="background:#0d1117; border:1px solid #30363d; border-radius:4px; color:#7c3aed; font-size:10px; padding:3px 6px; cursor:pointer; font-weight:bold; white-space:nowrap; transition:background 0.2s;">🎮 Crear Demo 3D</button>
                         <button onclick="applyChatPreset('gravity3d')" style="background:#0d1117; border:1px solid #30363d; border-radius:4px; color:#d29922; font-size:10px; padding:3px 6px; cursor:pointer; font-weight:bold; white-space:nowrap; transition:background 0.2s;">☄️ Simular Gravedad</button>
                     </div>
+                    <div id="chat-attachments-preview" style="display: flex; flex-wrap: wrap; gap: 6px; padding: 0; max-height: 80px; overflow-y: auto;"></div>
                     <textarea id="chat-input" class="chat-input" rows="3" placeholder="Haz una pregunta o pide cambios en tu código..."></textarea>
-                    <div style="display:flex; width: 100%;">
+                    <div style="display:flex; width: 100%; align-items: center;">
+                        <button id="btnChatAttachment" class="chat-btn" style="flex: 0 0 36px; display: flex; align-items: center; justify-content: center; background: #21262d; border: 1px solid #30363d; margin-right: 6px; color: #fff;" title="Adjuntar archivos o imágenes">📎</button>
                         <button id="sendBtn" class="chat-btn" style="flex: 1;">Enviar a IA</button>
                         <button id="stopBtn" class="chat-btn" style="background:#852222; border-color:#852222; display:none; margin-left: 6px; flex: 0 0 80px; justify-content: center; align-items: center; gap: 4px;">🛑 Detener</button>
+                        <input type="file" id="chat-attachment-input" multiple style="display:none;">
                     </div>
                 </div>
             </div>
@@ -1470,6 +1473,7 @@ if (mesh) {
         let chatMode = 'chat';
         let selectedModelId = '';
         let chatHistory = [];
+        let chatAttachments = [];
         let gitFileStatus = {};
 
         // =========================================================================
@@ -2946,6 +2950,233 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
             
             container.innerHTML = renderMarkdownToHtml(content);
         }
+
+        function openImageGeneratorWindow() {
+            if (NexusWindowManager.windows['nexus-win-image-gen']) {
+                NexusWindowManager.windows['nexus-win-image-gen'].restore();
+                NexusWindowManager.windows['nexus-win-image-gen'].focus();
+                return;
+            }
+
+            const content = `
+                <div style="height:100%; display:flex; flex-direction:column; background:var(--bg-main); color:#e6edf3; font-family:system-ui, sans-serif; overflow:hidden;">
+                    <div style="padding:15px; border-bottom:1px solid var(--border-color); display:flex; flex-direction:column; gap:12px; background:var(--bg-panel-translucent, var(--bg-panel)); backdrop-filter:blur(8px);">
+                        <div style="display:flex; flex-direction:column; gap:4px;">
+                            <label style="font-size:12px; font-weight:bold; color:#8b949e;">Descripción de la Imagen (Prompt)</label>
+                            <textarea id="imggen-prompt" style="background:#161b22; border:1px solid #30363d; border-radius:6px; color:#e6edf3; padding:8px; font-size:13px; outline:none; resize:none; font-family:inherit;" rows="3" placeholder="Ej: Un mockup moderno para un sitio web de viajes con fondo de montañas y UI de cristal..."></textarea>
+                        </div>
+                        <div style="display:flex; gap:12px; align-items:center;">
+                            <div style="display:flex; flex-direction:column; gap:4px; flex:1;">
+                                <label style="font-size:12px; font-weight:bold; color:#8b949e;">Dimensiones</label>
+                                <select id="imggen-size" style="background:#161b22; border:1px solid #30363d; border-radius:6px; color:#e6edf3; padding:6px; font-size:12px; outline:none; cursor:pointer;">
+                                    <option value="1024x1024">1024 x 1024 (Cuadrado 1:1)</option>
+                                    <option value="1024x768" selected>1024 x 768 (Paisaje 4:3)</option>
+                                    <option value="768x1024">768 x 1024 (Retrato 3:4)</option>
+                                    <option value="1280x720">1280 x 720 (HD 16:9)</option>
+                                </select>
+                            </div>
+                            <button id="imggen-btn-generate" class="chat-btn" style="height:36px; padding:0 20px; align-self:flex-end;">Generar Imagen</button>
+                        </div>
+                    </div>
+
+                    <div style="flex:1; padding:20px; display:flex; flex-direction:column; align-items:center; justify-content:center; overflow-y:auto; position:relative; background:#0d1117;">
+                        <div id="imggen-placeholder" style="color:#8b949e; text-align:center; display:flex; flex-direction:column; align-items:center; gap:8px;">
+                            <span style="font-size:48px;">🎨</span>
+                            <span style="font-size:14px;">Escribe una descripción y genera una imagen premium para tu página web.</span>
+                        </div>
+                        
+                        <div id="imggen-loader" style="position:absolute; top:0; left:0; right:0; bottom:0; background:rgba(13,17,23,0.8); backdrop-filter:blur(4px); display:none; flex-direction:column; align-items:center; justify-content:center; gap:12px; z-index:10;">
+                            <div class="pulse-dot" style="width:24px; height:24px; background:var(--accent-color); border-radius:50%; box-shadow: 0 0 15px var(--accent-color);"></div>
+                            <span style="font-size:12px; color:#8b949e; font-weight:bold;">Generando imagen con IA...</span>
+                        </div>
+
+                        <div id="imggen-result-container" style="display:none; flex-direction:column; align-items:center; gap:16px; width:100%; height:100%;">
+                            <div style="flex:1; display:flex; align-items:center; justify-content:center; min-height:0; width:100%; border:1px solid var(--border-color); border-radius:8px; overflow:hidden; background:#161b22; position:relative; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                                <img id="imggen-result-img" style="max-width:100%; max-height:100%; object-fit:contain;" src="" alt="Resultado">
+                            </div>
+                            
+                            <div style="display:flex; gap:10px; width:100%; max-width:500px; background:var(--bg-panel); border:1px solid var(--border-color); padding:10px; border-radius:8px; align-items:center;">
+                                <div style="display:flex; flex-direction:column; gap:4px; flex:1;">
+                                    <label style="font-size:10px; font-weight:bold; color:#8b949e;">Nombre del Archivo (PNG)</label>
+                                    <input type="text" id="imggen-filename" style="background:#161b22; border:1px solid #30363d; border-radius:4px; color:#e6edf3; padding:4px 8px; font-size:12px; outline:none;" value="logo.png">
+                                </div>
+                                <button id="imggen-btn-save" class="chat-btn" style="padding:8px 12px; font-size:12px;">Guardar en Proyecto</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            new NexusWindow({
+                id: 'nexus-win-image-gen',
+                title: 'Generador de Imágenes IA',
+                icon: '🎨',
+                width: 700,
+                height: 550,
+                content,
+                onClose: () => {}
+            });
+
+            const btnGenerate = document.getElementById('imggen-btn-generate');
+            const btnSave = document.getElementById('imggen-btn-save');
+            const txtPrompt = document.getElementById('imggen-prompt');
+            const selectSize = document.getElementById('imggen-size');
+            const txtFilename = document.getElementById('imggen-filename');
+            
+            const placeholder = document.getElementById('imggen-placeholder');
+            const loader = document.getElementById('imggen-loader');
+            const resultContainer = document.getElementById('imggen-result-container');
+            const resultImg = document.getElementById('imggen-result-img');
+
+            let generatedUrl = '';
+
+            btnGenerate.addEventListener('click', () => {
+                const prompt = txtPrompt.value.trim();
+                if (!prompt) {
+                    showToast("Por favor, introduce una descripción para la imagen.", "warning");
+                    return;
+                }
+
+                const size = selectSize.value.split('x');
+                const width = size[0];
+                const height = size[1];
+
+                placeholder.style.display = 'none';
+                loader.style.display = 'flex';
+                resultContainer.style.display = 'none';
+
+                const seed = Math.floor(Math.random() * 10000000);
+                const cleanPrompt = prompt.toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 20);
+                txtFilename.value = (cleanPrompt || 'imagen') + '.png';
+
+                generatedUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=${width}&height=${height}&seed=${seed}&nologo=true`;
+                resultImg.src = generatedUrl;
+            });
+
+            resultImg.addEventListener('load', () => {
+                loader.style.display = 'none';
+                resultContainer.style.display = 'flex';
+            });
+
+            resultImg.addEventListener('error', () => {
+                loader.style.display = 'none';
+                placeholder.style.display = 'flex';
+                showToast("Error al generar la imagen. Inténtalo de nuevo.", "error");
+            });
+
+            btnSave.addEventListener('click', async () => {
+                if (!generatedUrl) return;
+                const filename = txtFilename.value.trim();
+                if (!filename) {
+                    showToast("Por favor, introduce un nombre de archivo válido.", "warning");
+                    return;
+                }
+
+                if (!workspaceRoot) {
+                    showToast("No hay ningún espacio de trabajo activo abierto.", "warning");
+                    return;
+                }
+
+                try {
+                    btnSave.disabled = true;
+                    btnSave.textContent = "Guardando...";
+                    
+                    const response = await fetch(generatedUrl);
+                    if (!response.ok) throw new Error("No se pudo descargar la imagen.");
+                    
+                    const arrayBuffer = await response.arrayBuffer();
+                    const buffer = Buffer.from(arrayBuffer);
+                    
+                    const fullPath = path.join(workspaceRoot, filename);
+                    const destDir = path.dirname(fullPath);
+                    if (!fs.existsSync(destDir)) {
+                        fs.mkdirSync(destDir, { recursive: true });
+                    }
+
+                    fs.writeFileSync(fullPath, buffer);
+                    showToast("Imagen guardada con éxito: " + filename, "success");
+                    
+                    if (typeof updateFileTree === 'function') {
+                        updateFileTree();
+                    }
+                } catch (e) {
+                    showToast("Error al guardar la imagen: " + e.message, "error");
+                } finally {
+                    btnSave.disabled = false;
+                    btnSave.textContent = "Guardar en Proyecto";
+                }
+            });
+        }
+
+        async function addChatAttachment(file) {
+            if (file.size > 2 * 1024 * 1024) {
+                showToast(`El archivo ${file.name} supera el límite de 2MB.`, "warning");
+                return;
+            }
+
+            const reader = new FileReader();
+            const isImage = file.type.startsWith('image/');
+            
+            return new Promise((resolve) => {
+                reader.onload = () => {
+                    const attachment = {
+                        id: Date.now() + Math.random(),
+                        name: file.name,
+                        type: file.type,
+                        isImage: isImage
+                    };
+                    
+                    if (isImage) {
+                        const base64Data = reader.result.split(',')[1];
+                        attachment.base64 = base64Data;
+                    } else {
+                        attachment.textContent = reader.result;
+                    }
+                    
+                    chatAttachments.push(attachment);
+                    renderChatAttachmentsPreview();
+                    resolve();
+                };
+                
+                if (isImage) {
+                    reader.readAsDataURL(file);
+                } else {
+                    reader.readAsText(file);
+                }
+            });
+        }
+
+        function renderChatAttachmentsPreview() {
+            const previewContainer = document.getElementById('chat-attachments-preview');
+            if (!previewContainer) return;
+            
+            previewContainer.innerHTML = '';
+            chatAttachments.forEach(att => {
+                const item = document.createElement('div');
+                item.style.cssText = `display:flex; align-items:center; gap:6px; background:#161b22; border:1px solid #30363d; border-radius:4px; padding:4px 8px; font-size:11px; color:#c9d1d9; position:relative; max-width:180px; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;`;
+                
+                if (att.isImage) {
+                    item.innerHTML = `
+                        <img src="data:${att.type};base64,${att.base64}" style="width:16px; height:16px; border-radius:2px; object-fit:cover;">
+                        <span style="flex:1; overflow:hidden; text-overflow:ellipsis;">${att.name}</span>
+                        <span onclick="removeChatAttachment(${att.id})" style="cursor:pointer; color:#ff7b72; font-weight:bold; font-size:12px; margin-left:4px;">×</span>
+                    `;
+                } else {
+                    item.innerHTML = `
+                        <span>📄</span>
+                        <span style="flex:1; overflow:hidden; text-overflow:ellipsis;">${att.name}</span>
+                        <span onclick="removeChatAttachment(${att.id})" style="cursor:pointer; color:#ff7b72; font-weight:bold; font-size:12px; margin-left:4px;">×</span>
+                    `;
+                }
+                
+                previewContainer.appendChild(item);
+            });
+        }
+
+        window.removeChatAttachment = function(id) {
+            chatAttachments = chatAttachments.filter(att => att.id !== id);
+            renderChatAttachmentsPreview();
+        };
 
         function updateGitStatus() {
             if (!workspaceRoot) return;
@@ -8987,7 +9218,7 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
             }
         }
 
-        async function sendRequestToAI(modelId, promptText, systemText, history = [], signal = null) {
+        async function sendRequestToAI(modelId, promptText, systemText, history = [], signal = null, images = []) {
             const apiKey = getApiKeyForModel(modelId);
             if (!apiKey) {
                 throw new Error(`No se ha configurado la API Key para el proveedor de este modelo. Haz clic en el engranaje ⚙ para configurarla.`);
@@ -9014,9 +9245,21 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
                         parts: [{ text: msg.content }]
                     });
                 });
+                
+                const userParts = [{ text: promptText }];
+                if (images && images.length > 0) {
+                    images.forEach(img => {
+                        userParts.push({
+                            inlineData: {
+                                mimeType: img.type,
+                                data: img.base64
+                            }
+                        });
+                    });
+                }
                 contents.push({
                     role: 'user',
-                    parts: [{ text: promptText }]
+                    parts: userParts
                 });
                 const payload = { contents };
                 if (systemText) {
@@ -9024,58 +9267,67 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
                 }
                 options.body = JSON.stringify(payload);
             } 
-            else if (provider === 'openai') {
-                url = 'https://api.openai.com/v1/chat/completions';
-                options.headers['Authorization'] = `Bearer ${apiKey}`;
-                const messages = [];
-                if (systemText) messages.push({ role: 'system', content: systemText });
-                historyToUse.forEach(msg => {
-                    messages.push({ role: msg.role, content: msg.content });
-                });
-                messages.push({ role: 'user', content: promptText });
-                options.body = JSON.stringify({ model: modelId, messages: messages });
-            } 
-            else if (provider === 'groq') {
-                url = 'https://api.groq.com/openai/v1/chat/completions';
-                options.headers['Authorization'] = `Bearer ${apiKey}`;
-                const messages = [];
-                if (systemText) messages.push({ role: 'system', content: systemText });
-                historyToUse.forEach(msg => {
-                    messages.push({ role: msg.role, content: msg.content });
-                });
-                messages.push({ role: 'user', content: promptText });
-                options.body = JSON.stringify({ model: modelId, messages: messages });
-            } 
-            else if (provider === 'openrouter') {
-                url = 'https://openrouter.ai/api/v1/chat/completions';
-                options.headers['Authorization'] = `Bearer ${apiKey}`;
-                options.headers['HTTP-Referer'] = 'https://github.com/nexus-ide';
-                options.headers['X-Title'] = 'Nexus IDE';
-                const messages = [];
-                if (systemText) messages.push({ role: 'system', content: systemText });
-                historyToUse.forEach(msg => {
-                    messages.push({ role: msg.role, content: msg.content });
-                });
-                messages.push({ role: 'user', content: promptText });
-                const cleanModelId = modelId.replace('openrouter/', '');
-                options.body = JSON.stringify({ model: cleanModelId, messages: messages });
-            }
-            else if (provider === 'ollama') {
-                let ollamaServerUrl = localStorage.getItem('nexus_ollama_url') || 'http://127.0.0.1:11434';
-                ollamaServerUrl = ollamaServerUrl.replace('localhost', '127.0.0.1');
-                url = ollamaServerUrl.replace(/\/$/, '') + '/v1/chat/completions';
-                if (apiKey && apiKey !== 'no-key-required' && apiKey !== 'local-active') {
+            else if (provider === 'openai' || provider === 'groq' || provider === 'openrouter' || provider === 'ollama' || provider === 'mistral' || provider === 'deepseek' || provider === 'moonshot' || provider === 'xai') {
+                if (provider === 'openai') {
+                    url = 'https://api.openai.com/v1/chat/completions';
+                    options.headers['Authorization'] = `Bearer ${apiKey}`;
+                } else if (provider === 'groq') {
+                    url = 'https://api.groq.com/openai/v1/chat/completions';
+                    options.headers['Authorization'] = `Bearer ${apiKey}`;
+                } else if (provider === 'openrouter') {
+                    url = 'https://openrouter.ai/api/v1/chat/completions';
+                    options.headers['Authorization'] = `Bearer ${apiKey}`;
+                    options.headers['HTTP-Referer'] = 'https://github.com/nexus-ide';
+                    options.headers['X-Title'] = 'Nexus IDE';
+                } else if (provider === 'ollama') {
+                    let ollamaServerUrl = localStorage.getItem('nexus_ollama_url') || 'http://127.0.0.1:11434';
+                    ollamaServerUrl = ollamaServerUrl.replace('localhost', '127.0.0.1');
+                    url = ollamaServerUrl.replace(/\/$/, '') + '/v1/chat/completions';
+                    if (apiKey && apiKey !== 'no-key-required' && apiKey !== 'local-active') {
+                        options.headers['Authorization'] = `Bearer ${apiKey}`;
+                    }
+                } else if (provider === 'mistral') {
+                    url = 'https://api.mistral.ai/v1/chat/completions';
+                    options.headers['Authorization'] = `Bearer ${apiKey}`;
+                } else if (provider === 'deepseek') {
+                    url = 'https://api.deepseek.com/v1/chat/completions';
+                    options.headers['Authorization'] = `Bearer ${apiKey}`;
+                } else if (provider === 'moonshot') {
+                    url = 'https://api.moonshot.cn/v1/chat/completions';
+                    options.headers['Authorization'] = `Bearer ${apiKey}`;
+                } else if (provider === 'xai') {
+                    url = 'https://api.x.ai/v1/chat/completions';
                     options.headers['Authorization'] = `Bearer ${apiKey}`;
                 }
+
                 const messages = [];
                 if (systemText) messages.push({ role: 'system', content: systemText });
                 historyToUse.forEach(msg => {
                     messages.push({ role: msg.role, content: msg.content });
                 });
-                messages.push({ role: 'user', content: promptText });
-                let cleanModelId = modelId.replace('ollama/', '');
-                if (cleanModelId === 'custom') {
-                    cleanModelId = localStorage.getItem('nexus_ollama_custom_model') || 'qwen2.5-coder:7b';
+
+                let userContent = promptText;
+                if (images && images.length > 0) {
+                    userContent = [{ type: 'text', text: promptText }];
+                    images.forEach(img => {
+                        userContent.push({
+                            type: 'image_url',
+                            image_url: {
+                                url: `data:${img.type};base64,${img.base64}`
+                            }
+                        });
+                    });
+                }
+                messages.push({ role: 'user', content: userContent });
+
+                let cleanModelId = modelId;
+                if (provider === 'openrouter') {
+                    cleanModelId = modelId.replace('openrouter/', '');
+                } else if (provider === 'ollama') {
+                    cleanModelId = modelId.replace('ollama/', '');
+                    if (cleanModelId === 'custom') {
+                        cleanModelId = localStorage.getItem('nexus_ollama_custom_model') || 'qwen2.5-coder:7b';
+                    }
                 }
                 options.body = JSON.stringify({ model: cleanModelId, messages: messages });
             }
@@ -9087,57 +9339,28 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
                 historyToUse.forEach(msg => {
                     messages.push({ role: msg.role, content: msg.content });
                 });
-                messages.push({ role: 'user', content: promptText });
+
+                let userContent = promptText;
+                if (images && images.length > 0) {
+                    userContent = [{ type: 'text', text: promptText }];
+                    images.forEach(img => {
+                        userContent.push({
+                            type: 'image',
+                            source: {
+                                type: 'base64',
+                                media_type: img.type,
+                                data: img.base64
+                            }
+                        });
+                    });
+                }
+                messages.push({ role: 'user', content: userContent });
                 options.body = JSON.stringify({
                     model: modelId,
                     max_tokens: 4000,
                     system: systemText,
                     messages: messages
                 });
-            }
-            else if (provider === 'mistral') {
-                url = 'https://api.mistral.ai/v1/chat/completions';
-                options.headers['Authorization'] = `Bearer ${apiKey}`;
-                const messages = [];
-                if (systemText) messages.push({ role: 'system', content: systemText });
-                historyToUse.forEach(msg => {
-                    messages.push({ role: msg.role, content: msg.content });
-                });
-                messages.push({ role: 'user', content: promptText });
-                options.body = JSON.stringify({ model: modelId, messages: messages });
-            }
-            else if (provider === 'deepseek') {
-                url = 'https://api.deepseek.com/v1/chat/completions';
-                options.headers['Authorization'] = `Bearer ${apiKey}`;
-                const messages = [];
-                if (systemText) messages.push({ role: 'system', content: systemText });
-                historyToUse.forEach(msg => {
-                    messages.push({ role: msg.role, content: msg.content });
-                });
-                messages.push({ role: 'user', content: promptText });
-                options.body = JSON.stringify({ model: modelId, messages: messages });
-            }
-            else if (provider === 'moonshot') {
-                url = 'https://api.moonshot.cn/v1/chat/completions';
-                options.headers['Authorization'] = `Bearer ${apiKey}`;
-                const messages = [];
-                if (systemText) messages.push({ role: 'system', content: systemText });
-                historyToUse.forEach(msg => {
-                    messages.push({ role: msg.role, content: msg.content });
-                });
-                messages.push({ role: 'user', content: promptText });
-                options.body = JSON.stringify({ model: modelId, messages: messages });
-            }
-            else if (provider === 'xai') {
-                url = 'https://api.x.ai/v1/chat/completions';
-                options.headers['Authorization'] = `Bearer ${apiKey}`;
-                const messages = [];
-                if (systemText) messages.push({ role: 'system', content: systemText });
-                historyToUse.forEach(msg => {
-                    messages.push({ role: msg.role, content: msg.content });
-                });
-                messages.push({ role: 'user', content: promptText });
-                options.body = JSON.stringify({ model: modelId, messages: messages });
             }
             
             const response = await nodeHttpRequest(url, options);
@@ -10176,6 +10399,19 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                     }
                 });
 
+                // Adjuntar archivos al chat
+                document.getElementById('btnChatAttachment').addEventListener('click', () => {
+                    document.getElementById('chat-attachment-input').click();
+                });
+
+                document.getElementById('chat-attachment-input').addEventListener('change', async (e) => {
+                    const files = Array.from(e.target.files);
+                    for (const file of files) {
+                        await addChatAttachment(file);
+                    }
+                    e.target.value = '';
+                });
+
                 // Enviar mensaje a la IA
                 document.getElementById('sendBtn').addEventListener('click', async () => {
                     const input = document.getElementById('chat-input');
@@ -10183,13 +10419,40 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                     if (!text) return;
                     input.value = '';
                     
+                    const activeAttachments = [...chatAttachments];
+                    chatAttachments = [];
+                    renderChatAttachmentsPreview();
+                    
                     chatAbortController = new AbortController();
                     setChatRunningState(true);
                     
                     const chatMessages = document.getElementById('chat-messages');
                     const msg = document.createElement('div');
-                    msg.style.cssText = `padding:10px; border-radius:6px; background:#2b3a42; border:1px solid #3c4f5a; align-self:flex-end; margin-left:20px; margin-bottom:10px; color:#fff; word-break: break-word;`;
-                    msg.textContent = text;
+                    msg.style.cssText = `padding:10px; border-radius:6px; background:#2b3a42; border:1px solid #3c4f5a; align-self:flex-end; margin-left:20px; margin-bottom:10px; color:#fff; word-break: break-word; display:flex; flex-direction:column; gap:6px;`;
+                    
+                    let bubbleContent = `<div>${text}</div>`;
+                    if (activeAttachments.length > 0) {
+                        bubbleContent += `<div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; border-top:1px solid rgba(255,255,255,0.1); padding-top:6px;">`;
+                        activeAttachments.forEach(att => {
+                            if (att.isImage) {
+                                bubbleContent += `
+                                    <div style="display:flex; align-items:center; gap:4px; background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.1); border-radius:4px; padding:3px 6px; font-size:11px; color:#ccc;">
+                                        <img src="data:${att.type};base64,${att.base64}" style="width:16px; height:16px; border-radius:2px; object-fit:cover;">
+                                        <span>${att.name}</span>
+                                    </div>
+                                `;
+                            } else {
+                                bubbleContent += `
+                                    <div style="display:flex; align-items:center; gap:4px; background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.1); border-radius:4px; padding:3px 6px; font-size:11px; color:#ccc;">
+                                        <span>📄</span>
+                                        <span>${att.name}</span>
+                                    </div>
+                                `;
+                            }
+                        });
+                        bubbleContent += `</div>`;
+                    }
+                    msg.innerHTML = bubbleContent;
                     chatMessages.appendChild(msg);
                     chatMessages.scrollTop = chatMessages.scrollHeight;
 
@@ -10467,14 +10730,24 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
 
                             // Token optimization context fetching
                             const contextText = getChatContext();
-                            const textWithContext = text + contextText;
+                            
+                            const imgAttachments = activeAttachments.filter(att => att.isImage);
+                            const textAttachments = activeAttachments.filter(att => !att.isImage);
+                            
+                            let textWithContextAndAttachments = text + contextText;
+                            if (textAttachments.length > 0) {
+                                textWithContextAndAttachments += "\n\nArchivos adjuntos del usuario:";
+                                textAttachments.forEach(att => {
+                                    textWithContextAndAttachments += `\n\n--- ARCHIVO ADJUNTO: ${att.name} ---\n${att.textContent}\n--- FIN DE ARCHIVO ---`;
+                                });
+                            }
 
-                            chatHistory.push({ role: 'user', content: text });
+                            chatHistory.push({ role: 'user', content: text + (textAttachments.length > 0 ? ` [Adjunto: ${textAttachments.map(t=>t.name).join(', ')}]` : '') });
                             if (chatHistory.length > 10) {
                                 chatHistory = chatHistory.slice(-10);
                             }
 
-                            const response = await sendRequestToAI(selectedModelId, textWithContext, sysPrompt, chatHistory.slice(0, -1), chatAbortController.signal);
+                            const response = await sendRequestToAI(selectedModelId, textWithContextAndAttachments, sysPrompt, chatHistory.slice(0, -1), chatAbortController.signal, imgAttachments);
                             loadingMsg.remove();
 
                             // Registrar la respuesta en el historial
