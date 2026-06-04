@@ -347,7 +347,7 @@
 <body>
 
     <!-- INICIO: CENTRO DE INICIO (HOME) & PROYECTOS FULLSCREEN -->
-    <div id="nexus-home-screen" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:radial-gradient(circle at center, #10141f, #07090e); z-index:99990; display:none; flex-direction:column; color:#fff; font-family:'Outfit', 'Inter', sans-serif; transition:opacity .3s ease, transform .3s ease; padding: 25px; box-sizing: border-box; overflow: hidden; opacity: 0;">
+    <div id="nexus-home-screen" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:radial-gradient(circle at center, #10141f, #07090e); z-index:7500; display:none; flex-direction:column; color:#fff; font-family:'Outfit', 'Inter', sans-serif; transition:opacity .3s ease, transform .3s ease; padding: 25px; box-sizing: border-box; overflow: hidden; opacity: 0;">
         <div id="nexus-home-content" style="width: 100%; height: 100%; display: flex; flex-direction: column; background: rgba(16, 20, 31, 0.4); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.6); backdrop-filter: blur(30px); overflow: hidden; box-sizing: border-box;">
             <!-- Carga dinámica -->
         </div>
@@ -4337,12 +4337,23 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
           {
             id: 'react-app',
             name: '⚛ React App',
-            desc: 'React 18 con hooks',
+            desc: 'React 18 con hooks y Vite',
             files: [
-              { name:'index.html', content:'<!DOCTYPE html>\n<html lang="es">\n<head>\n  <meta charset="UTF-8">\n  <title>React App</title>\n</head>\n<body>\n  <div id="root"></div>\n  <script type="module" src="src/main.jsx"><' + '/script>\n</body>\n</html>' },
+              { name:'index.html', content:'<!DOCTYPE html>\n<html lang="es">\n<head>\n  <meta charset="UTF-8">\n  <title>React App</title>\n</head>\n<body>\n  <div id="root"></div>\n  <' + 'script type="module" src="src/main.jsx"><' + '/script>\n</body>\n</html>' },
               { name:'src/main.jsx', content:"import { StrictMode } from 'react'\nimport { createRoot } from 'react-dom/client'\nimport App from './App'\n\ncreateRoot(document.getElementById('root')).render(\n  <StrictMode>\n    <App />\n  </StrictMode>\n)" },
               { name:'src/App.jsx', content:"import { useState } from 'react'\n\nexport default function App() {\n  const [count, setCount] = useState(0)\n\n  return (\n    <div>\n      <h1>React App</h1>\n      <button onClick={() => setCount(c => c + 1)}>\n        Clicks: {count}\n      </button>\n    </div>\n  )\n}" },
               { name:'package.json', content:'{\n  "name": "react-app",\n  "version": "0.1.0",\n  "scripts": {\n    "dev": "vite",\n    "build": "vite build"\n  },\n  "dependencies": {\n    "react": "^18.3.0",\n    "react-dom": "^18.3.0"\n  },\n  "devDependencies": {\n    "vite": "^5.0.0",\n    "@vitejs/plugin-react": "^4.0.0"\n  }\n}' },
+            ]
+          },
+          {
+            id: 'vue-app',
+            name: '💚 Vue 3 App',
+            desc: 'Vue 3 SFC + Vite',
+            files: [
+              { name:'index.html', content:'<!DOCTYPE html>\n<html lang="es">\n<head>\n  <meta charset="UTF-8">\n  <title>Vue 3 App</title>\n</head>\n<body>\n  <div id="app"></div>\n  <' + 'script type="module" src="src/main.js"><' + '/script>\n</body>\n</html>' },
+              { name:'src/main.js', content:"import { createApp } from 'vue'\nimport App from './App.vue'\n\ncreateApp(App).mount('#app')" },
+              { name:'src/App.vue', content:"<template>\n  <div id=\"app-vue\">\n    <h1>Vue 3 App</h1>\n    <button @click=\"count++\">Clicks: {{ count }}</button>\n  </div>\n</template>\n\n<" + "script>\nimport { ref } from 'vue'\nexport default {\n  setup() {\n    const count = ref(0)\n    return { count }\n  }\n}\n<" + "/script>" },
+              { name:'package.json', content:'{\n  "name": "vue-app",\n  "version": "1.0.0",\n  "scripts": {\n    "dev": "vite",\n    "build": "vite build"\n  },\n  "dependencies": {\n    "vue": "^3.4.0"\n  },\n  "devDependencies": {\n    "vite": "^5.0.0",\n    "@vitejs/plugin-vue": "^5.0.0"\n  }\n}' }
             ]
           },
           {
@@ -4361,7 +4372,25 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
             desc: 'API con Express.js',
             files: [
               { name:'server.js', content:"const express = require('express')\nconst app = express()\nconst PORT = process.env.PORT || 3000\n\napp.use(express.json())\n\napp.get('/', (req, res) => {\n  res.json({ message: 'API funcionando' })\n})\n\napp.listen(PORT, () => {\n  console.log(`Servidor en http://localhost:${PORT}`)\n})" },
-              { name:'package.json', content:'{\n  "name": "node-api",\n  "version": "1.0.0",\n  "main": "server.js",\n  "scripts": {\n    "start": "node server.js",\n    "dev": "nodemon server.js"\n  },\n  "dependencies": {\n    "express": "^4.18.0"\n  },\n  "devDependencies": {\n    "nodemon": "^3.0.0"\n  }' },
+              { name:'package.json', content:'{\n  "name": "node-api",\n  "version": "1.0.0",\n  "main": "server.js",\n  "scripts": {\n    "start": "node server.js",\n    "dev": "nodemon server.js"\n  },\n  "dependencies": {\n    "express": "^4.18.0"\n  },\n  "devDependencies": {\n    "nodemon": "^3.0.0"\n  }\n}' },
+            ]
+          },
+          {
+            id: 'go-api',
+            name: '🐹 Go REST API',
+            desc: 'Servidor HTTP en Go con Mux',
+            files: [
+              { name:'main.go', content:"package main\n\nimport (\n\t\"encoding/json\"\n\t\"log\"\n\t\"net/http\"\n)\n\ntype Response struct {\n\tMessage string `json:\"message\"`\n}\n\nfunc main() {\n\thttp.HandleFunc(\"/\", func(w http.ResponseWriter, r *http.Request) {\n\t\tw.Header().Set(\"Content-Type\", \"application/json\")\n\t\tjson.NewEncoder(w).Encode(Response{Message: \"API en Go funcionando\"})\n\t})\n\tlog.Println(\"Servidor en http://localhost:8080\")\n\tlog.Fatal(http.ListenAndServe(\":8080\", nil))\n}" },
+              { name:'go.mod', content:'module mi-api-go\n\ngo 1.21' }
+            ]
+          },
+          {
+            id: 'cpp-cmake',
+            name: '🖥️ C++ Console App',
+            desc: 'Proyecto C++ estructurado con CMake',
+            files: [
+              { name:'CMakeLists.txt', content:'cmake_minimum_required(VERSION 3.10)\nproject(MiProyectoCpp)\nset(CMAKE_CXX_STANDARD 17)\nadd_executable(MiProyectoCpp main.cpp)' },
+              { name:'main.cpp', content:'#include <iostream>\n\nint main() {\n    std::cout << "Hola Mundo desde C++ y CMake!" << std::endl;\n    return 0;\n}' }
             ]
           },
           {
@@ -4379,7 +4408,7 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
             name: '🌐 Three.js 3D',
             desc: 'Escena 3D en el navegador',
             files: [
-              { name:'index.html', content:'<!DOCTYPE html>\n<html>\n<head>\n  <title>Three.js Scene</title>\n  <style>body{margin:0;overflow:hidden}canvas{display:block}</style>\n</head>\n<body>\n  <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.163/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.163/examples/jsm/"}}<' + '/script>\n  <script type="module" src="main.js"><' + '/script>\n</body>\n</html>' },
+              { name:'index.html', content:'<!DOCTYPE html>\n<html>\n<head>\n  <title>Three.js Scene</title>\n  <style>body{margin:0;overflow:hidden}canvas{display:block}</style>\n</head>\n<body>\n  <' + 'script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.163/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.163/examples/jsm/"}}<' + '/script>\n  <' + 'script type="module" src="main.js"><' + '/script>\n</body>\n</html>' },
               { name:'main.js', content:"import * as THREE from 'three'\nimport { OrbitControls } from 'three/addons/controls/OrbitControls.js'\n\nconst scene = new THREE.Scene()\nconst camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000)\nconst renderer = new THREE.WebGLRenderer({ antialias: true })\nrenderer.setSize(innerWidth, innerHeight)\nrenderer.shadowMap.enabled = true\ndocument.body.appendChild(renderer.domElement)\n\nconst controls = new OrbitControls(camera, renderer.domElement)\ncamera.position.set(3, 3, 5)\ncontrols.update()\n\nconst geometry = new THREE.BoxGeometry()\nconst material = new THREE.MeshStandardMaterial({ color: 0x7c3aed })\nconst cube = new THREE.Mesh(geometry, material)\ncube.castShadow = true\nscene.add(cube)\n\nconst light = new THREE.DirectionalLight(0xffffff, 2)\nlight.position.set(5, 10, 7)\nscene.add(light)\nscene.add(new THREE.AmbientLight(0xffffff, 0.5))\n\nwindow.addEventListener('resize', () => {\n  camera.aspect = innerWidth/innerHeight\n  camera.updateProjectionMatrix()\n  renderer.setSize(innerWidth, innerHeight)\n})\n\nfunction animate() {\n  requestAnimationFrame(animate)\n  cube.rotation.y += 0.005\n  controls.update()\n  renderer.render(scene, camera)\n}\nanimate()" },
             ]
           },
@@ -4400,6 +4429,15 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
               { name:'docker-compose.yml', content:'version: "3.8"\n\nservices:\n  api:\n    build: .\n    ports:\n      - "3000:3000"\n    environment:\n      - NODE_ENV=production\n    depends_on:\n      - db\n\n  db:\n    image: postgres:16\n    environment:\n      POSTGRES_DB: mydb\n      POSTGRES_USER: user\n      POSTGRES_PASSWORD: password\n    volumes:\n      - pgdata:/var/lib/postgresql/data\n\nvolumes:\n  pgdata:' },
               { name:'Dockerfile', content:'FROM node:20-alpine\nWORKDIR /app\nCOPY package*.json ./\nRUN npm ci --only=production\nCOPY . .\nEXPOSE 3000\nCMD ["node", "server.js"]' },
               { name:'.env', content:'PORT=3000\nDB_URL=postgresql://user:password@db:5432/mydb\nJWT_SECRET=tu_secreto_aqui' },
+            ]
+          },
+          {
+            id: 'antigravity-agent',
+            name: '🤖 Agent Extension',
+            desc: 'Script de extensión para agentes Nexus',
+            files: [
+              { name:'agent_extension.py', content:'import sys\n\ndef main():\n    print("Agente de extensión iniciado.")\n    print("Parámetros recibidos:", sys.argv[1:])\n\nif __name__ == "__main__":\n    main()' },
+              { name:'README.md', content:'# Nexus Agent Extension\n\nUsa esta plantilla para crear extensiones para la IA del IDE.' }
             ]
           }
         ];
@@ -4453,7 +4491,7 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
               </div>
               <div style="flex: 1; padding: 20px; overflow-y: auto;">
                 <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px;">
-                  \${cardsHtml}
+                  ${cardsHtml}
                 </div>
               </div>
             </div>
@@ -4474,7 +4512,7 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
             
             showInputPrompt(
               "Nombre del Proyecto",
-              `Crear proyecto: \${temp.name}. Ingresa el nombre de la carpeta de destino:`,
+              `Crear proyecto: ${temp.name}. Ingresa el nombre de la carpeta de destino:`,
               templateId,
               (projectName) => {
                 if (!projectName) return;
@@ -4504,7 +4542,7 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                 fs.writeFileSync(filePath, f.content, 'utf8');
               });
               
-              showToast(`Proyecto '\${projectName}' creado a partir de plantilla '\${template.name}'`, "success");
+              showToast(`Proyecto '${projectName}' creado a partir de plantilla '${template.name}'`, "success");
               
               const win = NexusWindowManager.windows['nexus-win-project-templates'];
               if (win) win.close();
