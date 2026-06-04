@@ -1399,10 +1399,10 @@ if (mesh) {
             this.id = id;
             this.title = title;
             this.icon = icon;
-            this.width = width || 900;
-            this.height = height || 600;
-            this.x = (window.innerWidth - this.width) / 2;
-            this.y = (window.innerHeight - this.height) / 2;
+            this.width = Math.min(width || 900, window.innerWidth - 40);
+            this.height = Math.min(height || 600, window.innerHeight - 80);
+            this.x = Math.max(20, (window.innerWidth - this.width) / 2);
+            this.y = Math.max(44, (window.innerHeight - this.height) / 2);
             this.minimized = false;
             this.maximized = false;
             this.prevState = null;
@@ -1483,6 +1483,30 @@ if (mesh) {
             win.querySelectorAll('.nw-minimize, .nw-minimize-r').forEach(b => b.addEventListener('click', () => this.minimize()));
             win.querySelectorAll('.nw-maximize, .nw-maximize-r').forEach(b => b.addEventListener('click', () => this.toggleMaximize()));
             win.addEventListener('mousedown', () => this.focus());
+
+            // Auto-adjust layout on browser window resize
+            this._resizeHandler = () => {
+              if (!this.el) return;
+              if (this.maximized) {
+                Object.assign(this.el.style, { left: '0px', top: '44px', width: '100vw', height: 'calc(100vh - 68px)' });
+              } else {
+                const curWidth = parseInt(this.el.style.width) || this.width;
+                const curHeight = parseInt(this.el.style.height) || this.height;
+                const newWidth = Math.min(curWidth, window.innerWidth - 40);
+                const newHeight = Math.min(curHeight, window.innerHeight - 80);
+                this.el.style.width = newWidth + 'px';
+                this.el.style.height = newHeight + 'px';
+
+                const curLeft = parseInt(this.el.style.left) || this.x;
+                const curTop = parseInt(this.el.style.top) || this.y;
+                const newLeft = Math.max(20, Math.min(curLeft, window.innerWidth - newWidth - 20));
+                const newTop = Math.max(44, Math.min(curTop, window.innerHeight - newHeight - 40));
+                this.el.style.left = newLeft + 'px';
+                this.el.style.top = newTop + 'px';
+              }
+            };
+            window.addEventListener('resize', this._resizeHandler);
+
             NexusWindowManager.register(this);
           }
 
@@ -1499,6 +1523,9 @@ if (mesh) {
             setTimeout(() => window.dispatchEvent(new Event('resize')), 50);
           }
           close() {
+            if (this._resizeHandler) {
+              window.removeEventListener('resize', this._resizeHandler);
+            }
             this.el.style.transition = 'all .12s ease'; this.el.style.opacity = '0'; this.el.style.transform = 'scale(.96)';
             setTimeout(() => { this.el.remove(); this.onClose?.(); NexusWindowManager.unregister(this.id); }, 120);
           }
@@ -1612,6 +1639,155 @@ if (mesh) {
             const escListener = (e) => {
                 if (e.key === 'Escape') {
                     close(null);
+                }
+            };
+            window.addEventListener('keydown', escListener);
+        }
+
+        function showCreateFolderPrompt(title, defaultFolderName, callback) {
+            const req = window.nodeRequire || window.require || (typeof require !== 'undefined' ? require : null);
+            const path = req ? req('path') : null;
+            
+            const overlay = document.createElement('div');
+            overlay.className = 'prompt-modal-overlay';
+            overlay.style.zIndex = '21000';
+            
+            const container = document.createElement('div');
+            container.className = 'prompt-modal-container';
+            container.style.width = '460px';
+            
+            const titleEl = document.createElement('div');
+            titleEl.className = 'prompt-modal-title';
+            titleEl.textContent = title;
+            
+            let currentParentPath = workspaceRoot;
+            
+            const locLabel = document.createElement('div');
+            locLabel.style.cssText = 'font-size: 11px; color: #8b949e; margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.05em;';
+            locLabel.textContent = 'Carpeta Contenedora:';
+            
+            const locRow = document.createElement('div');
+            locRow.style.cssText = 'display: flex; gap: 8px; align-items: center; background: #0d1117; padding: 8px 12px; border-radius: 6px; border: 1px solid #30363d; overflow: hidden;';
+            
+            const locPath = document.createElement('div');
+            locPath.style.cssText = 'flex: 1; font-family: monospace; font-size: 12px; color: #e6edf3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
+            locPath.textContent = currentParentPath;
+            locPath.title = currentParentPath;
+            
+            const changeBtn = document.createElement('button');
+            changeBtn.style.cssText = 'background: #21262d; border: 1px solid #30363d; border-radius: 4px; color: #c9d1d9; font-size: 11px; padding: 4px 8px; cursor: pointer; white-space: nowrap; font-family: inherit; transition: background 0.15s;';
+            changeBtn.textContent = 'Cambiar...';
+            changeBtn.onmouseover = () => changeBtn.style.background = '#30363d';
+            changeBtn.onmouseout = () => changeBtn.style.background = '#21262d';
+            
+            locRow.appendChild(locPath);
+            locRow.appendChild(changeBtn);
+            
+            changeBtn.onclick = () => {
+                if (isElectron && ipcRenderer) {
+                    ipcRenderer.invoke('open-directory').then(dir => {
+                        if (dir) {
+                            currentParentPath = dir;
+                            locPath.textContent = dir;
+                            locPath.title = dir;
+                        }
+                    }).catch(err => {
+                        console.error("Error al seleccionar carpeta:", err);
+                    });
+                } else {
+                    showToast("Diálogo nativo de carpetas solo disponible en entorno de escritorio.", "warning");
+                }
+            };
+            
+            const nameLabel = document.createElement('div');
+            nameLabel.style.cssText = 'font-size: 11px; color: #8b949e; margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.05em;';
+            nameLabel.textContent = 'Nombre de la nueva carpeta:';
+            
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'prompt-modal-input';
+            input.placeholder = 'Nombre de la carpeta (ej. mi-proyecto-web)';
+            input.value = defaultFolderName || '';
+            
+            input.addEventListener('keydown', (e) => e.stopPropagation());
+            input.addEventListener('keyup', (e) => e.stopPropagation());
+            
+            const openOptRow = document.createElement('div');
+            openOptRow.style.cssText = 'display: flex; align-items: center; gap: 8px; margin-top: 4px;';
+            
+            const openOptCheckbox = document.createElement('input');
+            openOptCheckbox.type = 'checkbox';
+            openOptCheckbox.checked = true;
+            openOptCheckbox.id = 'prompt-modal-open-workspace';
+            openOptCheckbox.style.cssText = 'cursor: pointer; width: 14px; height: 14px;';
+            
+            const openOptLabel = document.createElement('label');
+            openOptLabel.htmlFor = 'prompt-modal-open-workspace';
+            openOptLabel.style.cssText = 'font-size: 12px; color: #c9d1d9; cursor: pointer; user-select: none;';
+            openOptLabel.textContent = 'Cargar como espacio de trabajo activo al crear';
+            
+            openOptRow.appendChild(openOptCheckbox);
+            openOptRow.appendChild(openOptLabel);
+            
+            const actions = document.createElement('div');
+            actions.className = 'prompt-modal-actions';
+            
+            const cancelBtn = document.createElement('button');
+            cancelBtn.className = 'prompt-modal-btn';
+            cancelBtn.textContent = 'Cancelar';
+            
+            const acceptBtn = document.createElement('button');
+            acceptBtn.className = 'prompt-modal-btn primary';
+            acceptBtn.textContent = 'Crear';
+            
+            actions.appendChild(cancelBtn);
+            actions.appendChild(acceptBtn);
+            
+            container.appendChild(titleEl);
+            container.appendChild(locLabel);
+            container.appendChild(locRow);
+            container.appendChild(nameLabel);
+            container.appendChild(input);
+            container.appendChild(openOptRow);
+            container.appendChild(actions);
+            overlay.appendChild(container);
+            document.body.appendChild(overlay);
+            
+            input.focus();
+            input.select();
+            
+            let closed = false;
+            function close(accept) {
+                if (closed) return;
+                closed = true;
+                window.removeEventListener('keydown', escListener);
+                overlay.remove();
+                if (accept) {
+                    const name = input.value.trim();
+                    if (!name) return;
+                    callback({
+                        name: name,
+                        parentDir: currentParentPath,
+                        openWorkspace: openOptCheckbox.checked
+                    });
+                }
+            }
+            
+            cancelBtn.onclick = () => close(false);
+            acceptBtn.onclick = () => close(true);
+            overlay.onclick = (e) => {
+                if (e.target === overlay) close(false);
+            };
+            
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    close(true);
+                }
+            });
+            
+            const escListener = (e) => {
+                if (e.key === 'Escape') {
+                    close(false);
                 }
             };
             window.addEventListener('keydown', escListener);
@@ -4510,20 +4686,20 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
             const temp = PROJECT_TEMPLATES.find(t => t.id === templateId);
             if (!temp) return;
             
-            showInputPrompt(
-              "Nombre del Proyecto",
-              `Crear proyecto: ${temp.name}. Ingresa el nombre de la carpeta de destino:`,
+            showCreateFolderPrompt(
+              `Crear Proyecto: ${temp.name}`,
               templateId,
-              (projectName) => {
-                if (!projectName) return;
-                createProjectFromTemplate(temp, projectName);
+              (result) => {
+                if (!result) return;
+                createProjectFromTemplate(temp, result.name, result.parentDir, result.openWorkspace);
               }
             );
           };
         }
 
-        function createProjectFromTemplate(template, projectName) {
-          const projectPath = path.join(workspaceRoot, projectName);
+        function createProjectFromTemplate(template, projectName, parentDir, openWorkspace = true) {
+          const baseDir = parentDir || workspaceRoot;
+          const projectPath = path.join(baseDir, projectName);
           try {
             if (typeof fs !== 'undefined') {
               if (fs.existsSync(projectPath)) {
@@ -4547,7 +4723,12 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
               const win = NexusWindowManager.windows['nexus-win-project-templates'];
               if (win) win.close();
               
-              renderExplorer();
+              if (openWorkspace) {
+                window.changeWorkspace(projectPath);
+                window.closeProjectDashboard();
+              } else {
+                renderExplorer();
+              }
               
               if (template.files.length > 0) {
                 const firstFilePath = path.join(projectPath, template.files[0].name);
@@ -4999,14 +5180,14 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
           };
 
           window.createNewProjectFolderPrompt = () => {
-            showInputPrompt(
+            showCreateFolderPrompt(
               "Nueva Carpeta de Proyecto",
-              "Ingresa el nombre de la nueva carpeta de proyecto a crear en la raíz:",
               "mi-proyecto-nuevo",
-              (folderName) => {
-                if (!folderName) return;
+              (result) => {
+                if (!result) return;
+                const { name, parentDir, openWorkspace } = result;
                 try {
-                  const newPath = path ? path.join(workspaceRoot, folderName) : folderName;
+                  const newPath = path ? path.join(parentDir, name) : name;
                   if (fs && fs.existsSync(newPath)) {
                     showToast("La carpeta ya existe", "warning");
                     return;
@@ -5014,16 +5195,22 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                   if (fs) {
                     fs.mkdirSync(newPath, { recursive: true });
                   }
-                  showToast(`Carpeta '${folderName}' creada`, "success");
+                  showToast(`Carpeta '${name}' creada`, "success");
                   
                   if (!allProjects.includes(newPath)) {
                     allProjects.push(newPath);
                     localDirs.push(newPath);
                   }
-                  if (container) {
-                    container.innerHTML = renderDashboardContent();
+                  
+                  if (openWorkspace) {
+                    window.changeWorkspace(newPath);
+                    window.closeProjectDashboard();
+                  } else {
+                    if (container) {
+                      container.innerHTML = renderDashboardContent();
+                    }
+                    renderExplorer();
                   }
-                  renderExplorer();
                 } catch(e) {
                   showToast("Error al crear carpeta: " + e.message, "error");
                 }
