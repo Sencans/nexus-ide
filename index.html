@@ -426,6 +426,80 @@
 </head>
 <body>
 
+    <!-- MODAL: ASISTENTE IA & CONEXIÓN REMOTA (STEAM LINK) -->
+    <div id="nexus-ai-assistant-screen" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(7, 9, 14, 0.7); z-index:7600; display:none; flex-direction:column; justify-content:center; align-items:center; color:#fff; font-family:'Outfit', 'Inter', sans-serif; transition:opacity .3s ease; padding: 25px; box-sizing: border-box; backdrop-filter: blur(15px); opacity: 0;">
+        <div style="width: 100%; max-width: 900px; height: 85vh; display: flex; flex-direction: column; background: rgba(16, 20, 31, 0.75); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.6); overflow: hidden; box-sizing: border-box;">
+            <!-- Header -->
+            <div style="display:flex; justify-content:space-between; align-items:center; padding: 20px 24px; border-bottom: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.02);">
+                <div style="display:flex; align-items:center; gap: 12px;">
+                    <span style="font-size: 28px;">🤖</span>
+                    <div>
+                        <h2 style="margin:0; font-size:18px; font-weight:600; background: linear-gradient(90deg, #c084fc 0%, #a78bfa 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Panel del Asistente IA & Conexión Móvil</h2>
+                        <p style="margin:2px 0 0 0; color:#8b949e; font-size:12px;">Configura tus agentes de IA personalizados y conecta tu celular para programar en red local (Steam Link estilo IDE).</p>
+                    </div>
+                </div>
+                <button onclick="window.closeAiAssistantModal()" style="background:rgba(255,255,255,0.05); border:none; color:#ff7b72; font-weight:bold; padding: 6px 12px; border-radius: 6px; cursor:pointer; font-size:12px; transition: background 0.2s;" onmouseover="this.style.background='rgba(255,123,114,0.15)'" onmouseout="this.style.background='rgba(255,255,255,0.05)'">Cerrar</button>
+            </div>
+            
+            <!-- Tabs Navigation -->
+            <div style="display:flex; background:rgba(0,0,0,0.2); border-bottom:1px solid rgba(255,255,255,0.05);">
+                <button id="tabBtn-agents" class="ai-tab-btn active" onclick="window.switchAiTab('agents')" style="flex:1; background:none; border:none; border-bottom: 2px solid #7c3aed; color:#fff; padding: 12px; font-size:13px; font-weight:500; cursor:pointer;">👥 Agentes Personalizados</button>
+                <button id="tabBtn-remote" class="ai-tab-btn" onclick="window.switchAiTab('remote')" style="flex:1; background:none; border:none; border-bottom: 2px solid transparent; color:#8b949e; padding: 12px; font-size:13px; font-weight:500; cursor:pointer;">📱 Conexión Celular (Remote Server)</button>
+            </div>
+
+            <!-- Content Tabs -->
+            <div style="flex:1; overflow-y:auto; padding: 24px; box-sizing: border-box; background: rgba(0, 0, 0, 0.1);">
+                <!-- Tab: Agents -->
+                <div id="aiTabContent-agents" style="display:flex; flex-direction:column; gap:20px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-size:12px; font-weight:bold; color:#8b949e; text-transform:uppercase; letter-spacing:0.05em;">Agentes Colaborativos del Chat</span>
+                        <button onclick="window.showCreateAgentPrompt()" style="background:#7c3aed; border:none; color:#fff; font-weight:bold; padding: 6px 14px; border-radius: 6px; cursor:pointer; font-size:12px; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='none'">+ Crear Agente Custom</button>
+                    </div>
+                    <div id="ai-agents-list-container" style="display:flex; flex-direction:column; gap:12px;">
+                        <!-- Se llena dinámicamente -->
+                    </div>
+                </div>
+
+                <!-- Tab: Remote Connection -->
+                <div id="aiTabContent-remote" style="display:none; flex-direction:column; gap:20px; align-items:center; justify-content:center; text-align:center; min-height:100%;">
+                    <div style="max-width:550px; display:flex; flex-direction:column; gap:16px; align-items:center;">
+                        <span style="font-size:48px;">📡</span>
+                        <h3 style="margin:0; font-size:18px; font-weight:600;">Controla tu PC y programa desde el Celular</h3>
+                        <p style="margin:0; color:#8b949e; font-size:13px; line-height:1.5;">
+                            Esta opción inicia un servidor HTTP local en tu red. Podrás abrir el IDE en tu teléfono celular o tableta a través de tu navegador móvil y realizar cambios de código, ejecutar comandos en terminal y simular tu juego en 3D desde la comodidad de tu cama o sofá.
+                        </p>
+                        
+                        <div style="display:flex; align-items:center; gap:10px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); padding: 12px 20px; border-radius: 10px; width:100%; box-sizing:border-box;">
+                            <label style="font-size:12px; color:#8b949e;">Puerto:</label>
+                            <input type="number" id="remoteServerPortInput" value="9090" style="width: 80px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); color:#fff; padding:4px 8px; border-radius:4px; font-size:12px; outline:none; text-align:center;">
+                            <button id="btnToggleRemoteServer" onclick="window.toggleRemoteServer()" style="flex:1; background:#238636; border:none; color:#fff; font-weight:bold; padding: 6px 12px; border-radius: 6px; cursor:pointer; font-size:12px; transition: background 0.2s;">Iniciar Servidor Remoto</button>
+                        </div>
+
+                        <!-- Info active connection -->
+                        <div id="remoteServerActiveInfo" style="display:none; flex-direction:column; align-items:center; gap:15px; width:100%; margin-top:10px; border-top:1px dashed rgba(255,255,255,0.1); padding-top:15px;">
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <span style="width:10px; height:10px; border-radius:50%; background:#39d353; box-shadow:0 0 8px #39d353; display:inline-block;"></span>
+                                <span style="font-size:13px; font-weight:600; color:#39d353;">Servidor Activo en tu Red Local</span>
+                            </div>
+
+                            <div style="background:rgba(255,255,255,0.05); padding:10px 15px; border-radius:6px; font-family:monospace; font-size:13px; color:#58a6ff; display:flex; align-items:center; gap:10px; width:100%; justify-content:center; box-sizing:border-box;">
+                                <span id="remoteServerUrlText">http://192.168.1.15:9090</span>
+                                <button onclick="window.copyRemoteServerUrl()" style="background:rgba(255,255,255,0.1); border:none; color:#fff; padding:2px 8px; border-radius:4px; font-size:10px; cursor:pointer;">Copiar</button>
+                            </div>
+
+                            <!-- QR Code Container -->
+                            <div style="background:#fff; padding:10px; border-radius:12px; display:inline-block; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                                <img id="remoteServerQrImage" src="" alt="QR Connection" style="width:150px; height:150px; display:block;">
+                            </div>
+                            
+                            <p style="margin:0; font-size:11px; color:#8b949e;">Escanea el código QR con la cámara de tu celular para abrir el IDE remotamente.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- INICIO: CENTRO DE INICIO (HOME) & PROYECTOS FULLSCREEN -->
     <div id="nexus-home-screen" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:radial-gradient(circle at center, #10141f, #07090e); z-index:7500; display:none; flex-direction:column; color:#fff; font-family:'Outfit', 'Inter', sans-serif; transition:opacity .3s ease, transform .3s ease; padding: 25px; box-sizing: border-box; overflow: hidden; opacity: 0;">
         <div id="nexus-home-content" style="width: 100%; height: 100%; display: flex; flex-direction: column; background: rgba(16, 20, 31, 0.4); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.6); backdrop-filter: blur(30px); overflow: hidden; box-sizing: border-box;">
@@ -509,6 +583,7 @@
             
             <div style="flex:1;"></div> <!-- Spacer -->
             
+            <button class="topbar-btn special" id="btnAiAssistant" style="color: #a78bfa; font-weight: bold;" title="Asistente IA y Conexión Móvil"><span>🤖</span><span class="btn-text"> Asistente IA</span></button>
             <button class="topbar-btn" id="btnToggleChat" title="Alternar Chat (Ctrl+Alt+C)"><span>💬</span><span class="btn-text"> Chat</span></button>
             <button class="topbar-btn" id="btnSettings" title="Configuración"><span>⚙</span><span class="btn-text"> Ajustes</span></button>
             <button class="topbar-btn engine" id="btn3dEngine" title="Motor Gráfico 3D"><span>🎮</span><span class="btn-text"> Motor 3D</span></button>
@@ -805,6 +880,9 @@
                     <div class="ai-selector-container" id="ai-selector-parent">
                         <span style="font-size:16px;">🤖</span>
                     </div>
+                    <div class="ai-selector-container" id="ai-agent-selector-parent">
+                        <span style="font-size:16px;">👥</span>
+                    </div>
                     
                     <div class="chat-mode-toggle">
                         <button class="chat-mode-btn active" data-tab="chat">Chat</button>
@@ -826,7 +904,8 @@
                             <div>
                                 <label style="font-size: 10px; color: #8b949e; display: block; margin-bottom: 2px;">Estrategia de Orquestación</label>
                                 <select id="multi-agent-strategy" style="width: 100%; background: var(--bg-main); color: #fff; border: 1px solid var(--border-color); border-radius: 4px; padding: 3px 5px; font-size: 11px; outline: none; cursor: pointer;">
-                                    <option value="economy" selected>⚖️ Economía de Tokens</option>
+                                    <option value="auto-hybrid" selected>🧠 Multiproveedor Óptimo</option>
+                                    <option value="economy">⚖️ Economía de Tokens</option>
                                     <option value="performance">⚡ Alto Rendimiento</option>
                                     <option value="custom">⚙️ Personalizado (Elegir por Rol)</option>
                                 </select>
@@ -1084,9 +1163,91 @@ if (mesh) {
             }
         };
 
+        const isRemoteMode = !isElectron && (window.location.protocol.startsWith('http'));
+
+        const remoteFs = {
+            request(action, args) {
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', `${window.location.origin}/api/fs`, false);
+                xhr.setRequestHeader('Content-Type', 'application/json');
+                try {
+                    xhr.send(JSON.stringify({ action, args }));
+                    if (xhr.status === 200) {
+                        const res = JSON.parse(xhr.responseText);
+                        if (res.success) return res.result;
+                        throw new Error(res.error);
+                    }
+                    throw new Error("HTTP " + xhr.status);
+                } catch(e) {
+                    console.error("remoteFs request failed:", e);
+                    throw e;
+                }
+            },
+            existsSync(p) { return this.request('existsSync', [p]); },
+            readFileSync(p, encoding) { return this.request('readFileSync', [p, encoding]); },
+            writeFileSync(p, content, encoding) { return this.request('writeFileSync', [p, content, encoding]); },
+            readdirSync(p) { return this.request('readdirSync', [p]); },
+            statSync(p) {
+                const s = this.request('statSync', [p]);
+                return {
+                    isFile() { return s.isFile; },
+                    isDirectory() { return s.isDirectory; },
+                    size: s.size
+                };
+            },
+            mkdirSync(p, options) { return this.request('mkdirSync', [p, options]); }
+        };
+
+        const remoteExec = function(command, options, callback) {
+            if (typeof options === 'function') {
+                callback = options;
+                options = {};
+            }
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', `${window.location.origin}/api/exec`, true);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    const res = JSON.parse(xhr.responseText);
+                    if (res.success) {
+                        if (callback) callback(null, res.stdout, res.stderr);
+                    } else {
+                        if (callback) callback(new Error(res.error), '', res.stderr);
+                    }
+                } else {
+                    if (callback) callback(new Error("HTTP " + xhr.status), '', '');
+                }
+            };
+            xhr.onerror = function() { if (callback) callback(new Error("Error de red"), '', ''); };
+            xhr.send(JSON.stringify({ command, cwd: options.cwd || '' }));
+        };
+
+        const remoteIpcRenderer = {
+            async invoke(channel, ...args) {
+                if (channel === 'open-directory') {
+                    const dir = prompt("Introduce la ruta absoluta de la carpeta en tu PC (ej: C:\\Proyectos\\MiJuego):");
+                    return dir || null;
+                }
+                const res = await fetch(`${window.location.origin}/api/ipc`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ channel, args })
+                });
+                const data = await res.json();
+                if (data.success) return data.result;
+                throw new Error(data.error);
+            }
+        };
+
         if (!fs) {
-            fs = browserFs;
-            browserFs.init();
+            if (isRemoteMode) {
+                fs = remoteFs;
+                exec = remoteExec;
+                ipcRenderer = remoteIpcRenderer;
+            } else {
+                fs = browserFs;
+                browserFs.init();
+            }
         }
         if (!path) {
             path = browserPath;
@@ -3445,6 +3606,7 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                 window.selectProvider(id);
                 if (typeof updateMultiAgentUI === 'function') updateMultiAgentUI();
                 if (typeof createModelSelector === 'function') createModelSelector();
+                if (typeof createAgentSelector === 'function') createAgentSelector();
                 return;
             }
             const input = document.getElementById('cfg-key-input');
@@ -3457,6 +3619,7 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                 window.selectProvider(id);
                 if (typeof updateMultiAgentUI === 'function') updateMultiAgentUI();
                 if (typeof createModelSelector === 'function') createModelSelector();
+                if (typeof createAgentSelector === 'function') createAgentSelector();
             }
           };
           window.deleteKey = (id) => {
@@ -3472,6 +3635,7 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
             window.selectProvider(id);
             if (typeof updateMultiAgentUI === 'function') updateMultiAgentUI();
             if (typeof createModelSelector === 'function') createModelSelector();
+            if (typeof createAgentSelector === 'function') createAgentSelector();
           };
 
           window.saveEditorConfig = () => {
@@ -8856,6 +9020,105 @@ WICHTIG! Wenn der Entwickler Sie auffordert, eine Datei zu erstellen, zu schreib
             }
         }
 
+        async function checkOllamaAvailability() {
+            try {
+                const res = await fetch('http://127.0.0.1:11434/api/tags');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.models && data.models.length > 0) {
+                        return data.models.map(m => m.name);
+                    }
+                }
+            } catch(e) {
+                // Ignore connectivity errors
+            }
+            return null;
+        }
+
+        function showOllamaCollabPrompt(models, callback) {
+            const modalId = 'ollama-collab-modal-' + Date.now();
+            const modal = document.createElement('div');
+            modal.id = modalId;
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.6);
+                backdrop-filter: blur(4px);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+                font-family: inherit;
+            `;
+            
+            const content = document.createElement('div');
+            content.style.cssText = `
+                background: rgba(30, 30, 30, 0.85);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                border-radius: 12px;
+                padding: 24px;
+                width: 420px;
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+                display: flex;
+                flex-direction: column;
+                gap: 16px;
+                color: #fff;
+            `;
+            
+            let modelOptionsHtml = '';
+            models.forEach(m => {
+                modelOptionsHtml += `<option value="ollama/${m}">${m}</option>`;
+            });
+            
+            content.innerHTML = `
+                <div style="font-weight: bold; font-size: 16px; display: flex; align-items: center; gap: 8px; color: #a78bfa;">
+                    🤖 ¡Ollama Local Detectado!
+                </div>
+                <div style="font-size: 13px; color: #e6edf3; line-height: 1.4;">
+                    Hemos detectado que tu servidor local de Ollama está activo con modelos disponibles. ¿Deseas delegar alguno de los roles de esta colaboración a tu IA local para ahorrar tokens y costos de nube?
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 8px;">
+                    <div>
+                        <label style="font-size: 11px; color: #8b949e; display: block; margin-bottom: 4px;">Selecciona tu modelo local:</label>
+                        <select id="${modalId}-model-select" style="width: 100%; background: #1e1e1e; color: #fff; border: 1px solid #333; border-radius: 4px; padding: 6px; font-size: 12px; outline: none; cursor: pointer;">
+                            ${modelOptionsHtml}
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size: 11px; color: #8b949e; display: block; margin-bottom: 4px;">¿Dónde deseas usarlo?</label>
+                        <select id="${modalId}-role-select" style="width: 100%; background: #1e1e1e; color: #fff; border: 1px solid #333; border-radius: 4px; padding: 6px; font-size: 12px; outline: none; cursor: pointer;">
+                            <option value="none">No usar local (Mantener Nube ☁)</option>
+                            <option value="coder">✍️ Rol de Desarrollador (Coder)</option>
+                            <option value="reviewer">🔍 Rol de Revisor (Reviewer)</option>
+                            <option value="both">✍️ Desarrollador & 🔍 Revisor</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 12px; margin-top: 10px; justify-content: flex-end;">
+                    <button id="${modalId}-cancel" class="dash-btn" style="padding: 6px 14px; font-size: 12px; border: 1px solid #444; background: transparent; color: #ccc; border-radius: 4px; cursor: pointer;">Usar solo Nube ☁</button>
+                    <button id="${modalId}-confirm" class="dash-btn dash-primary-btn" style="padding: 6px 14px; font-size: 12px; background: #7c3aed; border: none; color: #fff; border-radius: 4px; cursor: pointer; font-weight: bold;">Aplicar e Iniciar</button>
+                </div>
+            `;
+            
+            modal.appendChild(content);
+            document.body.appendChild(modal);
+            
+            document.getElementById(`${modalId}-cancel`).addEventListener('click', () => {
+                modal.remove();
+                callback({ selectedModel: '', chosenRole: 'none' });
+            });
+            
+            document.getElementById(`${modalId}-confirm`).addEventListener('click', () => {
+                const selectedModel = document.getElementById(`${modalId}-model-select`).value;
+                const chosenRole = document.getElementById(`${modalId}-role-select`).value;
+                modal.remove();
+                callback({ selectedModel, chosenRole });
+            });
+        }
+
         function getModelsForCollaboration() {
             const activeModels = [];
             modelList.forEach(group => {
@@ -8904,6 +9167,26 @@ WICHTIG! Wenn der Entwickler Sie auffordert, eine Datei zu erstellen, zu schreib
                            activeModels.find(m => m === 'claude-3-5-sonnet-latest') || 
                            activeModels.find(m => m === 'gemini-2.5-pro') || 
                            activeModels[0];
+            } else if (strategy === 'auto-hybrid') {
+                // Planner: prefiere modelos de razonamiento (o3-mini, gemini-2.5-pro, gpt-4o, claude-3-5-sonnet)
+                planner = activeModels.find(m => m === 'o3-mini') || 
+                          activeModels.find(m => m === 'gemini-2.5-pro') || 
+                          activeModels.find(m => m === 'gpt-4o') || 
+                          activeModels.find(m => m === 'claude-3-5-sonnet-latest') || 
+                          activeModels.find(m => m === 'deepseek-chat') ||
+                          activeModels[0];
+                // Coder: prefiere modelos de programación (claude-3-5-sonnet, deepseek-chat, gpt-4o, gemini-2.5-flash)
+                coder = activeModels.find(m => m === 'claude-3-5-sonnet-latest') || 
+                        activeModels.find(m => m === 'deepseek-chat') || 
+                        activeModels.find(m => m === 'gpt-4o') || 
+                        activeModels.find(m => m === 'gemini-2.5-flash') ||
+                        activeModels[0];
+                // Reviewer: prefiere modelos de revisión crítica o auditoría (o3-mini, gemini-2.5-pro, gpt-4o, claude-3-5-sonnet)
+                reviewer = activeModels.find(m => m === 'gemini-2.5-pro') || 
+                           activeModels.find(m => m === 'o3-mini') || 
+                           activeModels.find(m => m === 'gpt-4o') || 
+                           activeModels.find(m => m === 'claude-3-5-sonnet-latest') || 
+                           activeModels[0];
             } else {
                 planner = activeModels.find(m => m === 'gemini-2.5-flash') || 
                           activeModels.find(m => m === 'gemini-2.0-flash') ||
@@ -8922,6 +9205,15 @@ WICHTIG! Wenn der Entwickler Sie auffordert, eine Datei zu erstellen, zu schreib
             if (!planner) planner = activeModels[0];
             if (!coder) coder = activeModels[0];
             if (!reviewer) reviewer = activeModels[0];
+
+            if (window.sessionOllamaRole === 'coder') {
+                coder = window.sessionOllamaModel;
+            } else if (window.sessionOllamaRole === 'reviewer') {
+                reviewer = window.sessionOllamaModel;
+            } else if (window.sessionOllamaRole === 'both') {
+                coder = window.sessionOllamaModel;
+                reviewer = window.sessionOllamaModel;
+            }
             
             return { planner, coder, reviewer };
         }
@@ -8944,6 +9236,7 @@ WICHTIG! Wenn der Entwickler Sie auffordert, eine Datei zu erstellen, zu schreib
         function getStrategyName(strategyId) {
             if (strategyId === 'custom') return 'Personalizado (Roles)';
             if (strategyId === 'performance') return 'Alto Rendimiento';
+            if (strategyId === 'auto-hybrid') return 'Multiproveedor Óptimo';
             return 'Economía de Tokens';
         }
 
@@ -10303,6 +10596,7 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
 
                 // Cargar Selector de Modelos de IA Premium (createModelSelector)
                 createModelSelector();
+                if (typeof createAgentSelector === 'function') createAgentSelector();
 
                 // Inicializar Configuración Multi-Agente
                 const maToggle = document.getElementById('multi-agent-toggle');
@@ -10418,6 +10712,29 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                     const input = document.getElementById('chat-input');
                     const text = input.value.trim();
                     if (!text) return;
+
+                    const isMultiAgent = (chatMode === 'agent') && document.getElementById('multi-agent-toggle').checked;
+                    window.sessionOllamaModel = '';
+                    window.sessionOllamaRole = 'none';
+
+                    if (isMultiAgent) {
+                        try {
+                            const ollamaModels = await checkOllamaAvailability();
+                            if (ollamaModels && ollamaModels.length > 0) {
+                                const result = await new Promise(resolve => {
+                                    showOllamaCollabPrompt(ollamaModels, resolve);
+                                });
+                                if (result && result.chosenRole !== 'none') {
+                                    window.sessionOllamaModel = result.selectedModel;
+                                    window.sessionOllamaRole = result.chosenRole;
+                                    showToast(`Modelo local asignado al rol: ${result.chosenRole}`, 'success');
+                                }
+                            }
+                        } catch (err) {
+                            console.warn("Error detecting local Ollama models:", err);
+                        }
+                    }
+
                     input.value = '';
                     
                     const activeAttachments = [...chatAttachments];
@@ -10457,7 +10774,6 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                     chatMessages.appendChild(msg);
                     chatMessages.scrollTop = chatMessages.scrollHeight;
 
-                    const isMultiAgent = (chatMode === 'agent') && document.getElementById('multi-agent-toggle').checked;
                     let loadingMsg;
                     let progressCardId = 'ma-progress-' + Date.now();
                     
