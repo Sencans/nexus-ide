@@ -7075,7 +7075,8 @@ except Exception as e:
                         port: port,
                         path: parsedUrl.pathname + parsedUrl.search,
                         method: options.method || 'GET',
-                        headers: headers
+                        headers: headers,
+                        rejectUnauthorized: false
                     };
                     
                     const lib = parsedUrl.protocol === 'https:' ? https : http;
