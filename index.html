@@ -12874,16 +12874,34 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
             function autoDetectEnginePaths() {
                 const fs = require('fs');
                 const path = require('path');
+                const os = require('os');
+                const platform = process.platform;
+                const homeDir = os.homedir();
                 const localAppData = process.env.LOCALAPPDATA || (process.env.USERPROFILE ? path.join(process.env.USERPROFILE, 'AppData', 'Local') : '');
 
                 // 1. Detectar Godot
                 if (!localStorage.getItem('nexus_godot_path')) {
-                    const godotSearches = [
-                        'C:\\Program Files\\Godot',
-                        'C:\\Program Files (x86)\\Godot',
-                        localAppData ? path.join(localAppData, 'Godot') : '',
-                        path.join(workspaceRoot || '', 'blender_godot_bridge', 'godot_engine')
-                    ].filter(Boolean);
+                    let godotSearches = [];
+                    if (platform === 'win32') {
+                        godotSearches = [
+                            'C:\\Program Files\\Godot',
+                            'C:\\Program Files (x86)\\Godot',
+                            localAppData ? path.join(localAppData, 'Godot') : '',
+                            path.join(workspaceRoot || '', 'blender_godot_bridge', 'godot_engine')
+                        ];
+                    } else if (platform === 'darwin') {
+                        godotSearches = [
+                            '/Applications/Godot.app/Contents/MacOS',
+                            path.join(homeDir, 'Applications/Godot.app/Contents/MacOS')
+                        ];
+                    } else { // linux
+                        godotSearches = [
+                            '/usr/bin',
+                            '/usr/local/bin',
+                            '/opt/godot'
+                        ];
+                    }
+                    godotSearches = godotSearches.filter(Boolean);
 
                     let godotFound = '';
                     for (const base of godotSearches) {
@@ -12891,9 +12909,17 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
                             try {
                                 const files = fs.readdirSync(base);
                                 for (const f of files) {
-                                    if (f.toLowerCase().includes('godot') && f.toLowerCase().endsWith('.exe')) {
-                                        godotFound = path.join(base, f);
-                                        break;
+                                    const lf = f.toLowerCase();
+                                    if (platform === 'win32') {
+                                        if (lf.includes('godot') && lf.endsWith('.exe')) {
+                                            godotFound = path.join(base, f);
+                                            break;
+                                        }
+                                    } else {
+                                        if (lf === 'godot' || lf.startsWith('godot_')) {
+                                            godotFound = path.join(base, f);
+                                            break;
+                                        }
                                     }
                                 }
                             } catch(e) {}
@@ -12906,50 +12932,29 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
                     }
                 }
 
-                // 2. Detectar Unity
-                if (!localStorage.getItem('nexus_unity_path')) {
-                    const unitySearches = [
-                        'C:\\Program Files\\Unity\\Hub\\Editor',
-                        'C:\\Program Files\\Unity\\Editor',
-                        'C:\\Program Files (x86)\\Unity\\Editor'
-                    ];
-
-                    let unityFound = '';
-                    for (const base of unitySearches) {
-                        if (fs.existsSync(base)) {
-                            try {
-                                if (base.includes('Hub')) {
-                                    const versions = fs.readdirSync(base);
-                                    for (const v of versions) {
-                                        const exePath = path.join(base, v, 'Editor', 'Unity.exe');
-                                        if (fs.existsSync(exePath)) {
-                                            unityFound = exePath;
-                                            break;
-                                        }
-                                    }
-                                } else {
-                                    const exePath = path.join(base, 'Unity.exe');
-                                    if (fs.existsSync(exePath)) {
-                                        unityFound = exePath;
-                                        break;
-                                    }
-                                }
-                            } catch(e) {}
-                        }
-                        if (unityFound) break;
-                    }
-                    if (unityFound) {
-                        localStorage.setItem('nexus_unity_path', unityFound);
-                        console.log("Unity detectado automáticamente en: " + unityFound);
-                    }
-                }
-
-                // 3. Detectar Unreal Engine 5
+                // 2. Detectar Unreal Engine 5
                 if (!localStorage.getItem('nexus_unreal_path')) {
-                    const unrealBases = [
-                        'C:\\Program Files\\Epic Games',
-                        'C:\\Program Files (x86)\\Epic Games'
-                    ];
+                    let unrealBases = [];
+                    let exeSubPath = '';
+                    if (platform === 'win32') {
+                        unrealBases = [
+                            'C:\\Program Files\\Epic Games',
+                            'C:\\Program Files (x86)\\Epic Games'
+                        ];
+                        exeSubPath = path.join('Engine', 'Binaries', 'Win64', 'UnrealEditor.exe');
+                    } else if (platform === 'darwin') {
+                        unrealBases = [
+                            '/Users/Shared/Epic Games'
+                        ];
+                        exeSubPath = path.join('Engine', 'Binaries', 'Mac', 'UnrealEditor.app', 'Contents', 'MacOS', 'UnrealEditor');
+                    } else { // linux
+                        unrealBases = [
+                            path.join(homeDir, 'UE5'),
+                            '/opt/unreal',
+                            '/opt/UE5'
+                        ];
+                        exeSubPath = path.join('Engine', 'Binaries', 'Linux', 'UnrealEditor');
+                    }
 
                     let unrealFound = '';
                     for (const base of unrealBases) {
@@ -12957,8 +12962,8 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
                             try {
                                 const folders = fs.readdirSync(base);
                                 for (const f of folders) {
-                                    if (f.toLowerCase().startsWith('ue_5.')) {
-                                        const exePath = path.join(base, f, 'Engine', 'Binaries', 'Win64', 'UnrealEditor.exe');
+                                    if (f.toLowerCase().startsWith('ue_5.') || f.toLowerCase() === 'ue5' || f.toLowerCase().startsWith('unreal')) {
+                                        const exePath = path.join(base, f, exeSubPath);
                                         if (fs.existsSync(exePath)) {
                                             unrealFound = exePath;
                                             break;
@@ -12975,20 +12980,40 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
                     }
                 }
 
-                // 4. Detectar Blender
+                // 3. Detectar Blender
                 if (!localStorage.getItem('nexus_blender_path')) {
-                    const blenderBases = [
-                        'C:\\Program Files\\Blender Foundation',
-                        'C:\\Program Files (x86)\\Blender Foundation',
-                        'D:\\'
-                    ];
+                    let blenderBases = [];
+                    let exeName = 'blender';
+                    if (platform === 'win32') {
+                        blenderBases = [
+                            'C:\\Program Files\\Blender Foundation',
+                            'C:\\Program Files (x86)\\Blender Foundation',
+                            'D:\\'
+                        ];
+                        exeName = 'blender.exe';
+                    } else if (platform === 'darwin') {
+                        blenderBases = [
+                            '/Applications/Blender.app/Contents/MacOS'
+                        ];
+                    } else { // linux
+                        blenderBases = [
+                            '/usr/bin',
+                            '/usr/local/bin',
+                            '/opt/blender'
+                        ];
+                    }
 
                     let blenderFound = '';
                     for (const base of blenderBases) {
                         if (fs.existsSync(base)) {
                             try {
-                                if (base === 'D:\\') {
+                                if (platform === 'win32' && base === 'D:\\') {
                                     const exePath = 'D:\\blender.exe';
+                                    if (fs.existsSync(exePath)) {
+                                        blenderFound = exePath;
+                                    }
+                                } else if (platform === 'darwin') {
+                                    const exePath = path.join(base, 'Blender');
                                     if (fs.existsSync(exePath)) {
                                         blenderFound = exePath;
                                     }
@@ -12996,12 +13021,16 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
                                     const folders = fs.readdirSync(base);
                                     for (const f of folders) {
                                         if (f.toLowerCase().startsWith('blender')) {
-                                            const exePath = path.join(base, f, 'blender.exe');
+                                            const exePath = path.join(base, f, exeName);
                                             if (fs.existsSync(exePath)) {
                                                 blenderFound = exePath;
                                                 break;
                                             }
                                         }
+                                    }
+                                    const directPath = path.join(base, exeName);
+                                    if (!blenderFound && fs.existsSync(directPath)) {
+                                        blenderFound = directPath;
                                     }
                                 }
                             } catch(e) {}
