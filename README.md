@@ -10,19 +10,25 @@ Nexus IDE es un entorno de desarrollo integrado (IDE) de escritorio de última g
 ## ✨ Características Principales
 
 ### 💻 Editor de Código de Alto Rendimiento
-* **Monaco Editor Integrado**: Soporte completo fuera de línea (offline) para autocompletado, resaltado de sintaxis y búsqueda inteligente.
+* **Monaco Editor Integrado**: Soporte completo fuera de línea (offline) para resaltado de sintaxis y búsqueda inteligente con atajo visual de 🔍 Buscar.
+* **Autocompletado Local**: Autocompletado local nativo sin consumo de IA para **GDScript (Godot)** y **C++ (Unreal Engine 5)** con palabras clave, macros y APIs estándar.
 * **40+ Lenguajes**: Detección inteligente de extensiones y visualización dinámica en la barra de estado con paletas dedicadas.
 * **Snippets Inteligentes**: Plantillas y snippets integrados listos para agilizar la escritura en múltiples lenguajes (JS, Python, Rust, C++, etc.).
 * **Gestor de Plantillas**: Crea estructuras de proyectos desde cero (Node, Python, HTML5, etc.) en segundos.
 
-### 🤖 Asistencia de Inteligencia Artificial (Modo Multi-Agente)
+### 🤖 Asistencia de Inteligencia Artificial & AIRI
 * **Proveedores Compatibles**: Soporte nativo para APIs de **Google Gemini** (incluyendo los últimos modelos Thinking, Pro y Flash), **OpenAI**, **Anthropic Claude**, **Groq**, **Mistral**, **DeepSeek**, **Moonshot (Kimi)**, **xAI (Grok)** y **Ollama** (para ejecución 100% local).
 * **Agentes Colaborativos**: Genera dinámicas de equipo donde múltiples modelos de IA discuten y colaboran simultáneamente para solucionar problemas de código.
 * **Seguridad de Datos**: Tus claves API y configuraciones se guardan localmente en el almacenamiento aislado de tu máquina (`localStorage`).
+* **Burbuja de Notificaciones**: Notificaciones de estado de tareas y solicitud interactiva de permisos directo sobre el avatar 3D de AIRI.
 
-### 🎮 Integración de Motores 3D y Godot
-* **Motor 3D Local (Babylon.js)**: Renderiza, evalúa y depura gráficos 3D directamente en el IDE con scripts en vivo.
-* **Godot Engine IPC Bridge**: Ejecuta proyectos de Godot o arranca el editor de Godot desde el IDE con flujos de trabajo e hilos asíncronos y sockets portables.
+### 🎮 Integración de Motores 3D (Godot y Unreal Engine 5)
+* **Godot & Unreal Engine IPC Bridge**: Ejecuta proyectos y abre editores desde el IDE con flujos de trabajo e hilos asíncronos y sockets portables.
+* **Conversor Imagen-a-3D (Blender)**: Displaza mallas 3D usando imágenes y un control de relieve.
+* **Visor 3D Interactivo**: Ventana flotante de vista previa 3D interactiva (BabylonJS) para inspeccionar y rotar los modelos GLB generados antes de importarlos a tu motor.
+
+### 📱 Control Remoto de AIRI
+* **Bot de Telegram Integrado**: Chatea con la IA de AIRI y dale órdenes a tu terminal remotamente mediante un Bot de Telegram con niveles de seguridad configurables (Restringido, Con Confirmación de terminal, o Acceso Total).
 
 ### 🐳 Gestor de Docker Integrado (Ctrl+Alt+D)
 * **Control de Ciclo de Vida**: Gestiona tus contenedores locales (Iniciar, Pausar, Reiniciar, Eliminar) desde un panel dedicado.

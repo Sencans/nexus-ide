@@ -1,7 +1,7 @@
 {
   "name": "nexus-ide",
   "version": "1.0.0",
-  "description": "Nexus IDE Desktop App",
+  "description": "Nexus IDE - Entorno de desarrollo de escritorio de última generación con soporte para IA, conectores de motores 3D y control remoto",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
