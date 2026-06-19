@@ -182,9 +182,9 @@
         .panel-header { padding: 10px; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; color: #888; border-bottom: 1px solid var(--border-color); }
         
         /* Editor Area */
-        .editor-area { flex: 1; display: grid; grid-template-columns: 1fr; background-color: var(--bg-main); position: relative; transition: all 0.2s ease; }
+        .editor-area { flex: 1; display: grid; grid-template-columns: 1fr; background-color: var(--bg-main); position: relative; transition: all 0.2s ease; min-height: 0; }
         .editor-area.split-view { grid-template-columns: 1fr 1fr; gap: 1px; background-color: var(--border-color); }
-        .editor-pane { display: flex; flex-direction: column; background-color: var(--bg-main); min-width: 0; border: 1px solid transparent; transition: all 0.2s ease; }
+        .editor-pane { display: flex; flex-direction: column; background-color: var(--bg-main); min-width: 0; min-height: 0; border: 1px solid transparent; transition: all 0.2s ease; }
         
         /* Tabs & Breadcrumbs */
         .tabs-container { height: 35px; background-color: var(--bg-tabs); display: flex; align-items: center; overflow-x: auto; transition: all 0.2s ease; }
@@ -221,6 +221,7 @@
             overflow: hidden !important;
             opacity: 0;
             pointer-events: none;
+            display: none !important;
         }
         .chat-header { display: flex; flex-direction: column; background-color: var(--bg-panel); border-bottom: 1px solid var(--border-color); }
         
@@ -562,6 +563,16 @@
             transform: scale(1.05);
             box-shadow: 0 0 8px rgba(124,58,237,0.5);
         }
+
+        .error-line-highlight {
+            background: rgba(248, 81, 73, 0.15) !important;
+            border-left: 3px solid #f85149 !important;
+        }
+        .error-glyph-margin {
+            background: #f85149;
+            width: 5px !important;
+            margin-left: 3px;
+        }
     </style>
 </head>
 <body>
@@ -902,6 +913,10 @@
                 <button class="sidebar-icon" data-sidebar="extensions" title="Extensiones">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20.24 12.24a6 6 0 00-8.49-8.49L5 10.5V19h8.5l6.74-6.76z"/><line x1="16" y1="8" x2="2" y2="22"/><line x1="17.5" y1="15" x2="9" y2="15"/></svg>
                 </button>
+                <!-- AI Skills -->
+                <button class="sidebar-icon" id="btn-sidebar-skills" data-sidebar="skills" title="Habilidades de IA (Skills)">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20M4 19.5V3a1 1 0 0 1 1-1h15v15H6.5A2.5 2.5 0 0 0 4 19.5z"/><path d="M12 6v6m-3-3h6"/></svg>
+                </button>
                 <!-- Engines Integration -->
                 <button class="sidebar-icon" id="btn-sidebar-engines" data-sidebar="engines" title="Motores de Videojuegos (Godot, Unity, Unreal)">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
@@ -1133,6 +1148,21 @@
                 </div>
             </div>
 
+            <!-- PANEL DE HABILIDADES (AI SKILLS) -->
+            <div id="panel-skills" class="sidebar-panel hidden">
+                <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center; gap: 4px;">
+                    <span>Habilidades de IA (Skills)</span>
+                    <div style="display:flex; gap: 4px;">
+                        <button onclick="document.getElementById('skill-import-file').click()" style="background:#21262d; border:1px solid #30363d; border-radius:4px; color:#c9d1d9; font-size:10px; padding:3px 6px; cursor:pointer; font-weight:bold; font-family:inherit;" title="Importar Habilidad (.json)">Importar</button>
+                        <button onclick="window.createNewSkillPrompt()" style="background:#7c3aed; border:none; border-radius:4px; color:#fff; font-size:10px; padding:3px 8px; cursor:pointer; font-weight:bold; font-family:inherit;">+ Nueva</button>
+                    </div>
+                    <input type="file" id="skill-import-file" accept=".json" style="display:none;" onchange="window.importSkillFile(this)">
+                </div>
+                <div id="skills-list-container" style="padding: 10px; display: flex; flex-direction: column; gap: 10px; flex: 1; overflow-y: auto;">
+                    <div style="color:#8b949e; text-align:center; font-size:11px; padding:10px;">Cargando habilidades...</div>
+                </div>
+            </div>
+
             <!-- PANEL DE EXTENSIONES -->
             <div id="panel-extensions" class="sidebar-panel hidden">
                 <div class="panel-header">Tienda de Extensiones</div>
@@ -1303,18 +1333,18 @@
                     <div class="breadcrumbs-container" id="breadcrumbs-1">
                         sin archivo abierto
                     </div>
-                    <div id="editor-container-1" style="flex:1; width:100%; height:100%; min-height:0; overflow:hidden;"></div>
+                    <div id="editor-container-1" style="flex:1; width:100%; min-height:0; overflow:hidden; background:#1e1e1e;"></div>
                 </div>
                 
                 <!-- Pane 2 (Split) -->
-                <div id="editor-pane-2" class="editor-pane hidden" id="pane-2">
+                <div id="editor-pane-2" class="editor-pane hidden">
                     <div class="tabs-container" id="tabs-container-2">
                         <!-- Carga dinámica de tabs -->
                     </div>
                     <div class="breadcrumbs-container" id="breadcrumbs-2">
                         sin archivo abierto
                     </div>
-                    <div id="editor-container-2" style="flex:1; width:100%; height:100%; min-height:0; overflow:hidden;"></div>
+                    <div id="editor-container-2" style="flex:1; width:100%; min-height:0; overflow:hidden; background:#1e1e1e;"></div>
                 </div>
             </div>
             
@@ -1507,6 +1537,15 @@
                 http = require('http');
                 ipcRenderer = require('electron').ipcRenderer;
                 net = require('net');
+                
+                if (ipcRenderer) {
+                    ipcRenderer.on('hardware-telemetry', (event, data) => {
+                        const telEl = document.getElementById('status-rams-telemetry');
+                        if (telEl) {
+                            telEl.textContent = `📊 CPU: ${data.cpu}% | RAM: ${data.ram}% | GPU: ${data.gpu}% | VRAM: ${data.vram.toFixed(1)}GB`;
+                        }
+                    });
+                }
             } catch(e) {
                 console.error("Error cargando módulos de Node.js:", e);
             }
@@ -2376,7 +2415,70 @@ if (mesh) {
         let ptyProcess = null;
 
         // ─── MULTI-PROYECTOS Y SESIONES ───────────────────────────────────────
+        const defaultChatHtml = `
+            <div style="background:#1e1e1e; border:1px solid #333; padding:12px; border-radius:8px; line-height: 1.5;">
+                <strong>Bienvenido a Nexus IDE.</strong><br><br>
+                Esta es una aplicación de escritorio nativa (Electron/Node.js).<br>
+                Tengo acceso completo a tu sistema de archivos local para crear y editar código.<br><br>
+                ¿Qué vamos a construir hoy?
+            </div>
+        `;
+
         window.projectContexts = {};
+
+        window.saveProjectContextsToStorage = function() {
+            try {
+                const copy = {};
+                for (let k in window.projectContexts) {
+                    if (!window.projectContexts[k]) continue;
+                    copy[k] = {
+                        openFiles: window.projectContexts[k].openFiles || [],
+                        activeFilePath: window.projectContexts[k].activeFilePath || null,
+                        terminalOutput: window.projectContexts[k].terminalOutput || '',
+                        chatHistory: window.projectContexts[k].chatHistory || [],
+                        chatHtml: window.projectContexts[k].chatHtml || ''
+                    };
+                }
+                localStorage.setItem('nexus_project_contexts', JSON.stringify(copy));
+            } catch(e) {
+                console.error("Error saving projectContexts to localStorage:", e);
+            }
+        };
+
+        window.saveActiveProjectContext = function() {
+            if (workspaceRoot) {
+                if (!window.projectContexts[workspaceRoot]) {
+                    window.projectContexts[workspaceRoot] = {
+                        openFiles: [],
+                        activeFilePath: null,
+                        terminalOutput: '',
+                        ptyProcess: null,
+                        chatHistory: [],
+                        chatHtml: defaultChatHtml
+                    };
+                }
+                window.projectContexts[workspaceRoot].openFiles = [...openFiles];
+                window.projectContexts[workspaceRoot].activeFilePath = activeFilePath;
+                window.projectContexts[workspaceRoot].terminalOutput = document.getElementById('terminal-output') ? document.getElementById('terminal-output').innerHTML : '';
+                window.projectContexts[workspaceRoot].ptyProcess = ptyProcess;
+                window.projectContexts[workspaceRoot].chatHistory = [...chatHistory];
+                window.projectContexts[workspaceRoot].chatHtml = document.getElementById('chat-messages') ? document.getElementById('chat-messages').innerHTML : '';
+                
+                window.saveProjectContextsToStorage();
+            }
+        };
+
+        try {
+            const savedContexts = JSON.parse(localStorage.getItem('nexus_project_contexts') || '{}');
+            for (let k in savedContexts) {
+                if (savedContexts[k]) {
+                    savedContexts[k].ptyProcess = null;
+                }
+            }
+            window.projectContexts = savedContexts;
+        } catch(e) {
+            console.error("Error loading projectContexts from localStorage:", e);
+        }
 
         window.renderProjectTabs = function() {
             const tabsListEl = document.getElementById('project-tabs-list');
@@ -2437,12 +2539,7 @@ if (mesh) {
             
             // 1. Guardar contexto actual
             if (workspaceRoot) {
-                window.projectContexts[workspaceRoot] = {
-                    openFiles: [...openFiles],
-                    activeFilePath: activeFilePath,
-                    terminalOutput: document.getElementById('terminal-output') ? document.getElementById('terminal-output').innerHTML : '',
-                    ptyProcess: ptyProcess
-                };
+                window.saveActiveProjectContext();
             }
             
             // 2. Cargar nuevo contexto
@@ -2463,7 +2560,9 @@ if (mesh) {
                     openFiles: [],
                     activeFilePath: null,
                     terminalOutput: '',
-                    ptyProcess: null
+                    ptyProcess: null,
+                    chatHistory: [],
+                    chatHtml: defaultChatHtml
                 };
             }
             
@@ -2471,12 +2570,20 @@ if (mesh) {
             openFiles = ctx.openFiles || [];
             activeFilePath = ctx.activeFilePath || null;
             ptyProcess = ctx.ptyProcess || null;
+            chatHistory = ctx.chatHistory || [];
             
             // 3. Restaurar Terminal
             const termOutputEl = document.getElementById('terminal-output');
             if (termOutputEl) {
                 termOutputEl.innerHTML = ctx.terminalOutput || '';
                 termOutputEl.scrollTop = termOutputEl.scrollHeight;
+            }
+            
+            // Restaurar Chat
+            const chatMessagesEl = document.getElementById('chat-messages');
+            if (chatMessagesEl) {
+                chatMessagesEl.innerHTML = ctx.chatHtml || defaultChatHtml;
+                chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
             }
             
             if (!ptyProcess && typeof initTerminal === 'function') {
@@ -2503,6 +2610,9 @@ if (mesh) {
             
             const pName = _path ? _path.basename(projPath) : projPath;
             showToast(`Proyecto cambiado a: ${pName}`, 'info');
+            
+            // Guardar en almacenamiento
+            window.saveProjectContextsToStorage();
             
             // Auto-open/close 3D Motor depending on project type
             setTimeout(() => {
@@ -2547,6 +2657,8 @@ if (mesh) {
                 }
                 delete window.projectContexts[projPath];
             }
+            
+            window.saveProjectContextsToStorage();
             
             if (workspaceRoot === projPath) {
                 if (openPaths.length > 0) {
@@ -3156,8 +3268,13 @@ if (mesh) {
                 </div>
               </div>
             </div>`;
-          new NexusWindow({ id: 'nexus-win-3d', title: 'Motor 3D Real (BabylonJS)', icon: '🎮', width: 1050, height: 600, content, onClose: stop3D });
-          setTimeout(init3DScene, 100);
+          try {
+              new NexusWindow({ id: 'nexus-win-3d', title: 'Motor 3D Real (BabylonJS)', icon: '🎮', width: 1050, height: 600, content, onClose: stop3D });
+              setTimeout(init3DScene, 100);
+          } catch (err) {
+              console.error("Error al abrir ventana Motor 3D:", err);
+              showToast("No se pudo iniciar el Motor 3D: " + err.message, "error");
+          }
         }
 
         function compileAndRun3DScript(code) {
@@ -3672,52 +3789,62 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                     let physicsVelocity = -0.05;
                     
                     babylonEngine.runRenderLoop(() => {
-                        if (!babylonScene) return;
-                        
-                        if (is3DPlaying) {
-                            const now = Date.now();
-                            const dt = (now - lastTime) / 1000;
-                            lastTime = now;
+                        try {
+                            if (!babylonScene) return;
                             
-                            // 1. Ejecutar plantilla por defecto si no hay script personalizado
-                            if (!babylonCustomScript) {
-                                if (window.currentTemplateType === 'cube' && babylonActiveMesh) {
-                                    babylonActiveMesh.rotation.y += 0.015;
-                                    babylonActiveMesh.rotation.x += 0.01;
-                                } else if (window.currentTemplateType === 'physics' && babylonActiveMesh) {
-                                    babylonActiveMesh.position.y += physicsVelocity;
-                                    physicsVelocity -= 9.8 * dt * 0.05; // gravedad simulada
-                                    
-                                    if (babylonActiveMesh.position.y <= 0.75) {
-                                        babylonActiveMesh.position.y = 0.75;
-                                        physicsVelocity = -physicsVelocity * 0.85; // rebote
-                                        if (Math.abs(physicsVelocity) < 0.02) physicsVelocity = 0.8; // reiniciar
-                                    }
-                                } else if (window.currentTemplateType === 'disco') {
-                                    babylonScene.meshes.forEach(m => {
-                                        if (m.name.startsWith('cube_disco')) {
-                                            m.rotation.y += 0.02;
-                                            m.rotation.z += 0.01;
+                            if (is3DPlaying) {
+                                const now = Date.now();
+                                const dt = (now - lastTime) / 1000;
+                                lastTime = now;
+                                
+                                // 1. Ejecutar plantilla por defecto si no hay script personalizado
+                                if (!babylonCustomScript) {
+                                    if (window.currentTemplateType === 'cube' && babylonActiveMesh) {
+                                        babylonActiveMesh.rotation.y += 0.015;
+                                        babylonActiveMesh.rotation.x += 0.01;
+                                    } else if (window.currentTemplateType === 'physics' && babylonActiveMesh) {
+                                        babylonActiveMesh.position.y += physicsVelocity;
+                                        physicsVelocity -= 9.8 * dt * 0.05; // gravedad simulada
+                                        
+                                        if (babylonActiveMesh.position.y <= 0.75) {
+                                            babylonActiveMesh.position.y = 0.75;
+                                            physicsVelocity = -physicsVelocity * 0.85; // rebote
+                                            if (Math.abs(physicsVelocity) < 0.02) physicsVelocity = 0.8; // reiniciar
                                         }
-                                    });
-                                    light.diffuse = new BABYLON.Color3(
-                                        Math.sin(now * 0.002) * 0.5 + 0.5,
-                                        Math.cos(now * 0.003) * 0.5 + 0.5,
-                                        Math.sin(now * 0.001) * 0.5 + 0.5
-                                    );
-                                }
-                            } else {
-                                // 2. Ejecutar script vinculado desde Monaco
-                                try {
-                                    babylonCustomScript(babylonActiveMesh, babylonScene, BABYLON);
-                                } catch(e) {
-                                    babylonCustomScript = null;
-                                    showToast("Error en script vinculado: " + e.message, "error");
+                                    } else if (window.currentTemplateType === 'disco') {
+                                        babylonScene.meshes.forEach(m => {
+                                            if (m.name.startsWith('cube_disco')) {
+                                                m.rotation.y += 0.02;
+                                                m.rotation.z += 0.01;
+                                            }
+                                        });
+                                        if (typeof light !== 'undefined' && light) {
+                                            light.diffuse = new BABYLON.Color3(
+                                                Math.sin(now * 0.002) * 0.5 + 0.5,
+                                                Math.cos(now * 0.003) * 0.5 + 0.5,
+                                                Math.sin(now * 0.001) * 0.5 + 0.5
+                                            );
+                                        }
+                                    }
+                                } else {
+                                    // 2. Ejecutar script vinculado desde Monaco
+                                    try {
+                                        babylonCustomScript(babylonActiveMesh, babylonScene, BABYLON);
+                                    } catch(e) {
+                                        babylonCustomScript = null;
+                                        showToast("Error en script vinculado: " + e.message, "error");
+                                    }
                                 }
                             }
+                            
+                            babylonScene.render();
+                        } catch (err) {
+                            console.error("Error en el bucle de renderizado de BabylonJS: ", err);
+                            if (babylonEngine) {
+                                babylonEngine.stopRenderLoop();
+                            }
+                            showToast("El visor 3D se ha detenido debido a un error: " + err.message, "error");
                         }
-                        
-                        babylonScene.render();
                     });
 
                     // Resize observer
@@ -4787,6 +4914,10 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
               localStorage.setItem('nexus_remote_security', security);
               
               showToast("Configuración de Control Remoto guardada con éxito", "success");
+              
+              if (typeof window.updateOpenClawUI === 'function') {
+                  window.updateOpenClawUI();
+              }
               
               // Notificar al proceso principal para iniciar/reiniciar el bot con las nuevas configuraciones
               if (typeof ipcRenderer !== 'undefined') {
@@ -6963,6 +7094,403 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
 
         }
 
+        
+        // ==========================================
+        // SISTEMA DE HABILIDADES DE IA (AI SKILLS)
+        // ==========================================
+        window.getSkills = function() {
+            if (typeof fs === 'undefined' || typeof workspaceRoot === 'undefined') return [];
+            const skillsDir = path.join(workspaceRoot, 'skills');
+            if (!fs.existsSync(skillsDir)) {
+                try {
+                    fs.mkdirSync(skillsDir, { recursive: true });
+                } catch(e) {
+                    console.error("Error al crear carpeta de skills:", e);
+                    return [];
+                }
+            }
+            try {
+                const files = fs.readdirSync(skillsDir);
+                const skills = [];
+                files.forEach(file => {
+                    if (file.endsWith('.json')) {
+                        try {
+                            const data = JSON.parse(fs.readFileSync(path.join(skillsDir, file), 'utf8'));
+                            skills.push(data);
+                        } catch(err) {
+                            console.error("Error al leer skill file: " + file, err);
+                        }
+                    }
+                });
+                return skills;
+            } catch(e) {
+                console.error("Error al listar skills:", e);
+                return [];
+            }
+        };
+
+        window.saveSkill = function(skill) {
+            if (typeof fs === 'undefined' || typeof workspaceRoot === 'undefined') return;
+            const skillsDir = path.join(workspaceRoot, 'skills');
+            if (!fs.existsSync(skillsDir)) {
+                fs.mkdirSync(skillsDir, { recursive: true });
+            }
+            const skillPath = path.join(skillsDir, `${skill.id}.json`);
+            fs.writeFileSync(skillPath, JSON.stringify(skill, null, 4), 'utf8');
+            
+            if (skill.scriptCode) {
+                const ext = (skill.commandTemplate && skill.commandTemplate.includes('node')) ? '.js' : '.py';
+                const scriptPath = path.join(skillsDir, `${skill.id}${ext}`);
+                fs.writeFileSync(scriptPath, skill.scriptCode, 'utf8');
+            }
+        };
+
+        window.deleteSkill = function(skillId) {
+            if (typeof fs === 'undefined' || typeof workspaceRoot === 'undefined') return;
+            const skillsDir = path.join(workspaceRoot, 'skills');
+            const skillPath = path.join(skillsDir, `${skillId}.json`);
+            if (fs.existsSync(skillPath)) {
+                fs.unlinkSync(skillPath);
+            }
+            ['.py', '.js'].forEach(ext => {
+                const scriptPath = path.join(skillsDir, `${skillId}${ext}`);
+                if (fs.existsSync(scriptPath)) {
+                    fs.unlinkSync(scriptPath);
+                }
+            });
+        };
+
+        window.refreshSkillsUI = function() {
+            const container = document.getElementById('skills-list-container');
+            if (!container) return;
+            
+            const skills = window.getSkills();
+            if (skills.length === 0) {
+                container.innerHTML = `
+                    <div style="color:#8b949e; text-align:center; font-size:11px; padding:20px; border: 1px dashed #30363d; border-radius:6px; background:#161b22; margin-top:10px;">
+                        No hay habilidades personalizadas. ¡Crea una nueva para entrenar a tu IA!
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = '';
+            skills.forEach(skill => {
+                const card = document.createElement('div');
+                card.style.cssText = 'background:#161b22; border:1px solid #30363d; border-radius:6px; padding:10px; display:flex; flex-direction:column; gap:6px; position:relative;';
+                
+                const isChecked = skill.enabled ? 'checked' : '';
+                
+                card.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-weight:bold; font-size:12px; color:#e6edf3; display:flex; align-items:center; gap:6px;">
+                            🪄 ${skill.name}
+                        </span>
+                        <label class="switch" style="position:relative; display:inline-block; width:28px; height:16px; margin:0;">
+                            <input type="checkbox" id="skill-toggle-${skill.id}" ${isChecked} style="opacity:0; width:0; height:0;">
+                            <span class="slider" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#333; border-radius:16px; transition:.3s;"></span>
+                        </label>
+                    </div>
+                    <div style="font-size:10px; color:#8b949e; line-height:1.4;">${skill.description}</div>
+                    <div style="font-size:9px; color:#58a6ff; font-family:monospace; background:#0d1117; padding:2px 6px; border-radius:3px; align-self:flex-start;">
+                        ID: ${skill.id}
+                    </div>
+                    <div style="display:flex; gap:8px; margin-top:4px; border-top:1px solid #21262d; padding-top:6px; justify-content:flex-end;">
+                        <button onclick="window.openSkillEditorModal('${skill.id}')" style="background:none; border:none; color:#58a6ff; cursor:pointer; font-size:10px; padding:0; font-family:inherit;">Editar</button>
+                        <button onclick="window.confirmDeleteSkill('${skill.id}')" style="background:none; border:none; color:#f85149; cursor:pointer; font-size:10px; padding:0; font-family:inherit;">Eliminar</button>
+                    </div>
+                `;
+                
+                container.appendChild(card);
+                
+                const input = card.querySelector(`#skill-toggle-${skill.id}`);
+                const slider = card.querySelector('.slider');
+                
+                const updateSliderColor = (checked) => {
+                    slider.style.backgroundColor = checked ? '#7c3aed' : '#333';
+                };
+                updateSliderColor(skill.enabled);
+                
+                input.addEventListener('change', (e) => {
+                    skill.enabled = e.target.checked;
+                    updateSliderColor(e.target.checked);
+                    window.saveSkill(skill);
+                    showToast("Habilidad " + skill.name + (skill.enabled ? " activada" : " desactivada"), "info");
+                });
+            });
+        };
+
+        window.confirmDeleteSkill = (skillId) => {
+            if (confirm("¿Estás seguro de que deseas eliminar la habilidad '" + skillId + "'?")) {
+                window.deleteSkill(skillId);
+                showToast("Habilidad eliminada", "info");
+                window.refreshSkillsUI();
+                renderExplorer();
+            }
+        };
+
+        window.importSkillFile = function(input) {
+            if (!input.files || input.files.length === 0) return;
+            const file = input.files[0];
+            
+            if (file.path && typeof fs !== 'undefined') {
+                try {
+                    const skill = JSON.parse(fs.readFileSync(file.path, 'utf8'));
+                    if (!skill.id || !skill.name || !skill.systemPrompt) {
+                        showToast("El archivo no es una habilidad de Nexus válida.", "error");
+                        return;
+                    }
+                    
+                    window.saveSkill(skill);
+                    
+                    const srcDir = path.dirname(file.path);
+                    ['.py', '.js'].forEach(ext => {
+                        const scriptSrc = path.join(srcDir, skill.id + ext);
+                        if (fs.existsSync(scriptSrc)) {
+                            const scriptDest = path.join(workspaceRoot, 'skills', skill.id + ext);
+                            fs.copyFileSync(scriptSrc, scriptDest);
+                        }
+                    });
+                    
+                    showToast("Habilidad '" + skill.name + "' importada correctamente.", "success");
+                    window.refreshSkillsUI();
+                    renderExplorer();
+                } catch(e) {
+                    showToast("Error al importar la habilidad: " + e.message, "error");
+                }
+            } else {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const skill = JSON.parse(e.target.result);
+                        if (!skill.id || !skill.name || !skill.systemPrompt) {
+                            showToast("El archivo no es una habilidad de Nexus válida.", "error");
+                            return;
+                        }
+                        window.saveSkill(skill);
+                        showToast("Habilidad '" + skill.name + "' importada correctamente.", "success");
+                        window.refreshSkillsUI();
+                        renderExplorer();
+                    } catch(err) {
+                        showToast("Error al leer el archivo JSON: " + err.message, "error");
+                    }
+                };
+                reader.readAsText(file);
+            }
+            input.value = '';
+        };
+
+        window.highlightErrorInEditor = function(filePath, lineNum, message) {
+            if (!filePath || !lineNum) return;
+            
+            let absolutePath = filePath;
+            if (typeof path !== 'undefined' && !path.isAbsolute(absolutePath)) {
+                absolutePath = path.resolve(workspaceRoot, absolutePath);
+            }
+            
+            if (typeof fs !== 'undefined' && fs.existsSync(absolutePath)) {
+                openFileInEditor(absolutePath);
+                showToast(message + " detectado en la línea " + lineNum, "error");
+                
+                setTimeout(() => {
+                    if (isMonacoLoaded && monacoEditor) {
+                        monacoEditor.revealLineInCenter(lineNum);
+                        monacoEditor.setPosition({ lineNumber: lineNum, column: 1 });
+                        
+                        const decorations = monacoEditor.deltaDecorations([], [
+                            {
+                                range: new monaco.Range(lineNum, 1, lineNum, 1),
+                                options: {
+                                    isWholeLine: true,
+                                    className: 'error-line-highlight',
+                                    glyphMarginClassName: 'error-glyph-margin',
+                                    hoverMessage: { value: "**" + message + "**\n\nLínea " + lineNum }
+                                }
+                            }
+                        ]);
+                        
+                        setTimeout(() => {
+                            monacoEditor.deltaDecorations(decorations, []);
+                        }, 8000);
+                    }
+                }, 400);
+            }
+        };
+
+        window.checkForErrorInTerminalText = function(text) {
+            if (!text) return;
+            
+            const pyRegex = /File\s+"([^"]+)",\s+line\s+(\d+)/i;
+            const jsRegex = /(?:at\s+.*\(|at\s+)([a-zA-Z]:\\[^:\n]+):(\d+)(?::(\d+))?/i;
+            const cppRegex = /([a-zA-Z]:\\[^(\n]+)\((\d+)\)\s*:\s*(?:error|warning)/i;
+            const gdRegex = /(res:\/\/[^:\n]+):(\d+)/i;
+
+            let match = text.match(pyRegex);
+            if (match) {
+                window.highlightErrorInEditor(match[1], parseInt(match[2], 10), "Error de ejecución Python");
+                return;
+            }
+
+            match = text.match(jsRegex);
+            if (match) {
+                window.highlightErrorInEditor(match[1], parseInt(match[2], 10), "Error de ejecución Node.js");
+                return;
+            }
+
+            match = text.match(cppRegex);
+            if (match) {
+                window.highlightErrorInEditor(match[1], parseInt(match[2], 10), "Error de compilación C++");
+                return;
+            }
+            
+            match = text.match(gdRegex);
+            if (match) {
+                const resPath = match[1];
+                const lineNum = parseInt(match[2], 10);
+                const localPath = resPath.replace('res://', '').replace(/\//g, path.sep);
+                const fullPath = path.resolve(workspaceRoot, localPath);
+                window.highlightErrorInEditor(fullPath, lineNum, "Error de GDScript");
+                return;
+            }
+        };
+
+        window.createNewSkillPrompt = () => {
+            window.openSkillEditorModal();
+        };
+
+        window.openSkillEditorModal = (skillId = '') => {
+            let skill = {
+                id: '',
+                name: '',
+                description: '',
+                systemPrompt: '',
+                commandTemplate: '',
+                scriptCode: '',
+                enabled: true
+            };
+            
+            if (skillId) {
+                const skills = window.getSkills();
+                const found = skills.find(s => s.id === skillId);
+                if (found) skill = found;
+            }
+            
+            const isEdit = !!skillId;
+            
+            const htmlContent = `
+                <div style="padding: 16px; color: #c9d1d9; background: #0d1117; font-family: 'Segoe UI', system-ui, sans-serif; height: calc(100% - 32px); display: flex; flex-direction: column; gap: 12px; overflow-y: auto;">
+                    <h3 style="margin:0 0 5px 0; color:#fff; font-size: 16px;">${isEdit ? '📝 Editar Habilidad de IA' : '🪄 Crear Nueva Habilidad de IA'}</h3>
+                    <p style="margin:0; font-size:11px; color:#8b949e;">Define cómo la IA debe activar esta habilidad y qué comandos o scripts debe ejecutar en tu sistema.</p>
+                    
+                    <div style="display:flex; gap:10px; margin-top:5px;">
+                        <div style="flex:1; display:flex; flex-direction:column; gap:4px;">
+                            <label style="font-size:11px; font-weight:bold; color:#a5d6ff;">ID de Habilidad (Único, minúsculas)</label>
+                            <input type="text" id="skill-editor-id" value="${skill.id}" placeholder="ej. gen_imagen" ${isEdit ? 'disabled' : ''} style="background:#161b22; border:1px solid #30363d; border-radius:4px; padding:6px; color:#fff; font-size:12px; outline:none;">
+                        </div>
+                        <div style="flex:1; display:flex; flex-direction:column; gap:4px;">
+                            <label style="font-size:11px; font-weight:bold; color:#a5d6ff;">Nombre de la Habilidad</label>
+                            <input type="text" id="skill-editor-name" value="${skill.name}" placeholder="ej. Dibujar Imagen" style="background:#161b22; border:1px solid #30363d; border-radius:4px; padding:6px; color:#fff; font-size:12px; outline:none;">
+                        </div>
+                    </div>
+                    
+                    <div style="display:flex; flex-direction:column; gap:4px;">
+                        <label style="font-size:11px; font-weight:bold; color:#a5d6ff;">Descripción corta</label>
+                        <input type="text" id="skill-editor-desc" value="${skill.description}" placeholder="Describe brevemente qué hace esta habilidad..." style="background:#161b22; border:1px solid #30363d; border-radius:4px; padding:6px; color:#fff; font-size:12px; outline:none;">
+                    </div>
+                    
+                    <div style="display:flex; flex-direction:column; gap:4px;">
+                        <label style="font-size:11px; font-weight:bold; color:#a5d6ff;">Instrucciones / System Prompt para la IA</label>
+                        <textarea id="skill-editor-prompt" placeholder="Indica a la IA bajo qué condiciones usar el formato [SKILL: id_habilidad argumentos]. Ej:\nCuando el usuario te pida dibujar una imagen, responde con [SKILL: gen_imagen <descripción_detallada>]" style="background:#161b22; border:1px solid #30363d; border-radius:4px; padding:8px; color:#fff; font-size:12px; outline:none; min-height:80px; resize:vertical; font-family:inherit;">${skill.systemPrompt}</textarea>
+                    </div>
+
+                    <div style="display:flex; flex-direction:column; gap:4px;">
+                        <label style="font-size:11px; font-weight:bold; color:#a5d6ff;">Plantilla de Comando de Terminal (Opcional)</label>
+                        <input type="text" id="skill-editor-cmd" value="${skill.commandTemplate}" placeholder="ej. python skills/gen_imagen.py {args}" style="background:#161b22; border:1px solid #30363d; border-radius:4px; padding:6px; color:#fff; font-size:12px; outline:none; font-family:monospace;">
+                        <span style="font-size:9px; color:#8b949e;">Nota: Use {args} para interpolar los argumentos de la IA en la línea de comando.</span>
+                    </div>
+
+                    <div style="display:flex; flex-direction:column; gap:4px; flex:1;">
+                        <label style="font-size:11px; font-weight:bold; color:#a5d6ff;">Código de Script (Opcional - Python por defecto)</label>
+                        <textarea id="skill-editor-script" placeholder="# Código del script que se guardará en skills/id_habilidad.py\nimport sys\narguments = sys.argv[1:]\nprint('Procesando argumentos:', arguments)" style="background:#161b22; border:1px solid #30363d; border-radius:4px; padding:8px; color:#fff; font-size:11px; outline:none; flex:1; min-height:100px; font-family:monospace; resize:vertical;">${skill.scriptCode}</textarea>
+                    </div>
+                    
+                    <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:5px; border-top:1px solid #30363d; padding-top:10px;">
+                        <button id="btn-cancel-skill" style="background:#21262d; border:1px solid #30363d; color:#c9d1d9; padding:6px 16px; border-radius:6px; cursor:pointer; font-family:inherit; font-size:12px;">Cancelar</button>
+                        <button id="btn-save-skill" style="background:#7c3aed; color:#fff; border:none; padding:6px 16px; border-radius:6px; cursor:pointer; font-family:inherit; font-weight:bold; font-size:12px;">Guardar Habilidad</button>
+                    </div>
+                </div>
+            `;
+            
+            const editorWin = new NexusWindow({
+                id: 'nexus-win-skill-editor',
+                title: isEdit ? "Editar Habilidad: " + skill.name : 'Nueva Habilidad de IA',
+                icon: '🪄',
+                width: 600,
+                height: 520,
+                content: htmlContent
+            });
+            
+            document.getElementById('btn-cancel-skill').addEventListener('click', () => {
+                document.getElementById('nexus-win-skill-editor')?.remove();
+            });
+            
+            document.getElementById('btn-save-skill').addEventListener('click', () => {
+                const idInput = document.getElementById('skill-editor-id');
+                const nameInput = document.getElementById('skill-editor-name');
+                const descInput = document.getElementById('skill-editor-desc');
+                const promptInput = document.getElementById('skill-editor-prompt');
+                const cmdInput = document.getElementById('skill-editor-cmd');
+                const scriptInput = document.getElementById('skill-editor-script');
+                
+                const id = idInput.value.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+                const name = nameInput.value.trim();
+                const description = descInput.value.trim();
+                const systemPrompt = promptInput.value.trim();
+                const commandTemplate = cmdInput.value.trim();
+                const scriptCode = scriptInput.value.trim();
+                
+                if (!id || !name || !systemPrompt) {
+                    showToast("Por favor rellene el ID, Nombre e Instrucciones de la Habilidad.", "warning");
+                    return;
+                }
+                
+                const newSkill = {
+                    id,
+                    name,
+                    description,
+                    systemPrompt,
+                    commandTemplate,
+                    scriptCode,
+                    enabled: skill.enabled
+                };
+                
+                window.saveSkill(newSkill);
+                showToast("Habilidad guardada correctamente", "success");
+                document.getElementById('nexus-win-skill-editor')?.remove();
+                window.refreshSkillsUI();
+                renderExplorer();
+            });
+        };
+
+        window.getSkillsSystemPrompt = function() {
+            if (typeof window.getSkills !== 'function') return '';
+            const skills = window.getSkills().filter(s => s.enabled);
+            if (skills.length === 0) return '';
+            
+            let prompt = '\n\n=== HABILIDADES DE IA ADICIONALES (AI SKILLS) ===\n';
+            prompt += 'Tienes habilidades personalizadas instaladas por el usuario. Si necesitas usarlas para responder al usuario, responde INCLUYENDO EXACTAMENTE la etiqueta:\n';
+            prompt += '[SKILL: <id_habilidad> <argumentos>]\n\n';
+            prompt += 'Habilidades disponibles:\n';
+            skills.forEach(s => {
+                prompt += `- Habilidad ID: ${s.id}\n  Nombre: ${s.name}\n  Descripción: ${s.description}\n  Instrucciones de activación: ${s.systemPrompt}\n`;
+                if (s.commandTemplate) {
+                    prompt += `  Comando a ejecutar: ${s.commandTemplate}\n`;
+                }
+                prompt += '\n';
+            });
+            return prompt;
+        };
+
         // ==========================================
         // SISTEMA DE PLUGINS & MARKETPLACE DE NEXUS
         // ==========================================
@@ -7782,6 +8310,10 @@ except Exception as e:
 
         function renderExplorer() {
             const container = document.getElementById('file-tree-container');
+            if (!workspaceRoot) {
+                container.innerHTML = '<div style="padding:10px; color:#8b949e; text-align:center; font-size:12px;">Ningún proyecto abierto</div>';
+                return;
+            }
             container.innerHTML = buildTreeHtml(workspaceRoot);
             
             // Re-bind click listeners
@@ -8517,6 +9049,12 @@ except Exception as e:
             // textContent escapa automáticamente <, >, & — sin riesgo de XSS
             span.textContent = clean;
             container.appendChild(span);
+            
+            if (type === 'error' || clean.includes('Traceback') || clean.includes('Error') || clean.includes('error C')) {
+                if (typeof window.checkForErrorInTerminalText === 'function') {
+                    window.checkForErrorInTerminalText(clean);
+                }
+            }
 
             // Límite de líneas para evitar memory leak en sesiones largas
             const MAX_TERMINAL_CHILDREN = 2000;
@@ -9875,7 +10413,7 @@ WICHTIG! Wenn der Entwickler Sie auffordert, eine Datei zu erstellen, zu schreib
                 .replace('{workspaceRoot}', workspaceRoot)
                 .replace('{activeFilePath}', activeFilePath || (lang === 'es' ? 'ninguno' : 'none'))
                 .replace('{openFiles}', openFiles.join(', '))
-                .replace('{operatingSystem}', operatingSystemName);
+                .replace('{operatingSystem}', operatingSystemName) + (typeof window.getSkillsSystemPrompt === 'function' ? window.getSkillsSystemPrompt() : '');
         }
 
         function getChatSystemPrompt() {
@@ -9888,6 +10426,7 @@ WICHTIG! Wenn der Entwickler Sie auffordert, eine Datei zu erstellen, zu schreib
             if (airiInstructions.trim()) {
                 prompt += `\n\n[Instrucciones de Personalidad de AIRI (Actúa de esta manera)]\n${airiInstructions}`;
             }
+            prompt += (typeof window.getSkillsSystemPrompt === 'function' ? window.getSkillsSystemPrompt() : '');
             return prompt;
         }
 
@@ -11062,6 +11601,7 @@ WICHTIG! Wenn der Entwickler Sie auffordert, eine Datei zu erstellen, zu schreib
         }
 
         async function runAgentCodeValidation(coderCode) {
+            coderCode = normalizeAgentResponse(coderCode);
             const { exec } = require('child_process');
             
             // 1. Extraer y escribir archivos
@@ -11164,6 +11704,7 @@ ${plannerPlan}`;
                 
                 try {
                     coderCode = await sendRequestToAI(coder, coderPrompt, sysPrompt, currentHistory, signal);
+                    coderCode = normalizeAgentResponse(coderCode);
                     
                     // Validar código y comandos (escribiendo y probando autónomamente)
                     validationResult = await runAgentCodeValidation(coderCode);
@@ -11495,6 +12036,73 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
                 .replace(/'/g, "&#039;");
         }
 
+        function normalizeAgentResponse(text) {
+            if (!text) return '';
+            
+            const markdownCodeBlockRegex = /```([a-zA-Z0-9+#\-]+)?\n([\s\S]*?)```/g;
+            let lastIndex = 0;
+            let result = '';
+            let match;
+            
+            while ((match = markdownCodeBlockRegex.exec(text)) !== null) {
+                const startIndex = match.index;
+                const lang = match[1] ? match[1].trim() : '';
+                const content = match[2];
+                
+                result += text.substring(lastIndex, startIndex);
+                
+                let fileName = null;
+                const lines = content.split('\n');
+                if (lines.length > 0) {
+                    const commentRegex = /^\s*(?:\/\/#?|#|<!--|\/\*)\s*([\w\-\./\\]+\.[a-zA-Z0-9]+)\s*(?:-->|\*\/)?\s*$/;
+                    for (let i = 0; i < Math.min(2, lines.length); i++) {
+                        const m = lines[i].match(commentRegex);
+                        if (m) {
+                            fileName = m[1].trim();
+                            break;
+                        }
+                    }
+                }
+                
+                if (!fileName) {
+                    const searchArea = text.substring(Math.max(0, startIndex - 150), startIndex);
+                    const fileInTextRegex = /(?:archivo|file|crear|escribir|guardar|en|para|código\s+de)\s+(?:el\s+|la\s+)?`?([\w\-\./\\]+\.[a-zA-Z0-9]+)`?/i;
+                    const mText = searchArea.match(fileInTextRegex);
+                    if (mText) {
+                        fileName = mText[1].trim();
+                    }
+                }
+                
+                if (fileName) {
+                    const prevTextSlice = text.substring(Math.max(0, startIndex - 50), startIndex);
+                    if (prevTextSlice.includes('[WRITE_FILE:') || content.includes('[END_WRITE_FILE]')) {
+                        result += match[0];
+                    } else {
+                        result += `[WRITE_FILE: ${fileName}]\n${content}\n[END_WRITE_FILE]`;
+                    }
+                } else if (lang && ['bash', 'sh', 'powershell', 'cmd', 'shell', 'terminal'].includes(lang.toLowerCase())) {
+                    const prevTextSlice = text.substring(Math.max(0, startIndex - 50), startIndex);
+                    if (prevTextSlice.includes('[RUN_COMMAND]') || content.includes('[END_RUN_COMMAND]')) {
+                        result += match[0];
+                    } else {
+                        const cmdText = content.trim();
+                        if (cmdText && cmdText.split('\n').length <= 5) {
+                            result += `[RUN_COMMAND]\n${cmdText}\n[END_RUN_COMMAND]`;
+                        } else {
+                            result += match[0];
+                        }
+                    }
+                } else {
+                    result += match[0];
+                }
+                
+                lastIndex = markdownCodeBlockRegex.lastIndex;
+            }
+            
+            result += text.substring(lastIndex);
+            return result;
+        }
+
         function parseAgentActions(text) {
             const actions = [];
             const run3DScriptRegex = /\[RUN_3D_SCRIPT\]([\s\S]*?)\[END_RUN_3D_SCRIPT\]/g;
@@ -11526,11 +12134,54 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
                 });
             }
 
+            // Parse skill tags: [SKILL: id arguments]
+            const skillRegex = /\[SKILL:\s*([a-zA-Z0-9_]+?)(?:\s+([\s\S]*?))?\]/g;
+            while ((match = skillRegex.exec(text)) !== null) {
+                const skillId = match[1].trim();
+                const args = match[2] ? match[2].trim() : '';
+                actions.push({
+                    type: 'run_skill',
+                    skillId: skillId,
+                    args: args,
+                    label: `Ejecutar Habilidad IA: ${skillId}`
+                });
+            }
+
             return actions;
         }
 
         function showActionPermissionsModal(actions) {
             return new Promise((resolve) => {
+                // Notificación Nativa del Sistema
+                try {
+                    if (typeof Notification !== 'undefined') {
+                        const showNotification = () => {
+                            const notifText = actions.map(act => `• ${act.label}`).join('\n');
+                            const notif = new Notification('🛡️ Nexus IDE: Solicitud de Permiso', {
+                                body: `AIRI solicita realizar las siguientes acciones:\n${notifText}`,
+                                requireInteraction: true
+                            });
+                            notif.onclick = () => {
+                                if (typeof ipcRenderer !== 'undefined') {
+                                    ipcRenderer.send('focus-window');
+                                }
+                            };
+                        };
+                        
+                        if (Notification.permission === 'granted') {
+                            showNotification();
+                        } else if (Notification.permission !== 'denied') {
+                            Notification.requestPermission().then(permission => {
+                                if (permission === 'granted') {
+                                    showNotification();
+                                }
+                            });
+                        }
+                    }
+                } catch(e) {
+                    console.error("Error al disparar notificación nativa:", e);
+                }
+
                 const backdrop = document.createElement('div');
                 backdrop.id = 'nexus-agent-permission-backdrop';
                 backdrop.style.cssText = `
@@ -11666,6 +12317,7 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
         }
 
         async function executeAgentCommands(text) {
+            text = normalizeAgentResponse(text);
             const actions = parseAgentActions(text);
             if (actions.length === 0) return false;
 
@@ -11745,6 +12397,45 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
                     showToast(`Agente ejecutando: ${action.command}`, 'info');
                     sendTerminalCommand(action.command);
                     executed = true;
+                } else if (action.type === 'run_skill') {
+                    showToast("Agente ejecutando Habilidad: " + action.skillId, "info");
+                    
+                    const skillId = action.skillId;
+                    const args = action.args;
+                    const skills = window.getSkills();
+                    const skill = skills.find(s => s.id === skillId);
+                    
+                    if (!skill) {
+                        showToast("Habilidad '" + skillId + "' no encontrada", "error");
+                        continue;
+                    }
+                    
+                    let commandToRun = skill.commandTemplate || '';
+                    if (commandToRun) {
+                        commandToRun = commandToRun.replace(/{args}/g, args);
+                        sendTerminalCommand(commandToRun);
+                        executed = true;
+                    } else if (skill.scriptCode) {
+                        const isNode = skill.scriptCode.includes('require(') || skill.scriptCode.includes('const ') || skill.scriptCode.includes('let ');
+                        const ext = isNode ? '.js' : '.py';
+                        const runner = isNode ? 'node' : 'python';
+                        const scriptPath = path.join(workspaceRoot, 'skills', skillId + ext);
+                        
+                        try {
+                            const parent = path.dirname(scriptPath);
+                            if (!fs.existsSync(parent)) fs.mkdirSync(parent, { recursive: true });
+                            fs.writeFileSync(scriptPath, skill.scriptCode, 'utf8');
+                            
+                            const fullCmd = runner + ' "' + scriptPath + '" ' + args;
+                            showToast("Ejecutando script de habilidad: " + fullCmd, "info");
+                            sendTerminalCommand(fullCmd);
+                            executed = true;
+                        } catch(e) {
+                            showToast("Error al guardar/ejecutar script: " + e.message, "error");
+                        }
+                    } else {
+                        showToast("La habilidad '" + skillId + "' no tiene comando ni script configurado", "warning");
+                    }
                 }
             }
 
@@ -12729,6 +13420,10 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
         }
 
         async function showIde() {
+            if (localStorage.getItem('nexus_requirements_ok') === 'true') {
+                proceedToShowIde();
+                return;
+            }
             // Pre-check silencioso: verificar si ya están instaladas sin mostrar UI
             const silentResults = await Promise.all(
                 requirements.map(req => verifyRequirement(req))
@@ -12747,6 +13442,7 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
         }
 
             function proceedToShowIde() {
+                localStorage.setItem('nexus_requirements_ok', 'true');
                 splashScreen.style.opacity = '0';
                 setTimeout(() => {
                     splashScreen.style.display = 'none';
@@ -12754,14 +13450,23 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
                     ideContainer.style.display = 'flex';
                     setTimeout(() => { ideContainer.style.opacity = '1'; }, 50);
                     initializeIdeCore();
-                    // Abrir automáticamente el Centro de Inicio (Home) & Proyectos
+                    // Restaurar el proyecto anterior si está guardado en localStorage, de lo contrario abrir Dashboard
                     setTimeout(() => {
-                        openProjectDashboardModal();
+                        if (workspaceRoot) {
+                            if (window.selectProjectTab) {
+                                const prevRoot = workspaceRoot;
+                                workspaceRoot = '';
+                                window.selectProjectTab(prevRoot);
+                            }
+                        } else {
+                            openProjectDashboardModal();
+                        }
                     }, 250);
                 }, 300);
             }
 
             document.getElementById('btn-req-skip').addEventListener('click', () => {
+                localStorage.setItem('nexus_requirements_ok', 'true');
                 const reqScreen = document.getElementById('nexus-requirements-screen');
                 reqScreen.style.display = 'none';
                 proceedToShowIde();
@@ -13592,6 +14297,15 @@ void AMyActor::Tick(float DeltaTime)
             };
 
             function initializeIdeCore() {
+                // Solicitar permisos de notificación nativa
+                try {
+                    if (typeof Notification !== 'undefined' && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+                        Notification.requestPermission();
+                    }
+                } catch(notifErr) {
+                    console.error("Error al solicitar permisos de notificación:", notifErr);
+                }
+
                 autoDetectEnginePaths();
                 setPerspective('code');
                 syncEngineUI();
@@ -13601,9 +14315,10 @@ void AMyActor::Tick(float DeltaTime)
                 applySettings(getSavedSettings());
 
                 // Crear un script de ejemplo para probar el motor 3D si no existe
-                const scriptJuegoPath = path.join(workspaceRoot, 'script_juego.js');
-                if (!fs.existsSync(scriptJuegoPath)) {
-                    const sampleCode = `// Script de prueba para el Motor 3D de Nexus IDE
+                if (workspaceRoot && fs && path) {
+                    const scriptJuegoPath = path.join(workspaceRoot, 'script_juego.js');
+                    if (!fs.existsSync(scriptJuegoPath)) {
+                        const sampleCode = `// Script de prueba para el Motor 3D de Nexus IDE
 // Puedes vincular este código al Motor 3D haciendo clic en "🔗 Vincular Código Monaco".
 //
 // El motor ejecutará esta función en cada fotograma del render loop,
@@ -13618,10 +14333,11 @@ if (mesh) {
     mesh.position.y = 0.75 + Math.sin(Date.now() * 0.003) * 0.5;
 }
 `;
-                    try {
-                        fs.writeFileSync(scriptJuegoPath, sampleCode, 'utf8');
-                    } catch(e) {
-                        console.error("Error al crear script de ejemplo: ", e);
+                        try {
+                            fs.writeFileSync(scriptJuegoPath, sampleCode, 'utf8');
+                        } catch(e) {
+                            console.error("Error al crear script de ejemplo: ", e);
+                        }
                     }
                 }
 
@@ -13642,6 +14358,34 @@ if (mesh) {
                 // Inicializar extensiones
                 initExtensions();
 
+                // Definir funciones para controlar el estado de OpenClaw (Remote Bot)
+                window.getOpenClawActive = () => {
+                    return localStorage.getItem('nexus_remote_enabled') === 'true';
+                };
+                
+                window.updateOpenClawUI = () => {
+                    const enabled = window.getOpenClawActive();
+                    const indicator = document.getElementById('status-openclaw-indicator');
+                    if (indicator) {
+                        indicator.textContent = enabled ? '🤖 OpenClaw: Encendido' : '🤖 OpenClaw: Apagado';
+                        indicator.style.color = enabled ? '#3fb950' : '#ff7b72';
+                    }
+                };
+                
+                window.toggleOpenClawState = (state) => {
+                    localStorage.setItem('nexus_remote_enabled', state ? 'true' : 'false');
+                    window.updateOpenClawUI();
+                    
+                    if (typeof ipcRenderer !== 'undefined') {
+                        const token = localStorage.getItem('nexus_remote_token') || '';
+                        const chatId = localStorage.getItem('nexus_remote_chat_id') || '';
+                        const security = localStorage.getItem('nexus_remote_security') || 'confirm';
+                        ipcRenderer.send('update-remote-bot', { enabled: state, token, chatId, security });
+                    }
+                    
+                    showToast(state ? "OpenClaw Daemon Activado" : "OpenClaw Daemon Desactivado", state ? "success" : "info");
+                };
+
                 // Sincronizar estado del bot de control remoto al arrancar la app
                 if (typeof ipcRenderer !== 'undefined') {
                     const enabled = localStorage.getItem('nexus_remote_enabled') === 'true';
@@ -13650,6 +14394,8 @@ if (mesh) {
                     const security = localStorage.getItem('nexus_remote_security') || 'confirm';
                     ipcRenderer.send('update-remote-bot', { enabled, token, chatId, security });
                 }
+                
+                window.updateOpenClawUI();
 
                 // Vincular eventos del buscador global
                 document.getElementById('btnSearchGlobal').addEventListener('click', () => {
@@ -13673,6 +14419,7 @@ if (mesh) {
                   document.getElementById('panel-git').classList.add('hidden');
                   document.getElementById('panel-search').classList.add('hidden');
                   document.getElementById('panel-extensions').classList.add('hidden');
+                   document.getElementById('panel-skills').classList.add('hidden');
                   document.getElementById('panel-todotree').classList.add('hidden');
                   document.getElementById('panel-telemetry').classList.add('hidden');
                   document.getElementById('panel-docker').classList.add('hidden');
@@ -13690,6 +14437,10 @@ if (mesh) {
                         else if (target === 'git') togglePanel('panel-git');
                         else if (target === 'search') togglePanel('panel-search');
                         else if (target === 'extensions') togglePanel('panel-extensions');
+                         else if (target === 'skills') {
+                             togglePanel('panel-skills');
+                             if (typeof window.refreshSkillsUI === 'function') window.refreshSkillsUI();
+                         }
                         else if (target === 'engines') togglePanel('panel-engines');
                         else if (target === 'todotree') {
                             togglePanel('panel-todotree');
@@ -14416,6 +15167,9 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                         btn.classList.add('active');
                         chatMode = btn.dataset.tab;
                         chatHistory = []; // Reiniciar historial al cambiar de modo
+                        if (typeof window.saveActiveProjectContext === 'function') {
+                            window.saveActiveProjectContext();
+                        }
                         const isAgent = chatMode === 'agent';
                         document.getElementById('agent-badge').style.display = isAgent ? 'inline-block' : 'none';
                         document.getElementById('agent-border').style.display = isAgent ? 'block' : 'none';
@@ -14712,13 +15466,14 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                                     originalLoadingMsg.remove();
                                     approvalCard.remove();
 
-                                    chatHistory.push({ role: 'assistant', content: results.reviewer.response });
+                                    const normalizedReviewerResponse = normalizeAgentResponse(results.reviewer.response);
+                                    chatHistory.push({ role: 'assistant', content: normalizedReviewerResponse });
 
                                     const botMsg = document.createElement('div');
                                     botMsg.style.cssText = `margin-right:20px; margin-bottom:10px; width: calc(100% - 20px); word-break: break-word;`;
 
                                     const coderHtml = formatMarkdown(results.coder.response);
-                                    const reviewerHtml = formatAgentActions(results.reviewer.response);
+                                    const reviewerHtml = formatAgentActions(normalizedReviewerResponse);
 
                                     botMsg.innerHTML = `
                                         <div class="collaborative-response-card" style="border: 1px solid rgba(124, 58, 237, 0.4); border-radius: 8px; background: #0d1117; overflow: hidden; margin-bottom: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); width: 100%;">
@@ -14764,9 +15519,9 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                                     chatMessages.appendChild(botMsg);
                                     chatMessages.scrollTop = chatMessages.scrollHeight;
 
-                                    if (typeof window.speakAiri === 'function') window.speakAiri(results.reviewer.response);
+                                    if (typeof window.speakAiri === 'function') window.speakAiri(normalizedReviewerResponse);
 
-                                    await executeAgentCommands(results.reviewer.response);
+                                    await executeAgentCommands(normalizedReviewerResponse);
 
                                 } catch(err) {
                                     if (err.name === 'AbortError') {
@@ -14778,6 +15533,9 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                                     approvalCard.remove();
                                 } finally {
                                     setChatRunningState(false);
+                                    if (typeof window.saveActiveProjectContext === 'function') {
+                                        window.saveActiveProjectContext();
+                                    }
                                 }
                             });
 
@@ -14858,8 +15616,11 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                                 chatHistory = chatHistory.slice(-10);
                             }
 
-                            const response = await sendRequestToAI(selectedModelId, textWithContextAndAttachments, sysPrompt, chatHistory.slice(0, -1), chatAbortController.signal, imgAttachments);
+                            let response = await sendRequestToAI(selectedModelId, textWithContextAndAttachments, sysPrompt, chatHistory.slice(0, -1), chatAbortController.signal, imgAttachments);
                             loadingMsg.remove();
+
+                            // Normalizar la respuesta para convertir bloques de código Markdown a tags de acción executables
+                            response = normalizeAgentResponse(response);
 
                             // Registrar la respuesta en el historial
                             chatHistory.push({ role: 'assistant', content: response });
@@ -14900,6 +15661,9 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                         chatMessages.scrollTop = chatMessages.scrollHeight;
                     } finally {
                         setChatRunningState(false);
+                        if (typeof window.saveActiveProjectContext === 'function') {
+                            window.saveActiveProjectContext();
+                        }
                     }
                 });
 
