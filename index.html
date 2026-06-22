@@ -14792,6 +14792,19 @@ void AMyActor::Tick(float DeltaTime)
                 const cfg = parseFloat(document.getElementById('video-cfg').value);
                 const imagePath = document.getElementById('video-image-path').value;
                 
+                if (!comfyPath) {
+                    showToast("Por favor, configura primero la ruta local de ComfyUI", "error");
+                    return;
+                }
+
+                // Verificar si los modelos están instalados antes de generar
+                const statusRes = await require('electron').ipcRenderer.invoke('check-comfy-model-status', { modelType: model, comfyPath });
+                if (statusRes.status !== 'exists') {
+                    showToast("Por favor, descarga los modelos requeridos en el Gestor de Modelos antes de generar.", "warning");
+                    switchVideoTab('models');
+                    return;
+                }
+                
                 if (!prompt && model !== 'svd-img2vid') {
                     showToast("Por favor, ingresa una descripción (prompt)", "error");
                     return;
