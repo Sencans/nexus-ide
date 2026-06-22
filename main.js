@@ -818,9 +818,9 @@ ipcMain.handle('download-comfy-model', async (event, { modelType, comfyPath }) =
                 filename: 'clip_l.safetensors'
             },
             {
-                url: 'https://huggingface.co/Lightricks/LTX-Video/resolve/main/vae/diffusion_pytorch_model.safetensors',
+                url: 'https://huggingface.co/city96/LTX-Video-gguf/resolve/main/LTX-Video-VAE-BF16.safetensors',
                 subDir: 'models/vae',
-                filename: 'ltx_video_vae.safetensors'
+                filename: 'LTX-Video-VAE-BF16.safetensors'
             }
         ],
         'ltx-video-heavy': [
@@ -1022,7 +1022,7 @@ ipcMain.handle('check-comfy-model-status', async (event, { modelType, comfyPath 
             { subDir: 'models/unet', filename: 'ltx-video-2b-v0.9-Q8_0.gguf' },
             { subDir: 'models/clip', filename: 'gemma_2_2b_it_elm_fp8_scaled.safetensors' },
             { subDir: 'models/clip', filename: 'clip_l.safetensors' },
-            { subDir: 'models/vae', filename: 'ltx_video_vae.safetensors' }
+            { subDir: 'models/vae', filename: 'LTX-Video-VAE-BF16.safetensors' }
         ],
         'ltx-video-heavy': [
             { subDir: 'models/checkpoints', filename: 'ltx-video-2b-v0.9.safetensors' }
