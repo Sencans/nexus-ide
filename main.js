@@ -28,7 +28,7 @@ function createWindow () {
   mainWindow.show();
   mainWindow.focus();
   startHardwareTelemetry();
-  mainWindow.webContents.openDevTools(); // Descomentar para ver la consola de errores
+  // mainWindow.webContents.openDevTools(); // Descomentar para ver la consola de errores
 
   // Configurar Menú de Aplicación con soporte nativo de Zoom y atajos
   const menuTemplate = [
@@ -801,7 +801,29 @@ ipcMain.handle('download-comfy-model', async (event, { modelType, comfyPath }) =
     if (!target) throw new Error("Modelo de video desconocido");
     if (!comfyPath) throw new Error("La ruta de instalación de ComfyUI no está configurada");
     
-    const destDir = path.join(comfyPath, target.subDir);
+    let resolvedComfyPath = comfyPath;
+    if (comfyPath.toLowerCase().endsWith('.lnk')) {
+        try {
+            const { shell } = require('electron');
+            const shortcut = shell.readShortcutLink(comfyPath);
+            if (shortcut && shortcut.target) {
+                resolvedComfyPath = shortcut.target;
+            }
+        } catch (e) {
+            throw new Error("No se pudo resolver el acceso directo de ComfyUI: " + e.message);
+        }
+    }
+    
+    try {
+        if (fs.existsSync(resolvedComfyPath)) {
+            const stat = fs.statSync(resolvedComfyPath);
+            if (stat.isFile()) {
+                resolvedComfyPath = path.dirname(resolvedComfyPath);
+            }
+        }
+    } catch(e) {}
+    
+    const destDir = path.join(resolvedComfyPath, target.subDir);
     if (!fs.existsSync(destDir)) {
         fs.mkdirSync(destDir, { recursive: true });
     }
@@ -881,7 +903,28 @@ ipcMain.handle('check-comfy-model-status', async (event, { modelType, comfyPath 
     };
     const target = urls[modelType];
     if (!target || !comfyPath) return { status: 'missing' };
-    const destFile = path.join(comfyPath, target.subDir, target.filename);
+    
+    let resolvedComfyPath = comfyPath;
+    if (comfyPath.toLowerCase().endsWith('.lnk')) {
+        try {
+            const { shell } = require('electron');
+            const shortcut = shell.readShortcutLink(comfyPath);
+            if (shortcut && shortcut.target) {
+                resolvedComfyPath = shortcut.target;
+            }
+        } catch (e) {}
+    }
+    
+    try {
+        if (fs.existsSync(resolvedComfyPath)) {
+            const stat = fs.statSync(resolvedComfyPath);
+            if (stat.isFile()) {
+                resolvedComfyPath = path.dirname(resolvedComfyPath);
+            }
+        }
+    } catch(e) {}
+    
+    const destFile = path.join(resolvedComfyPath, target.subDir, target.filename);
     if (fs.existsSync(destFile)) {
         return { status: 'exists', path: destFile };
     }
