@@ -106,6 +106,17 @@ ipcMain.handle('select-images', async () => {
   return result.filePaths;
 });
 
+// Handler para seleccionar cualquier archivo genérico
+ipcMain.handle('select-file', async (event, options) => {
+  const result = await dialog.showOpenDialog({
+    properties: ['openFile'],
+    title: options?.title || 'Seleccionar archivo',
+    filters: options?.filters || []
+  });
+  if (result.canceled || result.filePaths.length === 0) return null;
+  return result.filePaths;
+});
+
 // Helper para obtener la dirección IP local de la red WiFi/Ethernet
 const os = require('os');
 const http = require('http');
