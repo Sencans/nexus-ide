@@ -1365,9 +1365,12 @@
                         <div>
                             <label style="font-size: 11px; font-weight: bold; color: #8b949e; display: block; margin-bottom: 4px;">Modelo de Video</label>
                             <select id="video-model-select" style="width: 100%; background: #161b22; border: 1px solid #30363d; border-radius: 4px; color: #fff; padding: 6px; font-size: 12px; outline: none; font-family: inherit;" onchange="onVideoModelChange()">
-                                <option value="ltx-video">LTX-Video GGUF (Texto ➔ Video)</option>
-                                <option value="hunyuan-video">HunyuanVideo GGUF (Texto ➔ Video)</option>
-                                <option value="svd-img2vid">SVD XT fp8 (Imagen ➔ Video)</option>
+                                <option value="ltx-video">LTX-Video GGUF (Ligero - Texto ➔ Video)</option>
+                                <option value="ltx-video-heavy">LTX-Video SFT FP16 (Pesado - Texto ➔ Video)</option>
+                                <option value="hunyuan-video">HunyuanVideo GGUF (Ligero - Texto ➔ Video)</option>
+                                <option value="hunyuan-video-heavy">HunyuanVideo FP8 (Pesado - Texto ➔ Video)</option>
+                                <option value="svd-img2vid">SVD XT fp8 (Ligero - Imagen ➔ Video)</option>
+                                <option value="svd-img2vid-heavy">SVD XT FP16 (Pesado - Imagen ➔ Video)</option>
                                 <option value="cog-video">CogVideoX-2B GGUF (Texto ➔ Video)</option>
                             </select>
                         </div>
@@ -1431,42 +1434,66 @@
                     <!-- Pestaña 2: Gestor de Modelos -->
                     <div id="video-subpanel-models" style="display: none; flex-direction: column; gap: 10px;">
                         <p style="margin: 0; font-size: 10px; color: #8b949e; line-height: 1.4;">
-                            Descarga modelos cuantizados altamente optimizados para ejecutarse de manera eficiente en GPUs de consumo. Se guardarán en tu instalación de ComfyUI.
+                            Descarga modelos ligeros (cuantizados) o pesados (originales) para ComfyUI según la potencia de tu GPU.
                         </p>
 
-                        <!-- Modelo A: LTX-Video -->
+                        <!-- LTX-Video -->
                         <div style="background: rgba(255,255,255,0.01); border: 1px solid #30363d; border-radius: 6px; padding: 8px; display: flex; flex-direction: column; gap: 6px;">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <span style="font-weight: bold; color: #58a6ff; font-size: 11px;">LTX-Video GGUF (Lightweight)</span>
-                                <span style="font-size: 10px; color: #8b949e; background: #21262d; padding: 1px 5px; border-radius: 3px;">~2.1 GB</span>
+                            <span style="font-weight: bold; color: #58a6ff; font-size: 11px;">LTX-Video (Texto ➔ Video)</span>
+                            
+                            <div style="display:flex; flex-direction:column; gap:4px; border-bottom: 1px solid #21262d; padding-bottom: 6px; margin-bottom: 2px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; font-size:10px;">
+                                    <span style="color:#e6edf3;">Versión Ligera GGUF (~2.1 GB)</span>
+                                    <div id="video-dl-container-ltx">
+                                        <button onclick="downloadComfyModel('ltx-video')" style="background: #21262d; border: 1px solid #30363d; border-radius: 4px; color: #fff; font-size: 9px; padding: 3px 6px; cursor: pointer; font-family: inherit;">⬇️ Descargar</button>
+                                    </div>
+                                </div>
                             </div>
-                            <div style="font-size: 10px; color: #8b949e;">Modelo T2V súper veloz, excelente calidad en 480p/720p. Funciona en GPUs de 8GB VRAM.</div>
-                            <div id="video-dl-container-ltx" style="display: flex; flex-direction: column; gap: 4px;">
-                                <button onclick="downloadComfyModel('ltx-video')" style="background: #21262d; border: 1px solid #30363d; border-radius: 4px; color: #fff; font-size: 11px; padding: 5px; cursor: pointer; font-weight: bold; font-family: inherit;">⬇️ Descargar Modelo</button>
+                            <div style="display:flex; justify-content:space-between; align-items:center; font-size:10px;">
+                                <span style="color:#e6edf3;">Versión Pesada SFT FP16 (~5.4 GB)</span>
+                                <div id="video-dl-container-ltx-heavy">
+                                    <button onclick="downloadComfyModel('ltx-video-heavy')" style="background: #21262d; border: 1px solid #30363d; border-radius: 4px; color: #fff; font-size: 9px; padding: 3px 6px; cursor: pointer; font-family: inherit;">⬇️ Descargar</button>
+                                </div>
                             </div>
                         </div>
 
-                        <!-- Modelo B: HunyuanVideo -->
+                        <!-- HunyuanVideo -->
                         <div style="background: rgba(255,255,255,0.01); border: 1px solid #30363d; border-radius: 6px; padding: 8px; display: flex; flex-direction: column; gap: 6px;">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <span style="font-weight: bold; color: #58a6ff; font-size: 11px;">HunyuanVideo GGUF (Quantized)</span>
-                                <span style="font-size: 10px; color: #8b949e; background: #21262d; padding: 1px 5px; border-radius: 3px;">~4.6 GB</span>
+                            <span style="font-weight: bold; color: #58a6ff; font-size: 11px;">HunyuanVideo (Texto ➔ Video)</span>
+                            
+                            <div style="display:flex; flex-direction:column; gap:4px; border-bottom: 1px solid #21262d; padding-bottom: 6px; margin-bottom: 2px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; font-size:10px;">
+                                    <span style="color:#e6edf3;">Versión Ligera GGUF (~4.6 GB)</span>
+                                    <div id="video-dl-container-hunyuan">
+                                        <button onclick="downloadComfyModel('hunyuan-video')" style="background: #21262d; border: 1px solid #30363d; border-radius: 4px; color: #fff; font-size: 9px; padding: 3px 6px; cursor: pointer; font-family: inherit;">⬇️ Descargar</button>
+                                    </div>
+                                </div>
                             </div>
-                            <div style="font-size: 10px; color: #8b949e;">Modelo de alta fidelidad, excelente para físicas de movimiento complejo. Requiere 12GB VRAM.</div>
-                            <div id="video-dl-container-hunyuan" style="display: flex; flex-direction: column; gap: 4px;">
-                                <button onclick="downloadComfyModel('hunyuan-video')" style="background: #21262d; border: 1px solid #30363d; border-radius: 4px; color: #fff; font-size: 11px; padding: 5px; cursor: pointer; font-weight: bold; font-family: inherit;">⬇️ Descargar Modelo</button>
+                            <div style="display:flex; justify-content:space-between; align-items:center; font-size:10px;">
+                                <span style="color:#e6edf3;">Versión Pesada FP8 (~15 GB)</span>
+                                <div id="video-dl-container-hunyuan-heavy">
+                                    <button onclick="downloadComfyModel('hunyuan-video-heavy')" style="background: #21262d; border: 1px solid #30363d; border-radius: 4px; color: #fff; font-size: 9px; padding: 3px 6px; cursor: pointer; font-family: inherit;">⬇️ Descargar</button>
+                                </div>
                             </div>
                         </div>
 
-                        <!-- Modelo C: SVD XT -->
+                        <!-- SVD XT -->
                         <div style="background: rgba(255,255,255,0.01); border: 1px solid #30363d; border-radius: 6px; padding: 8px; display: flex; flex-direction: column; gap: 6px;">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <span style="font-weight: bold; color: #58a6ff; font-size: 11px;">SVD XT fp8 (Image-to-Video)</span>
-                                <span style="font-size: 10px; color: #8b949e; background: #21262d; padding: 1px 5px; border-radius: 3px;">~4.8 GB</span>
+                            <span style="font-weight: bold; color: #58a6ff; font-size: 11px;">Stable Video Diffusion (Imagen ➔ Video)</span>
+                            
+                            <div style="display:flex; flex-direction:column; gap:4px; border-bottom: 1px solid #21262d; padding-bottom: 6px; margin-bottom: 2px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; font-size:10px;">
+                                    <span style="color:#e6edf3;">Versión Ligera FP8 (~4.8 GB)</span>
+                                    <div id="video-dl-container-svd">
+                                        <button onclick="downloadComfyModel('svd-img2vid')" style="background: #21262d; border: 1px solid #30363d; border-radius: 4px; color: #fff; font-size: 9px; padding: 3px 6px; cursor: pointer; font-family: inherit;">⬇️ Descargar</button>
+                                    </div>
+                                </div>
                             </div>
-                            <div style="font-size: 10px; color: #8b949e;">Modelo para animar imágenes estáticas de forma cinemática. Requiere 10GB VRAM.</div>
-                            <div id="video-dl-container-svd" style="display: flex; flex-direction: column; gap: 4px;">
-                                <button onclick="downloadComfyModel('svd-img2vid')" style="background: #21262d; border: 1px solid #30363d; border-radius: 4px; color: #fff; font-size: 11px; padding: 5px; cursor: pointer; font-weight: bold; font-family: inherit;">⬇️ Descargar Modelo</button>
+                            <div style="display:flex; justify-content:space-between; align-items:center; font-size:10px;">
+                                <span style="color:#e6edf3;">Versión Pesada FP16 (~9.5 GB)</span>
+                                <div id="video-dl-container-svd-heavy">
+                                    <button onclick="downloadComfyModel('svd-img2vid-heavy')" style="background: #21262d; border: 1px solid #30363d; border-radius: 4px; color: #fff; font-size: 9px; padding: 3px 6px; cursor: pointer; font-family: inherit;">⬇️ Descargar</button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -14460,18 +14487,27 @@ void AMyActor::Tick(float DeltaTime)
 
             function checkAllVideoModelsStatus() {
                 const comfyPath = document.getElementById('video-comfy-path').value.trim();
-                const modelTypes = ['ltx-video', 'hunyuan-video', 'svd-img2vid'];
+                const modelTypes = ['ltx-video', 'ltx-video-heavy', 'hunyuan-video', 'hunyuan-video-heavy', 'svd-img2vid', 'svd-img2vid-heavy'];
                 const ipcRenderer = require('electron').ipcRenderer;
                 
+                const containerIdMap = {
+                    'ltx-video': 'video-dl-container-ltx',
+                    'ltx-video-heavy': 'video-dl-container-ltx-heavy',
+                    'hunyuan-video': 'video-dl-container-hunyuan',
+                    'hunyuan-video-heavy': 'video-dl-container-hunyuan-heavy',
+                    'svd-img2vid': 'video-dl-container-svd',
+                    'svd-img2vid-heavy': 'video-dl-container-svd-heavy'
+                };
+
                 modelTypes.forEach(modelType => {
                     ipcRenderer.invoke('check-comfy-model-status', { modelType, comfyPath })
                         .then(res => {
-                            const btnContainer = document.getElementById('video-dl-container-' + modelType.split('-')[0]);
+                            const btnContainer = document.getElementById(containerIdMap[modelType]);
                             if (btnContainer) {
                                 if (res.status === 'exists') {
                                     btnContainer.innerHTML = `<span style="color: #3fb950; font-size: 11px; font-weight: bold;">🟢 Instalado</span>`;
                                 } else {
-                                    btnContainer.innerHTML = `<button onclick="downloadComfyModel('${modelType}')" style="background: #21262d; border: 1px solid #30363d; border-radius: 4px; color: #fff; font-size: 11px; padding: 5px; cursor: pointer; font-weight: bold; font-family: inherit; width: 100%;">⬇️ Descargar Modelo</button>`;
+                                    btnContainer.innerHTML = `<button onclick="downloadComfyModel('${modelType}')" style="background: #21262d; border: 1px solid #30363d; border-radius: 4px; color: #fff; font-size: 9px; padding: 3px 6px; cursor: pointer; font-family: inherit;">⬇️ Descargar</button>`;
                                 }
                             }
                         })
@@ -14488,10 +14524,18 @@ void AMyActor::Tick(float DeltaTime)
                 }
                 
                 const logEl = document.getElementById('video-console-log');
-                const btnContainer = document.getElementById('video-dl-container-' + modelType.split('-')[0]);
+                const containerIdMap = {
+                    'ltx-video': 'video-dl-container-ltx',
+                    'ltx-video-heavy': 'video-dl-container-ltx-heavy',
+                    'hunyuan-video': 'video-dl-container-hunyuan',
+                    'hunyuan-video-heavy': 'video-dl-container-hunyuan-heavy',
+                    'svd-img2vid': 'video-dl-container-svd',
+                    'svd-img2vid-heavy': 'video-dl-container-svd-heavy'
+                };
+                const btnContainer = document.getElementById(containerIdMap[modelType]);
                 
                 if (btnContainer) {
-                    btnContainer.innerHTML = `<span style="color: #facc15; font-size: 11px; font-weight: bold;">⏳ Descargando: <span id="dl-progress-${modelType}">0%</span></span>`;
+                    btnContainer.innerHTML = `<span style="color: #facc15; font-size: 10px; font-weight: bold;">⏳ Descargando: <span id="dl-progress-${modelType}">0%</span></span>`;
                 }
                 
                 const addLog = (msg) => {
@@ -14553,10 +14597,10 @@ void AMyActor::Tick(float DeltaTime)
                 const negContainer = document.getElementById('video-neg-prompt-container');
                 const imgContainer = document.getElementById('video-img-input-container');
                 
-                if (model === 'svd-img2vid') {
+                if (model === 'svd-img2vid' || model === 'svd-img2vid-heavy') {
                     negContainer.style.display = 'none';
                     imgContainer.style.display = 'block';
-                } else if (model === 'hunyuan-video' || model === 'cog-video') {
+                } else if (model === 'hunyuan-video' || model === 'hunyuan-video-heavy' || model === 'cog-video') {
                     negContainer.style.display = 'block';
                     imgContainer.style.display = 'none';
                 } else {
@@ -14690,6 +14734,16 @@ void AMyActor::Tick(float DeltaTime)
                                 "10": { "inputs": { "ckpt_name": "ltx_video_q8_0.gguf" }, "class_type": "LTXVideoLoader" },
                                 "11": { "inputs": { "images": ["8", 0], "fps": 16, "filename_prefix": "nexus_ltx" }, "class_type": "VHS_VideoCombine" }
                             };
+                        } else if (model === 'ltx-video-heavy') {
+                            workflow = {
+                                "3": { "inputs": { "seed": seed, "steps": steps, "cfg": cfg, "sampler_name": "euler", "scheduler": "normal", "denoise": 1, "model": ["10", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["5", 0] }, "class_type": "KSampler" },
+                                "5": { "inputs": { "width": width, "height": height, "length": frames, "batch_size": 1 }, "class_type": "EmptyHunyuanLatentVideo" },
+                                "6": { "inputs": { "text": prompt, "clip": ["10", 1] }, "class_type": "CLIPTextEncode" },
+                                "7": { "inputs": { "text": "ugly, deformed, low quality, static, blurry", "clip": ["10", 1] }, "class_type": "CLIPTextEncode" },
+                                "8": { "inputs": { "samples": ["3", 0], "vae": ["10", 2] }, "class_type": "VAEDecode" },
+                                "10": { "inputs": { "ckpt_name": "ltx_video_sft_v1.safetensors" }, "class_type": "LTXVideoLoader" },
+                                "11": { "inputs": { "images": ["8", 0], "fps": 16, "filename_prefix": "nexus_ltx" }, "class_type": "VHS_VideoCombine" }
+                            };
                         } else if (model === 'hunyuan-video') {
                             workflow = {
                                 "3": { "inputs": { "seed": seed, "steps": steps, "cfg": cfg, "sampler_name": "euler", "scheduler": "normal", "denoise": 1, "model": ["10", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["5", 0] }, "class_type": "KSampler" },
@@ -14700,7 +14754,26 @@ void AMyActor::Tick(float DeltaTime)
                                 "10": { "inputs": { "ckpt_name": "hunyuan_video_720_cfg_distill_q8_0.gguf" }, "class_type": "HunyuanVideoLoader" },
                                 "11": { "inputs": { "images": ["8", 0], "fps": 16, "filename_prefix": "nexus_hunyuan" }, "class_type": "VHS_VideoCombine" }
                             };
+                        } else if (model === 'hunyuan-video-heavy') {
+                            workflow = {
+                                "3": { "inputs": { "seed": seed, "steps": steps, "cfg": cfg, "sampler_name": "euler", "scheduler": "normal", "denoise": 1, "model": ["10", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["5", 0] }, "class_type": "KSampler" },
+                                "5": { "inputs": { "width": width, "height": height, "length": frames, "batch_size": 1 }, "class_type": "EmptyHunyuanLatentVideo" },
+                                "6": { "inputs": { "text": prompt, "clip": ["10", 1] }, "class_type": "CLIPTextEncode" },
+                                "7": { "inputs": { "text": negPrompt, "clip": ["10", 1] }, "class_type": "CLIPTextEncode" },
+                                "8": { "inputs": { "samples": ["3", 0], "vae": ["10", 2] }, "class_type": "VAEDecode" },
+                                "10": { "inputs": { "ckpt_name": "hunyuan_video_720_cfg_distill_fp8_e4m3fn.safetensors" }, "class_type": "HunyuanVideoLoader" },
+                                "11": { "inputs": { "images": ["8", 0], "fps": 16, "filename_prefix": "nexus_hunyuan" }, "class_type": "VHS_VideoCombine" }
+                            };
                         } else if (model === 'svd-img2vid') {
+                            workflow = {
+                                "1": { "inputs": { "ckpt_name": "svd_xt_fp8.safetensors" }, "class_type": "ImageOnlyCheckpointLoader" },
+                                "2": { "inputs": { "image": comfyImageFilename, "upload": "image" }, "class_type": "LoadImage" },
+                                "3": { "inputs": { "width": width, "height": height, "video_frames": frames, "motion_bucket_id": 127, "fps": 6, "augmentation_level": 0.0, "clip_vision": ["1", 1], "init_image": ["2", 0] }, "class_type": "SVD_img2vid_Conditioning" },
+                                "4": { "inputs": { "seed": seed, "steps": steps, "cfg": 2.5, "sampler_name": "euler", "scheduler": "karras", "denoise": 1.0, "model": ["1", 0], "positive": ["3", 0], "negative": ["3", 1], "latent_image": ["3", 2] }, "class_type": "KSampler" },
+                                "5": { "inputs": { "samples": ["4", 0], "vae": ["1", 2] }, "class_type": "VAEDecode" },
+                                "6": { "inputs": { "images": ["5", 0], "fps": 6, "filename_prefix": "nexus_svd" }, "class_type": "VHS_VideoCombine" }
+                            };
+                        } else if (model === 'svd-img2vid-heavy') {
                             workflow = {
                                 "1": { "inputs": { "ckpt_name": "svd_xt.safetensors" }, "class_type": "ImageOnlyCheckpointLoader" },
                                 "2": { "inputs": { "image": comfyImageFilename, "upload": "image" }, "class_type": "LoadImage" },

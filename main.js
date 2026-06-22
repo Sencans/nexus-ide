@@ -770,12 +770,27 @@ ipcMain.handle('download-comfy-model', async (event, { modelType, comfyPath }) =
             subDir: 'models/unet',
             filename: 'ltx_video_q8_0.gguf'
         },
+        'ltx-video-heavy': {
+            url: 'https://huggingface.co/Lightricks/LTX-Video/resolve/main/ltx_video_sft_v1.safetensors',
+            subDir: 'models/checkpoints',
+            filename: 'ltx_video_sft_v1.safetensors'
+        },
         'hunyuan-video': {
             url: 'https://huggingface.co/city96/HunyuanVideo-GGUF/resolve/main/hunyuan_video_720_cfg_distill_q8_0.gguf',
             subDir: 'models/unet',
             filename: 'hunyuan_video_720_cfg_distill_q8_0.gguf'
         },
+        'hunyuan-video-heavy': {
+            url: 'https://huggingface.co/tencent/HunyuanVideo/resolve/main/hunyuan_video_720_cfg_distill_fp8_e4m3fn.safetensors',
+            subDir: 'models/checkpoints',
+            filename: 'hunyuan_video_720_cfg_distill_fp8_e4m3fn.safetensors'
+        },
         'svd-img2vid': {
+            url: 'https://huggingface.co/Kijai/StableVideoDiffusion_for_AnimateDiff_testing/resolve/main/svd_xt_fp8.safetensors',
+            subDir: 'models/checkpoints',
+            filename: 'svd_xt_fp8.safetensors'
+        },
+        'svd-img2vid-heavy': {
             url: 'https://huggingface.co/stabilityai/stable-video-diffusion-img2vid-xt/resolve/main/svd_xt.safetensors',
             subDir: 'models/checkpoints',
             filename: 'svd_xt.safetensors'
@@ -858,8 +873,11 @@ ipcMain.handle('check-comfy-model-status', async (event, { modelType, comfyPath 
     
     const urls = {
         'ltx-video': { subDir: 'models/unet', filename: 'ltx_video_q8_0.gguf' },
+        'ltx-video-heavy': { subDir: 'models/checkpoints', filename: 'ltx_video_sft_v1.safetensors' },
         'hunyuan-video': { subDir: 'models/unet', filename: 'hunyuan_video_720_cfg_distill_q8_0.gguf' },
-        'svd-img2vid': { subDir: 'models/checkpoints', filename: 'svd_xt.safetensors' }
+        'hunyuan-video-heavy': { subDir: 'models/checkpoints', filename: 'hunyuan_video_720_cfg_distill_fp8_e4m3fn.safetensors' },
+        'svd-img2vid': { subDir: 'models/checkpoints', filename: 'svd_xt_fp8.safetensors' },
+        'svd-img2vid-heavy': { subDir: 'models/checkpoints', filename: 'svd_xt.safetensors' }
     };
     const target = urls[modelType];
     if (!target || !comfyPath) return { status: 'missing' };
