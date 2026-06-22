@@ -836,11 +836,21 @@ ipcMain.handle('download-comfy-model', async (event, { modelType, comfyPath }) =
     
     return new Promise((resolve, reject) => {
         const fileStream = fs.createWriteStream(destFile);
+        const http = require('http');
+        const https = require('https');
         
         const download = (url) => {
-            https.get(url, (res) => {
+            const client = url.startsWith('https') ? https : http;
+            client.get(url, (res) => {
                 if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-                    download(res.headers.location);
+                    try {
+                        const nextUrl = new URL(res.headers.location, url).toString();
+                        download(nextUrl);
+                    } catch (err) {
+                        fileStream.close();
+                        if (fs.existsSync(destFile)) fs.unlinkSync(destFile);
+                        reject(new Error("URL de redirección inválido: " + res.headers.location));
+                    }
                     return;
                 }
                 
