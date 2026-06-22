@@ -759,6 +759,117 @@ ipcMain.on('focus-window', () => {
     }
 });
 
+ipcMain.handle('download-comfy-model', async (event, { modelType, comfyPath }) => {
+    const fs = require('fs');
+    const path = require('path');
+    const https = require('https');
+    
+    const urls = {
+        'ltx-video': {
+            url: 'https://huggingface.co/city96/LTX-Video-GGUF/resolve/main/ltx_video_q8_0.gguf',
+            subDir: 'models/unet',
+            filename: 'ltx_video_q8_0.gguf'
+        },
+        'hunyuan-video': {
+            url: 'https://huggingface.co/city96/HunyuanVideo-GGUF/resolve/main/hunyuan_video_720_cfg_distill_q8_0.gguf',
+            subDir: 'models/unet',
+            filename: 'hunyuan_video_720_cfg_distill_q8_0.gguf'
+        },
+        'svd-img2vid': {
+            url: 'https://huggingface.co/stabilityai/stable-video-diffusion-img2vid-xt/resolve/main/svd_xt.safetensors',
+            subDir: 'models/checkpoints',
+            filename: 'svd_xt.safetensors'
+        }
+    };
+    
+    const target = urls[modelType];
+    if (!target) throw new Error("Modelo de video desconocido");
+    if (!comfyPath) throw new Error("La ruta de instalación de ComfyUI no está configurada");
+    
+    const destDir = path.join(comfyPath, target.subDir);
+    if (!fs.existsSync(destDir)) {
+        fs.mkdirSync(destDir, { recursive: true });
+    }
+    
+    const destFile = path.join(destDir, target.filename);
+    
+    if (fs.existsSync(destFile)) {
+        return { status: 'exists', path: destFile };
+    }
+    
+    return new Promise((resolve, reject) => {
+        const fileStream = fs.createWriteStream(destFile);
+        
+        const download = (url) => {
+            https.get(url, (res) => {
+                if (res.statusCode === 301 || res.statusCode === 302) {
+                    download(res.headers.location);
+                    return;
+                }
+                
+                if (res.statusCode !== 200) {
+                    fileStream.close();
+                    if (fs.existsSync(destFile)) fs.unlinkSync(destFile);
+                    reject(new Error(`El servidor devolvió el código de estado: ${res.statusCode}`));
+                    return;
+                }
+                
+                const totalBytes = parseInt(res.headers['content-length'], 10) || 0;
+                let downloadedBytes = 0;
+                let lastProgress = 0;
+                
+                res.on('data', (chunk) => {
+                    downloadedBytes += chunk.length;
+                    fileStream.write(chunk);
+                    
+                    if (totalBytes > 0) {
+                        const progress = Math.round((downloadedBytes / totalBytes) * 100);
+                        if (progress > lastProgress) {
+                            lastProgress = progress;
+                            event.sender.send('download-progress', { modelType, progress });
+                        }
+                    }
+                });
+                
+                res.on('end', () => {
+                    fileStream.end();
+                    resolve({ status: 'completed', path: destFile });
+                });
+                
+                res.on('error', (err) => {
+                    fileStream.close();
+                    if (fs.existsSync(destFile)) fs.unlinkSync(destFile);
+                    reject(err);
+                });
+            }).on('error', (err) => {
+                fileStream.close();
+                if (fs.existsSync(destFile)) fs.unlinkSync(destFile);
+                reject(err);
+            });
+        };
+        
+        download(target.url);
+    });
+});
+
+ipcMain.handle('check-comfy-model-status', async (event, { modelType, comfyPath }) => {
+    const fs = require('fs');
+    const path = require('path');
+    
+    const urls = {
+        'ltx-video': { subDir: 'models/unet', filename: 'ltx_video_q8_0.gguf' },
+        'hunyuan-video': { subDir: 'models/unet', filename: 'hunyuan_video_720_cfg_distill_q8_0.gguf' },
+        'svd-img2vid': { subDir: 'models/checkpoints', filename: 'svd_xt.safetensors' }
+    };
+    const target = urls[modelType];
+    if (!target || !comfyPath) return { status: 'missing' };
+    const destFile = path.join(comfyPath, target.subDir, target.filename);
+    if (fs.existsSync(destFile)) {
+        return { status: 'exists', path: destFile };
+    }
+    return { status: 'missing' };
+});
+
 let hardwareTelemetryInterval = null;
 let prevCpuTime = getCpuTime();
 

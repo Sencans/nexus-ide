@@ -937,6 +937,10 @@
                 <button class="sidebar-icon" id="btn-sidebar-rag" data-sidebar="rag" title="Base de Conocimiento RAG (Odysseus)" style="display:none;">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>
                 </button>
+                <!-- Generador de Video (ComfyUI) -->
+                <button class="sidebar-icon" id="btn-sidebar-video" data-sidebar="video" title="Generador de Video (ComfyUI)">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2" ry="2"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></svg>
+                </button>
             </div>
             
             <!-- SIDEBAR PANELS -->
@@ -1317,6 +1321,181 @@
                             </div>
                             <button onclick="convertImageTo3DModel()" style="background: #7c3aed; border: none; border-radius: 4px; color: #fff; font-size: 11px; padding: 8px; cursor: pointer; font-weight: bold; font-family: inherit; margin-top: 4px;">🔮 Convertir a Modelo 3D</button>
                             <button onclick="window.open3DPreviewModal(require('path').join(workspaceRoot, 'generated_model.glb'))" style="background: #21262d; border: 1px solid #30363d; border-radius: 4px; color: #e6edf3; font-size: 11px; padding: 8px; cursor: pointer; font-family: inherit; margin-top: 4px;">👁️ Ver Vista Previa 3D</button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- PANEL DE GENERACIÓN DE VIDEO (COMFYUI) -->
+            <div id="panel-video" class="sidebar-panel hidden" style="display:flex; flex-direction:column; background: #0d1117;">
+                <div class="panel-header">Generador de Video AI</div>
+                <div style="padding: 12px; display: flex; flex-direction: column; gap: 14px; flex: 1; overflow-y: auto; font-family: inherit; font-size: 12px; color: #e6edf3;">
+                    
+                    <!-- Estado Conexión ComfyUI -->
+                    <div style="background: rgba(255,255,255,0.02); border: 1px solid #30363d; border-radius: 6px; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-size: 11px; font-weight: bold; color: #8b949e; text-transform: uppercase;">Servidor ComfyUI</span>
+                            <div style="display: flex; align-items: center; gap: 5px;">
+                                <span id="video-status-dot" style="width: 8px; height: 8px; border-radius: 50%; background: #ff7b72; display: inline-block;"></span>
+                                <span id="video-status-text" style="font-weight: bold; color: #ff7b72; font-size: 11px;">Desconectado</span>
+                            </div>
+                        </div>
+                        <div>
+                            <label style="font-size: 10px; color: #8b949e; display: block; margin-bottom: 3px;">URL del Servidor</label>
+                            <div style="display: flex; gap: 4px;">
+                                <input id="video-comfy-url" type="text" value="http://127.0.0.1:8188" style="flex: 1; background: #161b22; border: 1px solid #30363d; border-radius: 4px; color: #fff; padding: 5px 8px; font-size: 11px; outline: none;"/>
+                                <button onclick="checkComfyStatus()" style="background: #21262d; border: 1px solid #30363d; border-radius: 4px; color: #e6edf3; padding: 5px 10px; cursor: pointer; font-size: 11px;">Probar</button>
+                            </div>
+                        </div>
+                        <div>
+                            <label style="font-size: 10px; color: #8b949e; display: block; margin-bottom: 3px;">Ruta ComfyUI Local</label>
+                            <input id="video-comfy-path" type="text" placeholder="Ej: C:\ComfyUI_windows_portable" style="width: 100%; box-sizing: border-box; background: #161b22; border: 1px solid #30363d; border-radius: 4px; color: #fff; padding: 5px 8px; font-size: 11px; outline: none;" onchange="saveVideoConfig()"/>
+                        </div>
+                    </div>
+
+                    <!-- Navegación de Pestañas del Panel (Generar / Modelos) -->
+                    <div style="display: flex; border-bottom: 1px solid #30363d; margin-bottom: 5px;">
+                        <button id="tab-video-gen" class="video-tab active" onclick="switchVideoTab('gen')" style="flex: 1; background: transparent; border: none; border-bottom: 2px solid #7c3aed; color: #fff; padding: 8px; cursor: pointer; font-weight: bold; font-family: inherit; font-size: 12px;">Generar</button>
+                        <button id="tab-video-models" class="video-tab" onclick="switchVideoTab('models')" style="flex: 1; background: transparent; border: none; border-bottom: 2px solid transparent; color: #8b949e; padding: 8px; cursor: pointer; font-weight: bold; font-family: inherit; font-size: 12px;">Modelos</button>
+                    </div>
+
+                    <!-- Pestaña 1: Generador de Video -->
+                    <div id="video-subpanel-gen" style="display: flex; flex-direction: column; gap: 10px;">
+                        <div>
+                            <label style="font-size: 11px; font-weight: bold; color: #8b949e; display: block; margin-bottom: 4px;">Modelo de Video</label>
+                            <select id="video-model-select" style="width: 100%; background: #161b22; border: 1px solid #30363d; border-radius: 4px; color: #fff; padding: 6px; font-size: 12px; outline: none; font-family: inherit;" onchange="onVideoModelChange()">
+                                <option value="ltx-video">LTX-Video GGUF (Texto ➔ Video)</option>
+                                <option value="hunyuan-video">HunyuanVideo GGUF (Texto ➔ Video)</option>
+                                <option value="svd-img2vid">SVD XT fp8 (Imagen ➔ Video)</option>
+                                <option value="cog-video">CogVideoX-2B GGUF (Texto ➔ Video)</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label style="font-size: 11px; font-weight: bold; color: #8b949e; display: block; margin-bottom: 4px;">Prompt (Descripción)</label>
+                            <textarea id="video-prompt" placeholder="A majestic dragon flying over a medieval castle, highly detailed, photorealistic..." style="width: 100%; height: 60px; background: #161b22; border: 1px solid #30363d; border-radius: 4px; color: #fff; padding: 6px 8px; font-size: 11px; outline: none; font-family: inherit; resize: vertical; box-sizing: border-box;"></textarea>
+                        </div>
+
+                        <div id="video-neg-prompt-container" style="display:none;">
+                            <label style="font-size: 11px; font-weight: bold; color: #8b949e; display: block; margin-bottom: 4px;">Prompt Negativo</label>
+                            <textarea id="video-neg-prompt" placeholder="ugly, low quality, distorted, blurry, worst quality..." style="width: 100%; height: 40px; background: #161b22; border: 1px solid #30363d; border-radius: 4px; color: #fff; padding: 6px 8px; font-size: 11px; outline: none; font-family: inherit; resize: vertical; box-sizing: border-box;">ugly, deformed, noisy, blurry, low contrast</textarea>
+                        </div>
+
+                        <!-- Semilla Imagen (Solo para SVD) -->
+                        <div id="video-img-input-container" style="display:none;">
+                            <label style="font-size: 11px; font-weight: bold; color: #8b949e; display: block; margin-bottom: 4px;">Imagen Semilla</label>
+                            <div style="display: flex; gap: 4px;">
+                                <input id="video-image-path" type="text" placeholder="Selecciona una imagen..." style="flex: 1; background: #161b22; border: 1px solid #30363d; border-radius: 4px; color: #fff; padding: 5px 8px; font-size: 11px; outline: none; box-sizing: border-box;" readonly/>
+                                <button onclick="selectVideoSeedImage()" style="background: #21262d; border: 1px solid #30363d; border-radius: 4px; color: #e6edf3; padding: 5px 8px; cursor: pointer; font-size: 11px;">📂</button>
+                            </div>
+                            <div id="video-image-preview-container" style="margin-top: 5px; display: none; text-align: center; border: 1px solid #30363d; border-radius: 4px; padding: 4px; background: rgba(0,0,0,0.2);">
+                                <img id="video-image-preview" style="max-height: 80px; max-width: 100%; border-radius: 2px;"/>
+                            </div>
+                        </div>
+
+                        <!-- Parámetros Avanzados (Colapsable) -->
+                        <details style="border: 1px solid #21262d; border-radius: 4px; padding: 5px 8px; background: rgba(255,255,255,0.01);">
+                            <summary style="cursor: pointer; font-weight: bold; color: #8b949e; outline: none; font-size: 11px;">Parámetros de Generación</summary>
+                            <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 8px; font-size: 11px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <label>Resolución</label>
+                                    <select id="video-resolution" style="background: #161b22; border: 1px solid #30363d; color: #fff; font-size: 10px; outline: none; padding: 2px 4px; border-radius: 3px;">
+                                        <option value="512x512">512 x 512 (Rápido)</option>
+                                        <option value="768x512" selected>768 x 512 (Recomendado)</option>
+                                        <option value="1280x720">1280 x 720 (HD)</option>
+                                    </select>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <label>Fotogramas (Frames)</label>
+                                    <select id="video-frames" style="background: #161b22; border: 1px solid #30363d; color: #fff; font-size: 10px; outline: none; padding: 2px 4px; border-radius: 3px;">
+                                        <option value="16">16 (Corto - 2s)</option>
+                                        <option value="25" selected>25 (Estándar - 3s)</option>
+                                        <option value="49">49 (Largo - 6s)</option>
+                                    </select>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <label>Pasos (Steps)</label>
+                                    <input id="video-steps" type="number" min="5" max="100" value="25" style="width: 50px; background: #161b22; border: 1px solid #30363d; color: #fff; font-size: 10px; text-align: center; border-radius: 3px;"/>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <label>CFG Scale</label>
+                                    <input id="video-cfg" type="number" step="0.5" min="1.0" max="20.0" value="6.0" style="width: 50px; background: #161b22; border: 1px solid #30363d; color: #fff; font-size: 10px; text-align: center; border-radius: 3px;"/>
+                                </div>
+                            </div>
+                        </details>
+
+                        <button id="btn-generate-video" onclick="generateVideo()" style="background: #7c3aed; border: none; border-radius: 4px; color: #fff; font-size: 12px; padding: 8px; cursor: pointer; font-weight: bold; font-family: inherit; margin-top: 5px;">🎬 Generar Video</button>
+                    </div>
+
+                    <!-- Pestaña 2: Gestor de Modelos -->
+                    <div id="video-subpanel-models" style="display: none; flex-direction: column; gap: 10px;">
+                        <p style="margin: 0; font-size: 10px; color: #8b949e; line-height: 1.4;">
+                            Descarga modelos cuantizados altamente optimizados para ejecutarse de manera eficiente en GPUs de consumo. Se guardarán en tu instalación de ComfyUI.
+                        </p>
+
+                        <!-- Modelo A: LTX-Video -->
+                        <div style="background: rgba(255,255,255,0.01); border: 1px solid #30363d; border-radius: 6px; padding: 8px; display: flex; flex-direction: column; gap: 6px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-weight: bold; color: #58a6ff; font-size: 11px;">LTX-Video GGUF (Lightweight)</span>
+                                <span style="font-size: 10px; color: #8b949e; background: #21262d; padding: 1px 5px; border-radius: 3px;">~2.1 GB</span>
+                            </div>
+                            <div style="font-size: 10px; color: #8b949e;">Modelo T2V súper veloz, excelente calidad en 480p/720p. Funciona en GPUs de 8GB VRAM.</div>
+                            <div id="video-dl-container-ltx" style="display: flex; flex-direction: column; gap: 4px;">
+                                <button onclick="downloadComfyModel('ltx-video')" style="background: #21262d; border: 1px solid #30363d; border-radius: 4px; color: #fff; font-size: 11px; padding: 5px; cursor: pointer; font-weight: bold; font-family: inherit;">⬇️ Descargar Modelo</button>
+                            </div>
+                        </div>
+
+                        <!-- Modelo B: HunyuanVideo -->
+                        <div style="background: rgba(255,255,255,0.01); border: 1px solid #30363d; border-radius: 6px; padding: 8px; display: flex; flex-direction: column; gap: 6px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-weight: bold; color: #58a6ff; font-size: 11px;">HunyuanVideo GGUF (Quantized)</span>
+                                <span style="font-size: 10px; color: #8b949e; background: #21262d; padding: 1px 5px; border-radius: 3px;">~4.6 GB</span>
+                            </div>
+                            <div style="font-size: 10px; color: #8b949e;">Modelo de alta fidelidad, excelente para físicas de movimiento complejo. Requiere 12GB VRAM.</div>
+                            <div id="video-dl-container-hunyuan" style="display: flex; flex-direction: column; gap: 4px;">
+                                <button onclick="downloadComfyModel('hunyuan-video')" style="background: #21262d; border: 1px solid #30363d; border-radius: 4px; color: #fff; font-size: 11px; padding: 5px; cursor: pointer; font-weight: bold; font-family: inherit;">⬇️ Descargar Modelo</button>
+                            </div>
+                        </div>
+
+                        <!-- Modelo C: SVD XT -->
+                        <div style="background: rgba(255,255,255,0.01); border: 1px solid #30363d; border-radius: 6px; padding: 8px; display: flex; flex-direction: column; gap: 6px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-weight: bold; color: #58a6ff; font-size: 11px;">SVD XT fp8 (Image-to-Video)</span>
+                                <span style="font-size: 10px; color: #8b949e; background: #21262d; padding: 1px 5px; border-radius: 3px;">~4.8 GB</span>
+                            </div>
+                            <div style="font-size: 10px; color: #8b949e;">Modelo para animar imágenes estáticas de forma cinemática. Requiere 10GB VRAM.</div>
+                            <div id="video-dl-container-svd" style="display: flex; flex-direction: column; gap: 4px;">
+                                <button onclick="downloadComfyModel('svd-img2vid')" style="background: #21262d; border: 1px solid #30363d; border-radius: 4px; color: #fff; font-size: 11px; padding: 5px; cursor: pointer; font-weight: bold; font-family: inherit;">⬇️ Descargar Modelo</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Progreso y Salidas -->
+                    <div id="video-progress-container" style="display: none; background: rgba(255,255,255,0.02); border: 1px solid #30363d; border-radius: 6px; padding: 10px; flex-direction: column; gap: 8px;">
+                        <div style="display: flex; justify-content: space-between; font-size: 11px;">
+                            <span id="video-progress-label" style="font-weight: bold; color: #c9d1d9;">Procesando...</span>
+                            <span id="video-progress-percent" style="color: #7c3aed; font-weight: bold;">0%</span>
+                        </div>
+                        <div style="width: 100%; height: 6px; background: #161b22; border-radius: 3px; overflow: hidden; border: 1px solid #30363d;">
+                            <div id="video-progress-bar-fill" style="width: 0%; height: 100%; background: #7c3aed; transition: width 0.2s ease;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Logs de Ejecución -->
+                    <div style="display: flex; flex-direction: column; gap: 5px; flex: 1; min-height: 100px;">
+                        <span style="font-size: 11px; font-weight: bold; color: #8b949e; text-transform: uppercase;">Consola de Ejecución</span>
+                        <div id="video-console-log" style="flex: 1; min-height: 100px; max-height: 200px; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 8px; font-family: monospace; font-size: 10px; color: #c9d1d9; overflow-y: auto; line-height: 1.4; box-sizing: border-box;">
+                            <div style="color: #8b949e;">[Sistema] Esperando inicio de generación o descarga...</div>
+                        </div>
+                    </div>
+
+                    <!-- Salida final del Video -->
+                    <div id="video-output-container" style="display: none; border: 1px solid #30363d; border-radius: 6px; overflow: hidden; background: #000; position: relative;">
+                        <video id="video-output-player" controls style="width: 100%; display: block;" autoplay loop muted></video>
+                        <div style="padding: 8px; display: flex; gap: 6px; background: #161b22; border-top: 1px solid #30363d;">
+                            <button onclick="saveVideoToProject()" style="flex: 1; background: #238636; border: 1px solid #2ea44f; border-radius: 4px; color: #fff; font-size: 11px; padding: 6px; cursor: pointer; font-weight: bold; font-family: inherit;">💾 Guardar en Proyecto</button>
+                            <button onclick="clearVideoOutput()" style="background: #21262d; border: 1px solid #30363d; border-radius: 4px; color: #e6edf3; padding: 6px; cursor: pointer; font-size: 11px;">🗑️</button>
                         </div>
                     </div>
 
@@ -14248,6 +14427,450 @@ void AMyActor::Tick(float DeltaTime)
             }
             window.cargarModelo3DLocal = cargarModelo3DLocal;
 
+            // =========================================================================
+            // GESTOR Y GENERADOR DE VIDEO CON COMFYUI
+            // =========================================================================
+            let videoWs = null;
+            let lastGeneratedVideoUrl = null;
+            let lastGeneratedVideoBuffer = null;
+
+            function switchVideoTab(tab) {
+                document.querySelectorAll('.video-tab').forEach(el => {
+                    el.classList.remove('active');
+                    el.style.borderBottomColor = 'transparent';
+                    el.style.color = '#8b949e';
+                });
+                const activeTabBtn = document.getElementById('tab-video-' + tab);
+                if (activeTabBtn) {
+                    activeTabBtn.classList.add('active');
+                    activeTabBtn.style.borderBottomColor = '#7c3aed';
+                    activeTabBtn.style.color = '#fff';
+                }
+                
+                if (tab === 'gen') {
+                    document.getElementById('video-subpanel-gen').style.display = 'flex';
+                    document.getElementById('video-subpanel-models').style.display = 'none';
+                } else {
+                    document.getElementById('video-subpanel-gen').style.display = 'none';
+                    document.getElementById('video-subpanel-models').style.display = 'flex';
+                    checkAllVideoModelsStatus();
+                }
+            }
+            window.switchVideoTab = switchVideoTab;
+
+            function checkAllVideoModelsStatus() {
+                const comfyPath = document.getElementById('video-comfy-path').value.trim();
+                const modelTypes = ['ltx-video', 'hunyuan-video', 'svd-img2vid'];
+                const ipcRenderer = require('electron').ipcRenderer;
+                
+                modelTypes.forEach(modelType => {
+                    ipcRenderer.invoke('check-comfy-model-status', { modelType, comfyPath })
+                        .then(res => {
+                            const btnContainer = document.getElementById('video-dl-container-' + modelType.split('-')[0]);
+                            if (btnContainer) {
+                                if (res.status === 'exists') {
+                                    btnContainer.innerHTML = `<span style="color: #3fb950; font-size: 11px; font-weight: bold;">🟢 Instalado</span>`;
+                                } else {
+                                    btnContainer.innerHTML = `<button onclick="downloadComfyModel('${modelType}')" style="background: #21262d; border: 1px solid #30363d; border-radius: 4px; color: #fff; font-size: 11px; padding: 5px; cursor: pointer; font-weight: bold; font-family: inherit; width: 100%;">⬇️ Descargar Modelo</button>`;
+                                }
+                            }
+                        })
+                        .catch(() => {});
+                });
+            }
+            window.checkAllVideoModelsStatus = checkAllVideoModelsStatus;
+
+            function downloadComfyModel(modelType) {
+                const comfyPath = document.getElementById('video-comfy-path').value.trim();
+                if (!comfyPath) {
+                    showToast("Por favor, configura primero la ruta local de ComfyUI", "error");
+                    return;
+                }
+                
+                const logEl = document.getElementById('video-console-log');
+                const btnContainer = document.getElementById('video-dl-container-' + modelType.split('-')[0]);
+                
+                if (btnContainer) {
+                    btnContainer.innerHTML = `<span style="color: #facc15; font-size: 11px; font-weight: bold;">⏳ Descargando: <span id="dl-progress-${modelType}">0%</span></span>`;
+                }
+                
+                const addLog = (msg) => {
+                    const time = new Date().toLocaleTimeString();
+                    logEl.innerHTML += `<div style="margin-bottom: 2px;"><span style="color:#8b949e;">[${time}]</span> ${msg}</div>`;
+                    logEl.scrollTop = logEl.scrollHeight;
+                };
+                
+                addLog(`Iniciando descarga de ${modelType}...`);
+                const ipcRenderer = require('electron').ipcRenderer;
+                
+                ipcRenderer.invoke('download-comfy-model', { modelType, comfyPath })
+                    .then(res => {
+                        addLog(`✅ Descarga completada: ${res.path}`);
+                        checkAllVideoModelsStatus();
+                        showToast(`Modelo ${modelType} descargado correctamente`, "success");
+                    })
+                    .catch(err => {
+                        addLog(`❌ Error descargando: ${err.message}`);
+                        checkAllVideoModelsStatus();
+                        showToast(`Error al descargar: ${err.message}`, "error");
+                    });
+            }
+            window.downloadComfyModel = downloadComfyModel;
+
+            function checkComfyStatus() {
+                const url = document.getElementById('video-comfy-url').value.trim();
+                const dot = document.getElementById('video-status-dot');
+                const txt = document.getElementById('video-status-text');
+                
+                fetch(url.replace(/\/$/, '') + '/system_stats')
+                    .then(res => {
+                        if (res.ok) {
+                            dot.style.background = '#3fb950';
+                            txt.textContent = 'Conectado';
+                            txt.style.color = '#3fb950';
+                        } else {
+                            throw new Error();
+                        }
+                    })
+                    .catch(() => {
+                        dot.style.background = '#ff7b72';
+                        txt.textContent = 'Desconectado';
+                        txt.style.color = '#ff7b72';
+                    });
+            }
+            window.checkComfyStatus = checkComfyStatus;
+            
+            function saveVideoConfig() {
+                const url = document.getElementById('video-comfy-url').value.trim();
+                const path = document.getElementById('video-comfy-path').value.trim();
+                localStorage.setItem('nexus_comfy_url', url);
+                localStorage.setItem('nexus_comfy_path', path);
+            }
+            window.saveVideoConfig = saveVideoConfig;
+
+            function onVideoModelChange() {
+                const model = document.getElementById('video-model-select').value;
+                const negContainer = document.getElementById('video-neg-prompt-container');
+                const imgContainer = document.getElementById('video-img-input-container');
+                
+                if (model === 'svd-img2vid') {
+                    negContainer.style.display = 'none';
+                    imgContainer.style.display = 'block';
+                } else if (model === 'hunyuan-video' || model === 'cog-video') {
+                    negContainer.style.display = 'block';
+                    imgContainer.style.display = 'none';
+                } else {
+                    negContainer.style.display = 'none';
+                    imgContainer.style.display = 'none';
+                }
+            }
+            window.onVideoModelChange = onVideoModelChange;
+
+            function selectVideoSeedImage() {
+                const ipcRenderer = require('electron').ipcRenderer;
+                ipcRenderer.invoke('select-images').then(paths => {
+                    if (paths && paths.length > 0) {
+                        const imgPath = paths[0];
+                        document.getElementById('video-image-path').value = imgPath;
+                        
+                        const fs = require('fs');
+                        if (fs.existsSync(imgPath)) {
+                            const data = fs.readFileSync(imgPath);
+                            const blob = new Blob([data], { type: 'image/' + imgPath.split('.').pop() });
+                            const url = URL.createObjectURL(blob);
+                            
+                            const preview = document.getElementById('video-image-preview');
+                            preview.src = url;
+                            document.getElementById('video-image-preview-container').style.display = 'block';
+                        }
+                    }
+                });
+            }
+            window.selectVideoSeedImage = selectVideoSeedImage;
+
+            async function uploadImageToComfy(serverUrl, imagePath) {
+                const fs = require('fs');
+                const path = require('path');
+                const filename = path.basename(imagePath);
+                const fileData = fs.readFileSync(imagePath);
+                
+                const formData = new FormData();
+                formData.append('image', new Blob([fileData]), filename);
+                
+                const res = await fetch(serverUrl.replace(/\/$/, '') + '/upload/image', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!res.ok) throw new Error("Error al subir imagen a ComfyUI");
+                const data = await res.json();
+                return data.name;
+            }
+
+            async function generateVideo() {
+                const serverUrl = document.getElementById('video-comfy-url').value.trim();
+                const comfyPath = document.getElementById('video-comfy-path').value.trim();
+                const model = document.getElementById('video-model-select').value;
+                const prompt = document.getElementById('video-prompt').value.trim();
+                const negPrompt = document.getElementById('video-neg-prompt').value.trim();
+                const resolution = document.getElementById('video-resolution').value;
+                const frames = parseInt(document.getElementById('video-frames').value, 10);
+                const steps = parseInt(document.getElementById('video-steps').value, 10);
+                const cfg = parseFloat(document.getElementById('video-cfg').value);
+                const imagePath = document.getElementById('video-image-path').value;
+                
+                if (!prompt && model !== 'svd-img2vid') {
+                    showToast("Por favor, ingresa una descripción (prompt)", "error");
+                    return;
+                }
+                
+                if (model === 'svd-img2vid' && !imagePath) {
+                    showToast("Por favor, selecciona una imagen semilla para SVD", "error");
+                    return;
+                }
+                
+                const logEl = document.getElementById('video-console-log');
+                const addLog = (msg) => {
+                    const time = new Date().toLocaleTimeString();
+                    logEl.innerHTML += `<div style="margin-bottom: 2px;"><span style="color:#8b949e;">[${time}]</span> ${msg}</div>`;
+                    logEl.scrollTop = logEl.scrollHeight;
+                };
+                
+                const progressContainer = document.getElementById('video-progress-container');
+                const progressBarFill = document.getElementById('video-progress-bar-fill');
+                const progressPercent = document.getElementById('video-progress-percent');
+                const progressLabel = document.getElementById('video-progress-label');
+                
+                progressContainer.style.display = 'flex';
+                progressBarFill.style.width = '0%';
+                progressPercent.textContent = '0%';
+                progressLabel.textContent = 'Inicializando...';
+                
+                addLog("Conectando con el servidor ComfyUI...");
+                
+                const clientId = 'nexus_ide_video_' + Math.random().toString(36).substr(2, 9);
+                const wsUrl = serverUrl.replace(/^http/, 'ws').replace(/\/$/, '') + '/ws?clientId=' + clientId;
+                
+                if (videoWs) {
+                    videoWs.close();
+                }
+                
+                try {
+                    videoWs = new WebSocket(wsUrl);
+                } catch(e) {
+                    addLog("❌ Error: No se pudo conectar al WebSocket de ComfyUI.");
+                    progressContainer.style.display = 'none';
+                    return;
+                }
+                
+                videoWs.onopen = async () => {
+                    addLog("Conexión WebSocket establecida.");
+                    
+                    try {
+                        let comfyImageFilename = '';
+                        if (model === 'svd-img2vid') {
+                            addLog("Subiendo imagen semilla a ComfyUI...");
+                            comfyImageFilename = await uploadImageToComfy(serverUrl, imagePath);
+                            addLog("Imagen subida con éxito.");
+                        }
+                        
+                        addLog("Construyendo workflow de generación...");
+                        const seed = Math.floor(Math.random() * 9999999999);
+                        const [width, height] = resolution.split('x').map(Number);
+                        
+                        let workflow = {};
+                        
+                        if (model === 'ltx-video') {
+                            workflow = {
+                                "3": { "inputs": { "seed": seed, "steps": steps, "cfg": cfg, "sampler_name": "euler", "scheduler": "normal", "denoise": 1, "model": ["10", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["5", 0] }, "class_type": "KSampler" },
+                                "5": { "inputs": { "width": width, "height": height, "length": frames, "batch_size": 1 }, "class_type": "EmptyHunyuanLatentVideo" },
+                                "6": { "inputs": { "text": prompt, "clip": ["10", 1] }, "class_type": "CLIPTextEncode" },
+                                "7": { "inputs": { "text": "ugly, deformed, low quality, static, blurry", "clip": ["10", 1] }, "class_type": "CLIPTextEncode" },
+                                "8": { "inputs": { "samples": ["3", 0], "vae": ["10", 2] }, "class_type": "VAEDecode" },
+                                "10": { "inputs": { "ckpt_name": "ltx_video_q8_0.gguf" }, "class_type": "LTXVideoLoader" },
+                                "11": { "inputs": { "images": ["8", 0], "fps": 16, "filename_prefix": "nexus_ltx" }, "class_type": "VHS_VideoCombine" }
+                            };
+                        } else if (model === 'hunyuan-video') {
+                            workflow = {
+                                "3": { "inputs": { "seed": seed, "steps": steps, "cfg": cfg, "sampler_name": "euler", "scheduler": "normal", "denoise": 1, "model": ["10", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["5", 0] }, "class_type": "KSampler" },
+                                "5": { "inputs": { "width": width, "height": height, "length": frames, "batch_size": 1 }, "class_type": "EmptyHunyuanLatentVideo" },
+                                "6": { "inputs": { "text": prompt, "clip": ["10", 1] }, "class_type": "CLIPTextEncode" },
+                                "7": { "inputs": { "text": negPrompt, "clip": ["10", 1] }, "class_type": "CLIPTextEncode" },
+                                "8": { "inputs": { "samples": ["3", 0], "vae": ["10", 2] }, "class_type": "VAEDecode" },
+                                "10": { "inputs": { "ckpt_name": "hunyuan_video_720_cfg_distill_q8_0.gguf" }, "class_type": "HunyuanVideoLoader" },
+                                "11": { "inputs": { "images": ["8", 0], "fps": 16, "filename_prefix": "nexus_hunyuan" }, "class_type": "VHS_VideoCombine" }
+                            };
+                        } else if (model === 'svd-img2vid') {
+                            workflow = {
+                                "1": { "inputs": { "ckpt_name": "svd_xt.safetensors" }, "class_type": "ImageOnlyCheckpointLoader" },
+                                "2": { "inputs": { "image": comfyImageFilename, "upload": "image" }, "class_type": "LoadImage" },
+                                "3": { "inputs": { "width": width, "height": height, "video_frames": frames, "motion_bucket_id": 127, "fps": 6, "augmentation_level": 0.0, "clip_vision": ["1", 1], "init_image": ["2", 0] }, "class_type": "SVD_img2vid_Conditioning" },
+                                "4": { "inputs": { "seed": seed, "steps": steps, "cfg": 2.5, "sampler_name": "euler", "scheduler": "karras", "denoise": 1.0, "model": ["1", 0], "positive": ["3", 0], "negative": ["3", 1], "latent_image": ["3", 2] }, "class_type": "KSampler" },
+                                "5": { "inputs": { "samples": ["4", 0], "vae": ["1", 2] }, "class_type": "VAEDecode" },
+                                "6": { "inputs": { "images": ["5", 0], "fps": 6, "filename_prefix": "nexus_svd" }, "class_type": "VHS_VideoCombine" }
+                            };
+                        } else if (model === 'cog-video') {
+                            workflow = {
+                                "3": { "inputs": { "seed": seed, "steps": steps, "cfg": cfg, "sampler_name": "euler", "scheduler": "normal", "denoise": 1, "model": ["10", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["5", 0] }, "class_type": "KSampler" },
+                                "5": { "inputs": { "width": width, "height": height, "length": frames, "batch_size": 1 }, "class_type": "EmptyHunyuanLatentVideo" },
+                                "6": { "inputs": { "text": prompt, "clip": ["10", 1] }, "class_type": "CLIPTextEncode" },
+                                "7": { "inputs": { "text": negPrompt, "clip": ["10", 1] }, "class_type": "CLIPTextEncode" },
+                                "8": { "inputs": { "samples": ["3", 0], "vae": ["10", 2] }, "class_type": "VAEDecode" },
+                                "10": { "inputs": { "ckpt_name": "cogvideox_2b_q8_0.gguf" }, "class_type": "CogVideoLoader" },
+                                "11": { "inputs": { "images": ["8", 0], "fps": 16, "filename_prefix": "nexus_cog" }, "class_type": "VHS_VideoCombine" }
+                            };
+                        }
+                        
+                        addLog("Enviando petición de generación a ComfyUI...");
+                        const promptRes = await fetch(serverUrl.replace(/\/$/, '') + '/prompt', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ prompt: workflow, client_id: clientId })
+                        });
+                        
+                        if (!promptRes.ok) {
+                            const errBody = await promptRes.text();
+                            throw new Error(errBody || "Error del servidor ComfyUI");
+                        }
+                        
+                        const promptData = await promptRes.json();
+                        addLog(`Petición en cola de ComfyUI. Prompt ID: ${promptData.prompt_id}`);
+                        
+                    } catch(err) {
+                        addLog(`❌ Error: ${err.message}`);
+                        progressContainer.style.display = 'none';
+                        showToast(`Error al iniciar generación: ${err.message}`, "error");
+                    }
+                };
+                
+                videoWs.onmessage = (event) => {
+                    const msg = JSON.parse(event.data);
+                    
+                    if (msg.type === 'status') {
+                        const queueRemaining = msg.data.status.queue_remaining;
+                        if (queueRemaining > 0) {
+                            progressLabel.textContent = `En cola (Pendientes: ${queueRemaining})`;
+                        }
+                    }
+                    else if (msg.type === 'executing') {
+                        const node = msg.data.node;
+                        if (node) {
+                            progressLabel.textContent = `Ejecutando Nodo: ${node}`;
+                            addLog(`Ejecutando nodo: ${node}`);
+                        } else {
+                            progressLabel.textContent = `Generación finalizada! Cargando video...`;
+                            progressBarFill.style.width = '100%';
+                            progressPercent.textContent = '100%';
+                        }
+                    }
+                    else if (msg.type === 'progress') {
+                        const value = msg.data.value;
+                        const max = msg.data.max;
+                        const percent = Math.round((value / max) * 100);
+                        progressBarFill.style.width = percent + '%';
+                        progressPercent.textContent = percent + '%';
+                        progressLabel.textContent = `Paso KSampler: ${value}/${max}`;
+                    }
+                    else if (msg.type === 'executed') {
+                        addLog("✅ Video generado con éxito.");
+                        const outputs = msg.data.output;
+                        
+                        let videoFilename = '';
+                        let subfolder = '';
+                        
+                        for (const nodeId in outputs) {
+                            const nodeOut = outputs[nodeId];
+                            if (nodeOut.gifs && nodeOut.gifs.length > 0) {
+                                videoFilename = nodeOut.gifs[0].filename;
+                                subfolder = nodeOut.gifs[0].subfolder || '';
+                                break;
+                            } else if (nodeOut.images && nodeOut.images.length > 0) {
+                                videoFilename = nodeOut.images[0].filename;
+                                subfolder = nodeOut.images[0].subfolder || '';
+                                break;
+                            }
+                        }
+                        
+                        if (videoFilename) {
+                            const videoUrl = `${serverUrl.replace(/\/$/, '')}/view?filename=${encodeURIComponent(videoFilename)}&subfolder=${encodeURIComponent(subfolder)}&type=output`;
+                            addLog(`Cargando video de salida: ${videoFilename}`);
+                            displayVideoOutput(videoUrl);
+                        } else {
+                            addLog("⚠️ Advertencia: No se encontró ningún archivo de video en la respuesta del workflow.");
+                        }
+                        progressContainer.style.display = 'none';
+                        if (videoWs) videoWs.close();
+                    }
+                };
+                
+                videoWs.onerror = (err) => {
+                    addLog(`❌ Error en conexión WebSocket: ${err.message || 'Desconocido'}`);
+                    progressContainer.style.display = 'none';
+                };
+                
+                videoWs.onclose = () => {
+                    addLog("Conexión WebSocket cerrada.");
+                };
+            }
+            window.generateVideo = generateVideo;
+
+            function displayVideoOutput(url) {
+                lastGeneratedVideoUrl = url;
+                const player = document.getElementById('video-output-player');
+                player.src = url;
+                document.getElementById('video-output-container').style.display = 'block';
+                showToast("¡Video generado correctamente!", "success");
+                
+                fetch(url)
+                    .then(res => res.arrayBuffer())
+                    .then(buf => {
+                        lastGeneratedVideoBuffer = Buffer.from(buf);
+                    })
+                    .catch(err => {
+                        console.error("Error pre-descargando el video generado:", err);
+                    });
+            }
+            window.displayVideoOutput = displayVideoOutput;
+            
+            function saveVideoToProject() {
+                if (!lastGeneratedVideoBuffer) {
+                    showToast("Espera a que el video se cargue por completo", "warning");
+                    return;
+                }
+                
+                const fs = require('fs');
+                const path = require('path');
+                const filename = 'comfy_video_' + Date.now() + '.mp4';
+                const targetPath = path.join(workspaceRoot, filename);
+                
+                try {
+                    fs.writeFileSync(targetPath, lastGeneratedVideoBuffer);
+                    showToast(`Video guardado en el proyecto como: ${filename}`, "success");
+                    if (typeof updateFileTree === 'function') updateFileTree();
+                } catch(e) {
+                    showToast(`Error al guardar archivo en el proyecto: ${e.message}`, "error");
+                }
+            }
+            window.saveVideoToProject = saveVideoToProject;
+            
+            function clearVideoOutput() {
+                const player = document.getElementById('video-output-player');
+                player.src = '';
+                document.getElementById('video-output-container').style.display = 'none';
+                lastGeneratedVideoUrl = null;
+                lastGeneratedVideoBuffer = null;
+            }
+            window.clearVideoOutput = clearVideoOutput;
+
+            if (typeof ipcRenderer !== 'undefined') {
+                ipcRenderer.on('download-progress', (event, { modelType, progress }) => {
+                    const progEl = document.getElementById(`dl-progress-${modelType}`);
+                    if (progEl) {
+                        progEl.textContent = progress + '%';
+                    }
+                });
+            }
+
             window.open3DPreviewModal = function(filePath) {
                 const fs = require('fs');
                 const path = require('path');
@@ -14434,6 +15057,18 @@ if (mesh) {
                 // Inicializar extensiones
                 initExtensions();
 
+                // Inicializar valores de configuración de ComfyUI
+                const storedComfyUrl = localStorage.getItem('nexus_comfy_url') || 'http://127.0.0.1:8188';
+                const storedComfyPath = localStorage.getItem('nexus_comfy_path') || '';
+                
+                document.getElementById('video-comfy-url').value = storedComfyUrl;
+                document.getElementById('video-comfy-path').value = storedComfyPath;
+                
+                // Probar el estado de conexión de ComfyUI al arrancar
+                if (typeof checkComfyStatus === 'function') {
+                    checkComfyStatus();
+                }
+
                 // Definir funciones para controlar el estado de OpenClaw (Remote Bot)
                 window.getOpenClawActive = () => {
                     return localStorage.getItem('nexus_remote_enabled') === 'true';
@@ -14501,6 +15136,7 @@ if (mesh) {
                   document.getElementById('panel-docker').classList.add('hidden');
                   document.getElementById('panel-rag').classList.add('hidden');
                   document.getElementById('panel-engines').classList.add('hidden');
+                  document.getElementById('panel-video').classList.add('hidden');
                   if (panelId) document.getElementById(panelId).classList.remove('hidden');
                 }
 
@@ -14532,6 +15168,9 @@ if (mesh) {
                         else if (target === 'rag') {
                             togglePanel('panel-rag');
                             syncRAGStatus();
+                        }
+                        else if (target === 'video') {
+                            togglePanel('panel-video');
                         }
                     });
                 });
