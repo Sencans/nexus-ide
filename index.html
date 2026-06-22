@@ -5094,7 +5094,7 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                         ${sidebarItems}
                       </div>
                       <div id="cfgDetail" style="flex:1;color:#e6edf3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:20px;">
-                        <img src="ai_api_banner.png" class="interactive-banner" style="max-width:100%;max-height:160px;" alt="AI APIs Banner">
+                        <span style="font-size: 32px; filter: drop-shadow(0 2px 8px rgba(124,58,237,0.3));">🤖</span>
                         <div style="color:#8b949e;font-size:13px">${NexusLocalization.t('api_select_provider')}</div>
                       </div>
                     </div>
@@ -5299,9 +5299,6 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
             }
 
             document.getElementById('cfgDetail').innerHTML = `
-              <div style="margin-bottom:16px;">
-                <img src="ai_api_banner.png" class="interactive-banner" style="width:100%;max-height:90px;object-fit:cover;" alt="AI Banner">
-              </div>
               <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
                 <span style="display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;width:20px;height:20px;">${p.logo}</span>
                 <h2 style="font-size:16px;font-weight:500;color:#e6edf3;margin:0;">${p.name}</h2>
