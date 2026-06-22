@@ -839,7 +839,7 @@ ipcMain.handle('download-comfy-model', async (event, { modelType, comfyPath }) =
         
         const download = (url) => {
             https.get(url, (res) => {
-                if (res.statusCode === 301 || res.statusCode === 302) {
+                if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
                     download(res.headers.location);
                     return;
                 }
