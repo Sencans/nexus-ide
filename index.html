@@ -1341,6 +1341,10 @@
             <div id="panel-video" class="sidebar-panel hidden" style="display:flex; flex-direction:column; background: #0d1117;">
                 <div class="panel-header">Generador de Video AI</div>
                 <div style="padding: 12px; display: flex; flex-direction: column; gap: 14px; flex: 1; overflow-y: auto; font-family: inherit; font-size: 12px; color: #e6edf3;">
+                    <!-- Banner de Video -->
+                    <div style="text-align: center; margin-bottom: 2px;">
+                        <img src="video_gen_banner.png" style="width: 100%; border-radius: 6px; border: 1px solid #30363d; box-shadow: 0 4px 10px rgba(0,0,0,0.5);" alt="Video Gen Banner">
+                    </div>
                     
                     <!-- Estado Conexión ComfyUI -->
                     <div style="background: rgba(255,255,255,0.02); border: 1px solid #30363d; border-radius: 6px; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
@@ -1774,6 +1778,7 @@
                     <textarea id="chat-input" class="chat-input" rows="3" placeholder="Haz una pregunta o pide cambios en tu código..."></textarea>
                     <div style="display:flex; width: 100%; align-items: center;">
                         <button id="btnChatAttachment" class="chat-btn" style="flex: 0 0 36px; display: flex; align-items: center; justify-content: center; background: #21262d; border: 1px solid #30363d; margin-right: 6px; color: #fff;" title="Adjuntar archivos o imágenes">📎</button>
+                        <button id="btnVoiceInput" class="chat-btn" style="flex: 0 0 36px; display: flex; align-items: center; justify-content: center; background: #21262d; border: 1px solid #30363d; margin-right: 6px; color: #fff;" title="Voz a texto (Micrófono)">🎤</button>
                         <button id="sendBtn" class="chat-btn" style="flex: 1;">Enviar a IA</button>
                         <button id="stopBtn" class="chat-btn" style="background:#852222; border-color:#852222; display:none; margin-left: 6px; flex: 0 0 80px; justify-content: center; align-items: center; gap: 4px;">🛑 Detener</button>
                         <input type="file" id="chat-attachment-input" multiple style="display:none;">
@@ -5060,7 +5065,8 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                         <div style="font-size:9px;color:#8b949e;text-transform:uppercase;letter-spacing:.08em;padding:4px 6px;margin-bottom:6px">${NexusLocalization.t('api_providers')}</div>
                         ${sidebarItems}
                       </div>
-                      <div id="cfgDetail" style="flex:1;color:#e6edf3">
+                      <div id="cfgDetail" style="flex:1;color:#e6edf3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:20px;">
+                        <img src="ai_api_banner.png" style="max-width:100%;max-height:160px;border-radius:6px;border:1px solid #30363d;box-shadow:0 4px 12px rgba(0,0,0,0.5);" alt="AI APIs Banner">
                         <div style="color:#8b949e;font-size:13px">${NexusLocalization.t('api_select_provider')}</div>
                       </div>
                     </div>
@@ -5265,6 +5271,9 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
             }
 
             document.getElementById('cfgDetail').innerHTML = `
+              <div style="margin-bottom:16px;">
+                <img src="ai_api_banner.png" style="width:100%;max-height:90px;object-fit:cover;border-radius:6px;border:1px solid #30363d;box-shadow:0 2px 8px rgba(0,0,0,0.3);" alt="AI Banner">
+              </div>
               <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
                 <span style="width:12px;height:12px;border-radius:50%;background:${p.color};display:inline-block"></span>
                 <h2 style="font-size:16px;font-weight:500;color:#e6edf3;margin:0;">${p.name}</h2>
@@ -14688,12 +14697,12 @@ void AMyActor::Tick(float DeltaTime)
                             txt.textContent = 'Conectado';
                             txt.style.color = '#3fb950';
                         } else {
-                            throw new Error();
+                            throw new Error("HTTP " + res.status);
                         }
                     })
-                    .catch(() => {
+                    .catch((err) => {
                         dot.style.background = '#ff7b72';
-                        txt.textContent = 'Desconectado';
+                        txt.textContent = 'Desconectado (' + (err.message || 'Error') + ')';
                         txt.style.color = '#ff7b72';
                     });
             }
@@ -14842,43 +14851,48 @@ void AMyActor::Tick(float DeltaTime)
                         if (model === 'ltx-video') {
                             workflow = {
                                 "3": { "inputs": { "seed": seed, "steps": steps, "cfg": cfg, "sampler_name": "euler", "scheduler": "normal", "denoise": 1, "model": ["10", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["5", 0] }, "class_type": "KSampler" },
-                                "5": { "inputs": { "width": width, "height": height, "length": frames, "batch_size": 1 }, "class_type": "EmptyHunyuanLatentVideo" },
-                                "6": { "inputs": { "text": prompt, "clip": ["10", 1] }, "class_type": "CLIPTextEncode" },
-                                "7": { "inputs": { "text": "ugly, deformed, low quality, static, blurry", "clip": ["10", 1] }, "class_type": "CLIPTextEncode" },
-                                "8": { "inputs": { "samples": ["3", 0], "vae": ["10", 2] }, "class_type": "VAEDecode" },
-                                "10": { "inputs": { "ckpt_name": "ltx_video_q8_0.gguf" }, "class_type": "LTXVideoLoader" },
-                                "11": { "inputs": { "images": ["8", 0], "fps": 16, "filename_prefix": "nexus_ltx" }, "class_type": "VHS_VideoCombine" }
+                                "5": { "inputs": { "width": width, "height": height, "length": frames, "batch_size": 1 }, "class_type": "EmptyLTXVLatentVideo" },
+                                "6": { "inputs": { "text": prompt, "clip": ["12", 0] }, "class_type": "CLIPTextEncode" },
+                                "7": { "inputs": { "text": "ugly, deformed, low quality, static, blurry", "clip": ["12", 0] }, "class_type": "CLIPTextEncode" },
+                                "8": { "inputs": { "samples": ["3", 0], "vae": ["13", 0] }, "class_type": "VAEDecode" },
+                                "10": { "inputs": { "unet_name": "ltx-video-2b-v0.9-Q8_0.gguf" }, "class_type": "UnetLoaderGGUF" },
+                                "11": { "inputs": { "images": ["8", 0], "fps": 16, "filename_prefix": "nexus_ltx", "format": "video/h264-mp4", "save_output": true, "frame_rate": 16, "pingpong": false, "loop_count": 0 }, "class_type": "VHS_VideoCombine" },
+                                "12": { "inputs": { "clip_name1": "clip_l.safetensors", "clip_name2": "gemma_2_2b_it_elm_fp8_scaled.safetensors", "type": "ltxv" }, "class_type": "DualCLIPLoader" },
+                                "13": { "inputs": { "vae_name": "ltx_video_vae.safetensors" }, "class_type": "VAELoader" }
                             };
                         } else if (model === 'ltx-video-heavy') {
                             workflow = {
                                 "3": { "inputs": { "seed": seed, "steps": steps, "cfg": cfg, "sampler_name": "euler", "scheduler": "normal", "denoise": 1, "model": ["10", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["5", 0] }, "class_type": "KSampler" },
-                                "5": { "inputs": { "width": width, "height": height, "length": frames, "batch_size": 1 }, "class_type": "EmptyHunyuanLatentVideo" },
+                                "5": { "inputs": { "width": width, "height": height, "length": frames, "batch_size": 1 }, "class_type": "EmptyLTXVLatentVideo" },
                                 "6": { "inputs": { "text": prompt, "clip": ["10", 1] }, "class_type": "CLIPTextEncode" },
                                 "7": { "inputs": { "text": "ugly, deformed, low quality, static, blurry", "clip": ["10", 1] }, "class_type": "CLIPTextEncode" },
                                 "8": { "inputs": { "samples": ["3", 0], "vae": ["10", 2] }, "class_type": "VAEDecode" },
-                                "10": { "inputs": { "ckpt_name": "ltx_video_sft_v1.safetensors" }, "class_type": "LTXVideoLoader" },
-                                "11": { "inputs": { "images": ["8", 0], "fps": 16, "filename_prefix": "nexus_ltx" }, "class_type": "VHS_VideoCombine" }
+                                "10": { "inputs": { "ckpt_name": "ltx-video-2b-v0.9.safetensors" }, "class_type": "CheckpointLoaderSimple" },
+                                "11": { "inputs": { "images": ["8", 0], "fps": 16, "filename_prefix": "nexus_ltx", "format": "video/h264-mp4", "save_output": true, "frame_rate": 16, "pingpong": false, "loop_count": 0 }, "class_type": "VHS_VideoCombine" }
                             };
                         } else if (model === 'hunyuan-video') {
                             workflow = {
                                 "3": { "inputs": { "seed": seed, "steps": steps, "cfg": cfg, "sampler_name": "euler", "scheduler": "normal", "denoise": 1, "model": ["10", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["5", 0] }, "class_type": "KSampler" },
                                 "5": { "inputs": { "width": width, "height": height, "length": frames, "batch_size": 1 }, "class_type": "EmptyHunyuanLatentVideo" },
-                                "6": { "inputs": { "text": prompt, "clip": ["10", 1] }, "class_type": "CLIPTextEncode" },
-                                "7": { "inputs": { "text": negPrompt, "clip": ["10", 1] }, "class_type": "CLIPTextEncode" },
-                                "8": { "inputs": { "samples": ["3", 0], "vae": ["10", 2] }, "class_type": "VAEDecode" },
-                                "10": { "inputs": { "ckpt_name": "hunyuan_video_720_cfg_distill_q8_0.gguf" }, "class_type": "HunyuanVideoLoader" },
-                                "11": { "inputs": { "images": ["8", 0], "fps": 16, "filename_prefix": "nexus_hunyuan" }, "class_type": "VHS_VideoCombine" }
+                                "6": { "inputs": { "text": prompt, "clip": ["12", 0] }, "class_type": "CLIPTextEncode" },
+                                "7": { "inputs": { "text": negPrompt, "clip": ["12", 0] }, "class_type": "CLIPTextEncode" },
+                                "8": { "inputs": { "samples": ["3", 0], "vae": ["13", 0] }, "class_type": "VAEDecode" },
+                                "10": { "inputs": { "unet_name": "hunyuan-video-t2v-720p-Q8_0.gguf" }, "class_type": "UnetLoaderGGUF" },
+                                "11": { "inputs": { "images": ["8", 0], "fps": 16, "filename_prefix": "nexus_hunyuan", "format": "video/h264-mp4", "save_output": true, "frame_rate": 16, "pingpong": false, "loop_count": 0 }, "class_type": "VHS_VideoCombine" },
+                                "12": { "inputs": { "clip_name1": "clip_l.safetensors", "clip_name2": "llava_llama3_fp8_scaled.safetensors", "type": "hunyuan_video" }, "class_type": "DualCLIPLoader" },
+                                "13": { "inputs": { "vae_name": "hunyuan_video_vae_bf16.safetensors" }, "class_type": "VAELoader" }
                             };
                         } else if (model === 'hunyuan-video-heavy') {
                             workflow = {
-                                "3": { "inputs": { "seed": seed, "steps": steps, "cfg": cfg, "sampler_name": "euler", "scheduler": "normal", "denoise": 1, "model": ["10", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["5", 0] }, "class_type": "KSampler" },
-                                "5": { "inputs": { "width": width, "height": height, "length": frames, "batch_size": 1 }, "class_type": "EmptyHunyuanLatentVideo" },
-                                "6": { "inputs": { "text": prompt, "clip": ["10", 1] }, "class_type": "CLIPTextEncode" },
-                                "7": { "inputs": { "text": negPrompt, "clip": ["10", 1] }, "class_type": "CLIPTextEncode" },
-                                "8": { "inputs": { "samples": ["3", 0], "vae": ["10", 2] }, "class_type": "VAEDecode" },
-                                "10": { "inputs": { "ckpt_name": "hunyuan_video_720_cfg_distill_fp8_e4m3fn.safetensors" }, "class_type": "HunyuanVideoLoader" },
-                                "11": { "inputs": { "images": ["8", 0], "fps": 16, "filename_prefix": "nexus_hunyuan" }, "class_type": "VHS_VideoCombine" }
+                                "1": { "inputs": { "model": "hunyuan_video_720_cfgdistill_fp8_e4m3fn.safetensors", "base_precision": "bf16", "quantization": "disabled", "load_device": "main_device" }, "class_type": "HyVideoModelLoader" },
+                                "2": { "inputs": { "llm_model": "Kijai/llava-llama-3-8b-text-encoder-tokenizer", "clip_model": "openai/clip-vit-large-patch14", "precision": "fp16" }, "class_type": "DownloadAndLoadHyVideoTextEncoder" },
+                                "3": { "inputs": { "model_name": "hunyuan_video_vae_bf16.safetensors" }, "class_type": "HyVideoVAELoader" },
+                                "4": { "inputs": { "text_encoders": ["2", 0], "prompt": prompt }, "class_type": "HyVideoTextEncode" },
+                                "5": { "inputs": { "model": ["1", 0], "hyvid_embeds": ["4", 0], "width": width, "height": height, "num_frames": frames, "steps": steps, "seed": seed, "embedded_guidance_scale": 6.0, "flow_shift": 7.0, "force_offload": true }, "class_type": "HyVideoSampler" },
+                                "6": { "inputs": { "vae": ["3", 0], "samples": ["5", 0], "enable_vae_tiling": true, "spatial_tile_sample_min_size": 256, "temporal_tiling_sample_size": 64, "auto_tile_size": true }, "class_type": "HyVideoDecode" },
+                                "7": { "inputs": { "images": ["6", 0], "filename_prefix": "nexus_hunyuan", "fps": 16, "format": "video/h264-mp4", "save_output": true, "frame_rate": 16, "pingpong": false, "loop_count": 0 }, "class_type": "VHS_VideoCombine" }
                             };
+                            workflow["11"] = workflow["7"];
                         } else if (model === 'svd-img2vid') {
                             workflow = {
                                 "1": { "inputs": { "ckpt_name": "svd_xt_fp8.safetensors" }, "class_type": "ImageOnlyCheckpointLoader" },
@@ -17466,6 +17480,84 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                         }
                     }
                 });
+
+                // Voice to Text (Speech Recognition)
+                let voiceRecognition = null;
+                let isVoiceRecording = false;
+
+                const btnVoiceInput = document.getElementById('btnVoiceInput');
+                if (btnVoiceInput) {
+                    btnVoiceInput.addEventListener('click', () => {
+                        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                        if (!SpeechRecognition) {
+                            showToast('La transcripción de voz no está soportada en este entorno.', 'error');
+                            return;
+                        }
+
+                        if (isVoiceRecording) {
+                            if (voiceRecognition) voiceRecognition.stop();
+                            return;
+                        }
+
+                        try {
+                            voiceRecognition = new SpeechRecognition();
+                            voiceRecognition.lang = 'es-ES';
+                            voiceRecognition.interimResults = false;
+                            voiceRecognition.maxAlternatives = 1;
+
+                            voiceRecognition.onstart = () => {
+                                isVoiceRecording = true;
+                                btnVoiceInput.style.background = '#852222';
+                                btnVoiceInput.style.borderColor = '#852222';
+                                btnVoiceInput.innerHTML = '🔴';
+                                btnVoiceInput.title = 'Grabando... Haz clic para detener';
+                                const chatInput = document.getElementById('chat-input');
+                                if (chatInput) {
+                                    chatInput.placeholder = 'Escuchando... Habla ahora...';
+                                }
+                            };
+
+                            voiceRecognition.onresult = (event) => {
+                                const transcript = event.results[0][0].transcript;
+                                const chatInput = document.getElementById('chat-input');
+                                if (chatInput) {
+                                    chatInput.value = (chatInput.value ? chatInput.value + ' ' : '') + transcript;
+                                    chatInput.dispatchEvent(new Event('input')); // disparar redimensionado si existe
+                                    
+                                    // Submit automatically after 300ms
+                                    setTimeout(() => {
+                                        const sendBtn = document.getElementById('sendBtn');
+                                        if (sendBtn) sendBtn.click();
+                                    }, 300);
+                                }
+                            };
+
+                            voiceRecognition.onerror = (event) => {
+                                console.error('Error en reconocimiento de voz:', event.error);
+                                if (event.error !== 'no-speech') {
+                                    showToast('Error en el reconocimiento de voz: ' + event.error, 'error');
+                                }
+                            };
+
+                            voiceRecognition.onend = () => {
+                                isVoiceRecording = false;
+                                btnVoiceInput.style.background = '#21262d';
+                                btnVoiceInput.style.borderColor = '#30363d';
+                                btnVoiceInput.innerHTML = '🎤';
+                                btnVoiceInput.title = 'Voz a texto (Micrófono)';
+                                const chatInput = document.getElementById('chat-input');
+                                if (chatInput) {
+                                    chatInput.placeholder = 'Haz una pregunta o pide cambios en tu código...';
+                                }
+                            };
+
+                            voiceRecognition.start();
+                        } catch (err) {
+                            console.error('Error al inicializar reconocimiento de voz:', err);
+                            showToast('Error al inicializar micrófono: ' + err.message, 'error');
+                        }
+                    });
+                }
             }
         });
     </script>

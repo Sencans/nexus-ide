@@ -12,13 +12,39 @@ function createWindow () {
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false, // Permite usar módulos de Node directamente en tu index.html (fs, path, etc)
-      sandbox: false
+      sandbox: false,
+      webSecurity: false
     }
   });
 
   mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
     console.log(`[BROWSER CONSOLE] Level: ${level} | ${message} | ${path.basename(sourceId)}:${line}`);
   });
+
+  // Interceptar peticiones a ComfyUI / localhosts para eliminar cabeceras que causan 403 (Sec-Fetch-Site)
+  const { session } = require('electron');
+  session.defaultSession.webRequest.onBeforeSendHeaders({ urls: ['*://*/*'] }, (details, callback) => {
+    const url = details.url.toLowerCase();
+    if (url.includes('8188') || url.includes('127.0.0.1') || url.includes('localhost')) {
+      for (const key of Object.keys(details.requestHeaders)) {
+        const k = key.toLowerCase();
+        if (k === 'sec-fetch-site' || k === 'sec-fetch-mode' || k === 'sec-fetch-dest' || k === 'origin') {
+          delete details.requestHeaders[key];
+        }
+      }
+    }
+    callback({ cancel: false, requestHeaders: details.requestHeaders });
+  });
+
+  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+    const perm = permission.toLowerCase();
+    if (perm.includes('media') || perm.includes('audio') || perm.includes('microphone')) {
+      callback(true);
+    } else {
+      callback(false);
+    }
+  });
+
 
   // Forzar la limpieza de la caché antes de cargar para ver siempre los últimos cambios
   mainWindow.webContents.session.clearCache().then(() => {
@@ -773,43 +799,89 @@ ipcMain.on('focus-window', () => {
 ipcMain.handle('download-comfy-model', async (event, { modelType, comfyPath }) => {
     const fs = require('fs');
     const path = require('path');
-    const https = require('https');
     
     const urls = {
-        'ltx-video': {
-            url: 'https://huggingface.co/city96/LTX-Video-GGUF/resolve/main/ltx_video_q8_0.gguf',
-            subDir: 'models/unet',
-            filename: 'ltx_video_q8_0.gguf'
-        },
-        'ltx-video-heavy': {
-            url: 'https://huggingface.co/Lightricks/LTX-Video/resolve/main/ltx_video_sft_v1.safetensors',
-            subDir: 'models/checkpoints',
-            filename: 'ltx_video_sft_v1.safetensors'
-        },
-        'hunyuan-video': {
-            url: 'https://huggingface.co/city96/HunyuanVideo-GGUF/resolve/main/hunyuan_video_720_cfg_distill_q8_0.gguf',
-            subDir: 'models/unet',
-            filename: 'hunyuan_video_720_cfg_distill_q8_0.gguf'
-        },
-        'hunyuan-video-heavy': {
-            url: 'https://huggingface.co/tencent/HunyuanVideo/resolve/main/hunyuan_video_720_cfg_distill_fp8_e4m3fn.safetensors',
-            subDir: 'models/checkpoints',
-            filename: 'hunyuan_video_720_cfg_distill_fp8_e4m3fn.safetensors'
-        },
-        'svd-img2vid': {
-            url: 'https://huggingface.co/Kijai/StableVideoDiffusion_for_AnimateDiff_testing/resolve/main/svd_xt_fp8.safetensors',
-            subDir: 'models/checkpoints',
-            filename: 'svd_xt_fp8.safetensors'
-        },
-        'svd-img2vid-heavy': {
-            url: 'https://huggingface.co/stabilityai/stable-video-diffusion-img2vid-xt/resolve/main/svd_xt.safetensors',
-            subDir: 'models/checkpoints',
-            filename: 'svd_xt.safetensors'
-        }
+        'ltx-video': [
+            {
+                url: 'https://huggingface.co/city96/LTX-Video-gguf/resolve/main/ltx-video-2b-v0.9-Q8_0.gguf',
+                subDir: 'models/unet',
+                filename: 'ltx-video-2b-v0.9-Q8_0.gguf'
+            },
+            {
+                url: 'https://huggingface.co/Comfy-Org/PixelDiT/resolve/main/text_encoders/gemma_2_2b_it_elm_fp8_scaled.safetensors',
+                subDir: 'models/clip',
+                filename: 'gemma_2_2b_it_elm_fp8_scaled.safetensors'
+            },
+            {
+                url: 'https://huggingface.co/Comfy-Org/HunyuanVideo_repackaged/resolve/main/split_files/text_encoders/clip_l.safetensors',
+                subDir: 'models/clip',
+                filename: 'clip_l.safetensors'
+            },
+            {
+                url: 'https://huggingface.co/Lightricks/LTX-Video/resolve/main/vae/diffusion_pytorch_model.safetensors',
+                subDir: 'models/vae',
+                filename: 'ltx_video_vae.safetensors'
+            }
+        ],
+        'ltx-video-heavy': [
+            {
+                url: 'https://huggingface.co/Lightricks/LTX-Video/resolve/main/ltx-video-2b-v0.9.safetensors',
+                subDir: 'models/checkpoints',
+                filename: 'ltx-video-2b-v0.9.safetensors'
+            }
+        ],
+        'hunyuan-video': [
+            {
+                url: 'https://huggingface.co/city96/HunyuanVideo-gguf/resolve/main/hunyuan-video-t2v-720p-Q8_0.gguf',
+                subDir: 'models/unet',
+                filename: 'hunyuan-video-t2v-720p-Q8_0.gguf'
+            },
+            {
+                url: 'https://huggingface.co/Comfy-Org/HunyuanVideo_repackaged/resolve/main/split_files/text_encoders/clip_l.safetensors',
+                subDir: 'models/clip',
+                filename: 'clip_l.safetensors'
+            },
+            {
+                url: 'https://huggingface.co/Comfy-Org/HunyuanVideo_repackaged/resolve/main/split_files/text_encoders/llava_llama3_fp8_scaled.safetensors',
+                subDir: 'models/clip',
+                filename: 'llava_llama3_fp8_scaled.safetensors'
+            },
+            {
+                url: 'https://huggingface.co/Comfy-Org/HunyuanVideo_repackaged/resolve/main/split_files/vae/hunyuan_video_vae_bf16.safetensors',
+                subDir: 'models/vae',
+                filename: 'hunyuan_video_vae_bf16.safetensors'
+            }
+        ],
+        'hunyuan-video-heavy': [
+            {
+                url: 'https://huggingface.co/Kijai/HunyuanVideo_comfy/resolve/main/hunyuan_video_720_cfgdistill_fp8_e4m3fn.safetensors',
+                subDir: 'models/checkpoints',
+                filename: 'hunyuan_video_720_cfgdistill_fp8_e4m3fn.safetensors'
+            },
+            {
+                url: 'https://huggingface.co/Comfy-Org/HunyuanVideo_repackaged/resolve/main/split_files/vae/hunyuan_video_vae_bf16.safetensors',
+                subDir: 'models/vae',
+                filename: 'hunyuan_video_vae_bf16.safetensors'
+            }
+        ],
+        'svd-img2vid': [
+            {
+                url: 'https://huggingface.co/convertor/svd-fp8/resolve/main/svd_fp8_e4m3fn.safetensors',
+                subDir: 'models/checkpoints',
+                filename: 'svd_xt_fp8.safetensors'
+            }
+        ],
+        'svd-img2vid-heavy': [
+            {
+                url: 'https://huggingface.co/stabilityai/stable-video-diffusion-img2vid-xt/resolve/main/svd_xt.safetensors',
+                subDir: 'models/checkpoints',
+                filename: 'svd_xt.safetensors'
+            }
+        ]
     };
     
-    const target = urls[modelType];
-    if (!target) throw new Error("Modelo de video desconocido");
+    const targets = urls[modelType];
+    if (!targets) throw new Error("Modelo de video desconocido");
     if (!comfyPath) throw new Error("La ruta de instalación de ComfyUI no está configurada");
     
     let resolvedComfyPath = comfyPath;
@@ -834,80 +906,111 @@ ipcMain.handle('download-comfy-model', async (event, { modelType, comfyPath }) =
         }
     } catch(e) {}
     
-    const destDir = path.join(resolvedComfyPath, target.subDir);
-    if (!fs.existsSync(destDir)) {
-        fs.mkdirSync(destDir, { recursive: true });
-    }
-    
-    const destFile = path.join(destDir, target.filename);
-    
-    if (fs.existsSync(destFile)) {
-        return { status: 'exists', path: destFile };
-    }
-    
-    return new Promise((resolve, reject) => {
-        const fileStream = fs.createWriteStream(destFile);
-        const http = require('http');
-        const https = require('https');
+    const getComfyModelsDir = (resolvedPath) => {
+        try {
+            const parent1 = path.dirname(resolvedPath);
+            const parent2 = path.dirname(parent1);
+            const parent3 = path.dirname(parent2);
+            const sharedDir = path.join(parent3, 'ComfyUI-Shared', 'models');
+            if (fs.existsSync(sharedDir)) {
+                return sharedDir;
+            }
+        } catch (e) {}
+        return path.join(resolvedPath, 'models');
+    };
+
+    const modelsDir = getComfyModelsDir(resolvedComfyPath);
+
+    const downloadFile = (target, index, total) => {
+        const relativeSubDir = target.subDir.replace(/^models\/?/, '');
+        const destDir = path.join(modelsDir, relativeSubDir);
+        if (!fs.existsSync(destDir)) {
+            fs.mkdirSync(destDir, { recursive: true });
+        }
         
-        const download = (url) => {
-            const client = url.startsWith('https') ? https : http;
-            client.get(url, (res) => {
-                if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-                    try {
-                        const nextUrl = new URL(res.headers.location, url).toString();
-                        download(nextUrl);
-                    } catch (err) {
+        const destFile = path.join(destDir, target.filename);
+        const standardFile = path.join(resolvedComfyPath, target.subDir, target.filename);
+        
+        if (fs.existsSync(destFile)) {
+            return Promise.resolve(destFile);
+        }
+        if (fs.existsSync(standardFile)) {
+            return Promise.resolve(standardFile);
+        }
+        
+        return new Promise((resolve, reject) => {
+            const fileStream = fs.createWriteStream(destFile);
+            const http = require('http');
+            const https = require('https');
+            
+            const download = (url) => {
+                const client = url.startsWith('https') ? https : http;
+                client.get(url, (res) => {
+                    if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+                        try {
+                            const nextUrl = new URL(res.headers.location, url).toString();
+                            download(nextUrl);
+                        } catch (err) {
+                            fileStream.close();
+                            if (fs.existsSync(destFile)) fs.unlinkSync(destFile);
+                            reject(new Error("URL de redirección inválido: " + res.headers.location));
+                        }
+                        return;
+                    }
+                    
+                    if (res.statusCode !== 200) {
                         fileStream.close();
                         if (fs.existsSync(destFile)) fs.unlinkSync(destFile);
-                        reject(new Error("URL de redirección inválido: " + res.headers.location));
+                        reject(new Error(`El servidor devolvió el código de estado: ${res.statusCode}`));
+                        return;
                     }
-                    return;
-                }
-                
-                if (res.statusCode !== 200) {
-                    fileStream.close();
-                    if (fs.existsSync(destFile)) fs.unlinkSync(destFile);
-                    reject(new Error(`El servidor devolvió el código de estado: ${res.statusCode}`));
-                    return;
-                }
-                
-                const totalBytes = parseInt(res.headers['content-length'], 10) || 0;
-                let downloadedBytes = 0;
-                let lastProgress = 0;
-                
-                res.on('data', (chunk) => {
-                    downloadedBytes += chunk.length;
-                    fileStream.write(chunk);
                     
-                    if (totalBytes > 0) {
-                        const progress = Math.round((downloadedBytes / totalBytes) * 100);
-                        if (progress > lastProgress) {
-                            lastProgress = progress;
-                            event.sender.send('download-progress', { modelType, progress });
+                    const totalBytes = parseInt(res.headers['content-length'], 10) || 0;
+                    let downloadedBytes = 0;
+                    let lastProgress = 0;
+                    
+                    res.on('data', (chunk) => {
+                        downloadedBytes += chunk.length;
+                        fileStream.write(chunk);
+                        
+                        if (totalBytes > 0) {
+                            const fileProgress = Math.round((downloadedBytes / totalBytes) * 100);
+                            const overallProgress = Math.round(((index / total) * 100) + (fileProgress / total));
+                            if (overallProgress > lastProgress) {
+                                lastProgress = overallProgress;
+                                event.sender.send('download-progress', { modelType, progress: overallProgress });
+                            }
                         }
-                    }
-                });
-                
-                res.on('end', () => {
-                    fileStream.end();
-                    resolve({ status: 'completed', path: destFile });
-                });
-                
-                res.on('error', (err) => {
+                    });
+                    
+                    res.on('end', () => {
+                        fileStream.end();
+                        resolve(destFile);
+                    });
+                    
+                    res.on('error', (err) => {
+                        fileStream.close();
+                        if (fs.existsSync(destFile)) fs.unlinkSync(destFile);
+                        reject(err);
+                    });
+                }).on('error', (err) => {
                     fileStream.close();
                     if (fs.existsSync(destFile)) fs.unlinkSync(destFile);
                     reject(err);
                 });
-            }).on('error', (err) => {
-                fileStream.close();
-                if (fs.existsSync(destFile)) fs.unlinkSync(destFile);
-                reject(err);
-            });
-        };
-        
-        download(target.url);
-    });
+            };
+            
+            download(target.url);
+        });
+    };
+
+    let lastPath = '';
+    for (let i = 0; i < targets.length; i++) {
+        event.sender.send('download-progress', { modelType, progress: Math.round((i / targets.length) * 100) });
+        lastPath = await downloadFile(targets[i], i, targets.length);
+    }
+    event.sender.send('download-progress', { modelType, progress: 100 });
+    return { status: 'completed', path: lastPath };
 });
 
 ipcMain.handle('check-comfy-model-status', async (event, { modelType, comfyPath }) => {
@@ -915,15 +1018,34 @@ ipcMain.handle('check-comfy-model-status', async (event, { modelType, comfyPath 
     const path = require('path');
     
     const urls = {
-        'ltx-video': { subDir: 'models/unet', filename: 'ltx_video_q8_0.gguf' },
-        'ltx-video-heavy': { subDir: 'models/checkpoints', filename: 'ltx_video_sft_v1.safetensors' },
-        'hunyuan-video': { subDir: 'models/unet', filename: 'hunyuan_video_720_cfg_distill_q8_0.gguf' },
-        'hunyuan-video-heavy': { subDir: 'models/checkpoints', filename: 'hunyuan_video_720_cfg_distill_fp8_e4m3fn.safetensors' },
-        'svd-img2vid': { subDir: 'models/checkpoints', filename: 'svd_xt_fp8.safetensors' },
-        'svd-img2vid-heavy': { subDir: 'models/checkpoints', filename: 'svd_xt.safetensors' }
+        'ltx-video': [
+            { subDir: 'models/unet', filename: 'ltx-video-2b-v0.9-Q8_0.gguf' },
+            { subDir: 'models/clip', filename: 'gemma_2_2b_it_elm_fp8_scaled.safetensors' },
+            { subDir: 'models/clip', filename: 'clip_l.safetensors' },
+            { subDir: 'models/vae', filename: 'ltx_video_vae.safetensors' }
+        ],
+        'ltx-video-heavy': [
+            { subDir: 'models/checkpoints', filename: 'ltx-video-2b-v0.9.safetensors' }
+        ],
+        'hunyuan-video': [
+            { subDir: 'models/unet', filename: 'hunyuan-video-t2v-720p-Q8_0.gguf' },
+            { subDir: 'models/clip', filename: 'clip_l.safetensors' },
+            { subDir: 'models/clip', filename: 'llava_llama3_fp8_scaled.safetensors' },
+            { subDir: 'models/vae', filename: 'hunyuan_video_vae_bf16.safetensors' }
+        ],
+        'hunyuan-video-heavy': [
+            { subDir: 'models/checkpoints', filename: 'hunyuan_video_720_cfgdistill_fp8_e4m3fn.safetensors' },
+            { subDir: 'models/vae', filename: 'hunyuan_video_vae_bf16.safetensors' }
+        ],
+        'svd-img2vid': [
+            { subDir: 'models/checkpoints', filename: 'svd_xt_fp8.safetensors' }
+        ],
+        'svd-img2vid-heavy': [
+            { subDir: 'models/checkpoints', filename: 'svd_xt.safetensors' }
+        ]
     };
-    const target = urls[modelType];
-    if (!target || !comfyPath) return { status: 'missing' };
+    const targets = urls[modelType];
+    if (!targets || !comfyPath) return { status: 'missing' };
     
     let resolvedComfyPath = comfyPath;
     if (comfyPath.toLowerCase().endsWith('.lnk')) {
@@ -945,9 +1067,37 @@ ipcMain.handle('check-comfy-model-status', async (event, { modelType, comfyPath 
         }
     } catch(e) {}
     
-    const destFile = path.join(resolvedComfyPath, target.subDir, target.filename);
-    if (fs.existsSync(destFile)) {
-        return { status: 'exists', path: destFile };
+    const getComfyModelsDir = (resolvedPath) => {
+        try {
+            const parent1 = path.dirname(resolvedPath);
+            const parent2 = path.dirname(parent1);
+            const parent3 = path.dirname(parent2);
+            const sharedDir = path.join(parent3, 'ComfyUI-Shared', 'models');
+            if (fs.existsSync(sharedDir)) {
+                return sharedDir;
+            }
+        } catch (e) {}
+        return path.join(resolvedPath, 'models');
+    };
+
+    const modelsDir = getComfyModelsDir(resolvedComfyPath);
+    
+    let allExist = true;
+    let lastPath = '';
+    for (const target of targets) {
+        const relativeSubDir = target.subDir.replace(/^models\/?/, '');
+        const destFile = path.join(modelsDir, relativeSubDir, target.filename);
+        const standardFile = path.join(resolvedComfyPath, target.subDir, target.filename);
+        
+        if (!fs.existsSync(destFile) && !fs.existsSync(standardFile)) {
+            allExist = false;
+            break;
+        }
+        lastPath = fs.existsSync(destFile) ? destFile : standardFile;
+    }
+    
+    if (allExist) {
+        return { status: 'exists', path: lastPath };
     }
     return { status: 'missing' };
 });
