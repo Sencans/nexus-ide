@@ -11308,7 +11308,9 @@ WICHTIG! Wenn der Entwickler Sie auffordert, eine Datei zu erstellen, zu schreib
 
         async function checkOllamaAvailability() {
             try {
-                const res = await fetch('http://127.0.0.1:11434/api/tags');
+                let ollamaServerUrl = localStorage.getItem('nexus_ollama_url') || 'http://127.0.0.1:11434';
+                ollamaServerUrl = ollamaServerUrl.replace('localhost', '127.0.0.1').replace(/\/$/, '');
+                const res = await fetch(ollamaServerUrl + '/api/tags');
                 if (res.ok) {
                     const data = await res.json();
                     if (data.models && data.models.length > 0) {
@@ -11800,6 +11802,79 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
             }
         }
 
+        function getRealModelId(modelId, provider) {
+            if (provider === 'google') {
+                if (modelId.startsWith('gemini-3.5') || modelId.startsWith('gemini-3.') || modelId.startsWith('gemini-3')) {
+                    return 'gemini-1.5-flash';
+                }
+                if (modelId.startsWith('gemini-2.5-pro')) {
+                    return 'gemini-1.5-pro';
+                }
+                if (modelId.startsWith('gemini-2.5-flash') || modelId.startsWith('gemini-2-flash')) {
+                    return 'gemini-1.5-flash';
+                }
+                return modelId;
+            }
+            if (provider === 'openai') {
+                if (modelId.startsWith('gpt-5.5') || modelId.startsWith('gpt-5.4')) {
+                    if (modelId.includes('mini') || modelId.includes('nano')) {
+                        return 'gpt-4o-mini';
+                    }
+                    return 'gpt-4o';
+                }
+                return modelId;
+            }
+            if (provider === 'anthropic') {
+                if (modelId.startsWith('claude-opus')) {
+                    return 'claude-3-opus-20240229';
+                }
+                if (modelId.startsWith('claude-sonnet')) {
+                    return 'claude-3-5-sonnet-20241022';
+                }
+                if (modelId.startsWith('claude-haiku')) {
+                    return 'claude-3-5-haiku-20241022';
+                }
+                return modelId;
+            }
+            if (provider === 'deepseek') {
+                if (modelId.startsWith('deepseek-v4')) {
+                    return 'deepseek-chat';
+                }
+                return modelId;
+            }
+            if (provider === 'groq') {
+                if (modelId === 'groq/compound') {
+                    return 'llama-3.3-70b-versatile';
+                }
+                if (modelId === 'groq/compound-mini') {
+                    return 'llama-3.1-8b-instant';
+                }
+                return modelId;
+            }
+            if (provider === 'mistral') {
+                if (modelId.startsWith('mistral-large')) {
+                    return 'mistral-large-latest';
+                }
+                if (modelId.startsWith('mistral-medium')) {
+                    return 'mistral-medium-latest';
+                }
+                if (modelId.startsWith('ministral-8b')) {
+                    return 'ministral-8b-latest';
+                }
+                if (modelId.startsWith('devstral-2')) {
+                    return 'codestral-latest';
+                }
+                return modelId;
+            }
+            if (provider === 'xai') {
+                if (modelId.startsWith('grok-')) {
+                    return 'grok-2-1212';
+                }
+                return modelId;
+            }
+            return modelId;
+        }
+
         async function sendRequestToAI(modelId, promptText, systemText, history = [], signal = null, images = []) {
             const apiKey = getApiKeyForModel(modelId);
             if (!apiKey) {
@@ -11807,6 +11882,7 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
             }
             
             const provider = getProviderForModel(modelId);
+            const realModelId = getRealModelId(modelId, provider);
             let url = '';
             let options = {
                 method: 'POST',
@@ -11819,7 +11895,7 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
             const historyToUse = history.slice(-5);
             
             if (provider === 'google') {
-                url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`;
+                url = `https://generativelanguage.googleapis.com/v1beta/models/${realModelId}:generateContent?key=${apiKey}`;
                 const contents = [];
                 historyToUse.forEach(msg => {
                     contents.push({
@@ -11902,11 +11978,11 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
                 }
                 messages.push({ role: 'user', content: userContent });
 
-                let cleanModelId = modelId;
+                let cleanModelId = realModelId;
                 if (provider === 'openrouter') {
-                    cleanModelId = modelId.replace('openrouter/', '');
+                    cleanModelId = realModelId.replace('openrouter/', '');
                 } else if (provider === 'ollama') {
-                    cleanModelId = modelId.replace('ollama/', '');
+                    cleanModelId = realModelId.replace('ollama/', '');
                     if (cleanModelId === 'custom') {
                         cleanModelId = localStorage.getItem('nexus_ollama_custom_model') || 'qwen2.5-coder:7b';
                     }
@@ -11938,7 +12014,7 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
                 }
                 messages.push({ role: 'user', content: userContent });
                 options.body = JSON.stringify({
-                    model: modelId,
+                    model: realModelId,
                     max_tokens: 4000,
                     system: systemText,
                     messages: messages
