@@ -35,6 +35,9 @@
 27. [Conexiones VPS Remotas (SSH/SFTP)](#27-conexiones-vps-remotas-ssh-sftp)
 28. [Generador de Video AI (ComfyUI)](#28-generador-de-video-ai-comfyui)
 29. [Función de Voz a Texto Rápida](#29-función-de-voz-a-texto-rápida)
+30. [Paseo de Bienvenida Interactivo (User Tour)](#30-paseo-de-bienvenida-interactivo-user-tour)
+31. [Gestión Personalizada de Requisitos y Autoinstalador ComfyUI](#31-gestión-personalizada-de-requisitos-y-autoinstalador-comfyui)
+32. [Optimización de Recursos: Modo Lite](#32-optimización-de-recursos-modo-lite)
 
 ---
 
@@ -735,6 +738,41 @@ Usa tu micrófono para dictar prompts de forma rápida y autónoma en el chat pr
 2. Si es la primera vez que lo utilizas, Electron solicitará automáticamente los permisos de captura de audio (aprobados por defecto en el proceso principal).
 3. El botón cambiará de color a rojo parpadeante **🔴** y el prompt indicará `"Escuchando... Habla ahora..."`.
 4. Dicta tu consulta. Al terminar, la transcripción se insertará de forma limpia en la caja de texto y se enviará de manera automática a la IA tras 300ms.
+
+## 30. Paseo de Bienvenida Interactivo (User Tour)
+
+Nexus IDE incluye una guía interactiva que te acompaña a través de los componentes clave de la interfaz al iniciar la aplicación por primera vez, ayudándote a comprender sus capacidades.
+
+### Características
+- **Paseo Paso a Paso**: Explica detalladamente el Explorador de Archivos/SFTP, el Editor Monaco, el Chat con IA (Modo Agente), la Generación de Video Local (ComfyUI), el Supervisor de Código Cardinal y el conmutador de Modo Lite.
+- **Destaque Visual (Spotlight)**: Resalta con un anillo luminoso y sombra violeta pulsante el botón o panel específico sobre el que trata el paso.
+- **Omitir en Cualquier Momento**: Si eres un usuario experimentado, puedes saltar el paseo haciendo clic en "Omitir" o "Finalizar" para ir directo al IDE. El estado se guardará en `localStorage` para no volver a mostrártelo.
+- **Repetir desde Configuración**: Si deseas volver a tomar el paseo de bienvenida, puedes hacerlo pulsando el botón **🚀 Iniciar Paseo de Bienvenida** en la pestaña **Editor** dentro de la ventana de Configuración (`⚙ Ajustes`).
+
+---
+
+## 31. Gestión Personalizada de Requisitos y Autoinstalador ComfyUI
+
+Al iniciar la aplicación, la pantalla de comprobación de requisitos del sistema te permite auditar el software instalado (Git, Python, Ollama, ComfyUI, etc.) para asegurar el correcto funcionamiento local del IDE.
+
+### Características
+- **Selección Granular**: En lugar de una instalación automática monolítica de todos los componentes faltantes, dispones de checkboxes individuales para seleccionar de forma específica qué programas deseas instalar.
+- **Autoinstalador Local de ComfyUI**: Si marcas ComfyUI, el IDE ejecutará en segundo plano un pipeline que:
+  1. Clona el repositorio oficial de ComfyUI en tu directorio local `AppData/Local/Comfy-Desktop`.
+  2. Crea un entorno virtual (`venv`) de Python aislado.
+  3. Ejecuta `pip install -r requirements.txt` para instalar de forma limpia todas las dependencias requeridas.
+  4. Configura la ruta de ejecución en el IDE automáticamente.
+
+---
+
+## 32. Optimización de Recursos: Modo Lite
+
+Para aquellos desarrolladores que prefieren un entorno minimalista centrado exclusivamente en la interacción con el Agente de IA sin sobrecargar el procesador o la memoria RAM, Nexus IDE cuenta con un conmutador de Modo Lite.
+
+### Características
+- **Interfaz Simplificada**: Al activar el Modo Lite se oculta el editor de código Monaco, las pestañas de archivos y el explorador lateral, dejando una ventana estilizada de chat directo con la IA.
+- **Persistencia Local**: Tu preferencia de modo (Full o Lite) se almacena en el sistema y se aplica automáticamente en cada inicio de la aplicación.
+- **Activación Rápida**: Puedes alternar entre ambos modos en caliente desde el desplegable de **Modo de Ejecución** en la pestaña **Editor** de la ventana de Configuración.
 
 ---
 

@@ -573,6 +573,118 @@
             width: 5px !important;
             margin-left: 3px;
         }
+
+        /* Nexus User Tour Styles */
+        #nexus-tour-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            background: rgba(0, 0, 0, 0.4);
+            z-index: 99999;
+            pointer-events: auto;
+            font-family: 'Outfit', 'Inter', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: background 0.3s;
+        }
+
+        .nexus-tour-card {
+            position: absolute;
+            width: 320px;
+            background: rgba(22, 27, 34, 0.9);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(124, 58, 237, 0.3);
+            padding: 18px;
+            color: #e6edf3;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            animation: tourFadeIn 0.2s ease-out;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        @keyframes tourFadeIn {
+            from { opacity: 0; transform: scale(0.95) translateY(8px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        .nexus-tour-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nexus-tour-desc {
+            font-size: 12.5px;
+            line-height: 1.5;
+            color: #8b949e;
+        }
+
+        .nexus-tour-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 8px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            padding-top: 12px;
+        }
+
+        .nexus-tour-progress {
+            font-size: 11px;
+            color: #a78bfa;
+            font-weight: 600;
+        }
+
+        .nexus-tour-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .nexus-tour-btn {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            color: #c9d1d9;
+            padding: 6px 12px;
+            font-size: 11px;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .nexus-tour-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .nexus-tour-btn-primary {
+            background: #7c3aed;
+            border: 1px solid #8b5cf6;
+            color: #fff;
+        }
+
+        .nexus-tour-btn-primary:hover {
+            background: #6d28d9;
+            border-color: #7c3aed;
+        }
+
+        .nexus-tour-highlight-ring {
+            position: absolute;
+            border: 2px solid #7c3aed;
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(124, 58, 237, 0.6), inset 0 0 10px rgba(124, 58, 237, 0.3);
+            pointer-events: none;
+            z-index: 99998;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
     </style>
 </head>
 <body>
@@ -806,15 +918,20 @@
             </div>
             
             <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid rgba(255,255,255,0.1); padding-top:20px; margin-top:10px;">
-                <button id="btn-req-skip" style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:#fff; padding:10px 18px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:500; transition:all 0.2s;">
-                    Ignorar y Abrir IDE
-                </button>
+                <div style="display:flex; gap:10px;">
+                    <button id="btn-req-lite" style="background:rgba(124,58,237,0.15); border:1px solid #7c3aed; color:#fff; padding:10px 18px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600; transition:all 0.2s;" title="Desactiva funciones locales pesadas para usar APIs en la nube">
+                        ⚡ Activar Modo Lite
+                    </button>
+                    <button id="btn-req-skip" style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:#fff; padding:10px 18px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:500; transition:all 0.2s;">
+                        Ignorar y Abrir IDE
+                    </button>
+                </div>
                 <div style="display:flex; gap:10px;">
                     <button id="btn-req-check" style="background:transparent; border:1px solid #7c3aed; color:#7c3aed; padding:10px 18px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:500; transition:all 0.2s;">
                         Volver a Comprobar
                     </button>
                     <button id="btn-req-install" style="background:#7c3aed; border:none; color:#fff; padding:10px 22px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600; box-shadow:0 0 15px rgba(124,58,237,0.4); transition:all 0.2s;">
-                        Instalar Faltantes
+                        Instalar Seleccionados
                     </button>
                 </div>
             </div>
@@ -5200,9 +5317,21 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                             </select>
                         </div>
                         ${projectTypeSection}
+                        <div style="border-top: 1px solid #30363d; margin-top: 6px; padding-top: 10px;">
+                            <label style="font-size:11px;color:#8b949e;display:block;margin-bottom:4px;">⚡ Modo de Ejecución de la Aplicación</label>
+                            <select id="cfg-app-mode" style="width:100%;box-sizing:border-box;background:#161b22;border:1px solid #30363d;border-radius:4px;color:#fff;padding:8px 12px;font-size:13px;outline:none;">
+                                <option value="lite" ${localStorage.getItem('nexus_lite_mode') === 'true' ? 'selected' : ''}>Modo Lite (Sin dependencias locales pesadas, IA en la nube)</option>
+                                <option value="full" ${localStorage.getItem('nexus_lite_mode') !== 'true' ? 'selected' : ''}>Modo Completo (Generación de Video, Docker y Ollama local)</option>
+                            </select>
+                        </div>
                         <div style="border-top: 1px solid #30363d; margin-top: 6px; padding-top: 10px; display:flex; align-items:center; gap:10px;">
                             <input id="cfg-airi-avatar" type="checkbox" ${localStorage.getItem('nexus_airi_avatar') === 'true' ? 'checked' : ''} style="cursor:pointer;width:16px;height:16px;">
                             <label for="cfg-airi-avatar" style="font-size:13px;color:#e6edf3;cursor:pointer;user-select:none;">👤 Habilitar Acompañante 3D AIRI (Avatar y Voz)</label>
+                        </div>
+                        <div style="border-top: 1px solid #30363d; margin-top: 6px; padding-top: 10px;">
+                            <button onclick="window.startUserTour()" class="nexus-tour-btn nexus-tour-btn-primary" style="width:100%; box-sizing:border-box; padding:8px 12px; cursor:pointer; font-size:12px; font-weight:600; text-align:center;">
+                                🚀 Iniciar Paseo de Bienvenida
+                            </button>
                         </div>
                         <button onclick="saveEditorConfig()" style="background:#7c3aed;border:none;border-radius:4px;color:#fff;padding:8px 16px;cursor:pointer;font-size:13px;font-weight:bold;margin-top:10px;align-self:flex-start;font-family:inherit;">${NexusLocalization.t('btn_save_config')}</button>
                     </div>
@@ -5430,6 +5559,12 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
               
               const agentPermissions = document.getElementById('cfg-agent-permissions').value || 'always';
               localStorage.setItem('nexus_agent_permissions', agentPermissions);
+              
+              const appMode = document.getElementById('cfg-app-mode').value || 'full';
+              localStorage.setItem('nexus_lite_mode', appMode === 'lite' ? 'true' : 'false');
+              if (typeof window.applyLiteMode === 'function') {
+                  window.applyLiteMode();
+              }
               
               const airiActive = document.getElementById('cfg-airi-avatar').checked;
               localStorage.setItem('nexus_airi_avatar', airiActive ? 'true' : 'false');
@@ -13618,6 +13753,8 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
             { id: 'git', name: 'Git SCM', checkCmd: 'git --version', wingetId: 'Git.Git', icon: '🌳', desc: 'Control de versiones y descarga de plugins.' },
             { id: 'node', name: 'Node.js & NPM', checkCmd: 'node --version', wingetId: 'OpenJS.NodeJS.LTS', icon: '🟢', desc: 'Entorno de ejecución principal y npm.' },
             { id: 'python', name: 'Python 3', checkCmd: 'python --version', wingetId: 'Python.Python.3.11', icon: '🐍', desc: 'Ejecución de base de datos SQLite y scripts.' },
+            { id: 'ollama', name: 'Ollama (LLM Local)', checkCmd: 'ollama --version', wingetId: 'Ollama.Ollama', icon: '🦙', desc: 'Ejecución local de modelos de lenguaje para chat y Cardinal.' },
+            { id: 'comfyui', name: 'ComfyUI (Generador de Video)', checkCmd: 'echo comfyui', wingetId: '', icon: '🎛️', desc: 'Cargadores de modelos locales LTX-Video GGUF y decodificación VAE.', customInstall: true },
             { id: 'docker', name: 'Docker Desktop', checkCmd: 'docker --version', wingetId: 'Docker.DockerDesktop', icon: '🐳', desc: 'Panel de contenedores y servicios locales.' },
             { id: 'godot', name: 'Godot Engine', checkCmd: 'godot --version', wingetId: 'GodotEngine.GodotEngine', icon: '🛠️', desc: 'Edición y ejecución del motor de videojuegos.' }
         ];
@@ -13631,6 +13768,27 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
             
             // Clear previous foundPath
             req.foundPath = '';
+
+            if (req.id === 'comfyui') {
+                const homeDir = process.env.USERPROFILE || process.env.HOME || 'C:\\Users\\gwmki';
+                const comfyPath = path.join(homeDir, 'AppData', 'Local', 'Comfy-Desktop');
+                if (fs.existsSync(comfyPath)) {
+                    req.foundPath = comfyPath;
+                    return true;
+                }
+                const localComfy = localStorage.getItem('comfyui_install_path');
+                if (localComfy && fs.existsSync(localComfy)) {
+                    req.foundPath = localComfy;
+                    return true;
+                }
+                // También comprobar en la carpeta ComfyUI-Installs/ComfyUI/ComfyUI
+                const comfyInstallsPath = 'C:\\Users\\gwmki\\AppData\\Local\\Comfy-Desktop\\ComfyUI-Installs\\ComfyUI\\ComfyUI';
+                if (fs.existsSync(comfyInstallsPath)) {
+                    req.foundPath = comfyInstallsPath;
+                    return true;
+                }
+                return false;
+            }
             
             // 1. Level 1: Check with 'where' to get the absolute path
             let pathFromWhere = await new Promise((resolve) => {
@@ -13898,6 +14056,11 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
                 item.style.cssText = 'display:flex; align-items:center; justify-content:space-between; padding:12px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.04); border-radius:10px;';
                 item.innerHTML = `
                     <div style="display:flex; align-items:center; gap:12px;">
+                        ${!req.installed ? `
+                            <input type="checkbox" class="req-install-checkbox" data-id="${req.id}" checked style="cursor:pointer; width:18px; height:18px; accent-color:#7c3aed;">
+                        ` : `
+                            <input type="checkbox" checked disabled style="width:18px; height:18px; opacity:0.4; cursor:not-allowed;">
+                        `}
                         <div style="font-size:20px;">${req.icon}</div>
                         <div style="text-align: left;">
                             <div style="font-weight:600; font-size:14px; color:#f0f6fc;">${req.name}</div>
@@ -13908,7 +14071,7 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
                     <div style="display:flex; align-items:center; gap:12px;">
                         ${req.installed ? 
                             `<span style="font-size:12px; font-weight:600; padding:4px 8px; border-radius:6px; background:rgba(57,255,20,0.1); color:#39ff14;">Detectado 🟢</span>` : 
-                            `<span style="font-size:12px; font-weight:600; padding:4px 8px; border-radius:6px; background:rgba(218,54,51,0.1); color:#ff7b72;">No detectado 🔴</span>`
+                            `<span style="font-size:12px; font-weight:600; padding:4px 8px; border-radius:6px; background:rgba(218,54,51,0.1); color:#ff7b72;">Faltante 🔴</span>`
                         }
                     </div>
                 `;
@@ -13960,6 +14123,13 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
                         } else {
                             openProjectDashboardModal();
                         }
+
+                        // Lanzar el paseo interactivo si no se ha completado
+                        setTimeout(() => {
+                            if (localStorage.getItem('nexus_tour_completed') !== 'true') {
+                                if (window.startUserTour) window.startUserTour();
+                            }
+                        }, 1200);
                     }, 250);
                 }, 300);
             }
@@ -13979,27 +14149,94 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
             });
 
             document.getElementById('btn-req-install').addEventListener('click', async () => {
-                if (missingReqs.length === 0) return;
+                const checkboxes = document.querySelectorAll('.req-install-checkbox:checked');
+                const checkedIds = Array.from(checkboxes).map(cb => cb.getAttribute('data-id'));
+                const toInstall = missingReqs.filter(req => checkedIds.includes(req.id));
+                
+                if (toInstall.length === 0) {
+                    alert('Por favor selecciona al menos un componente para instalar.');
+                    return;
+                }
                 
                 const logContainer = document.getElementById('nexus-req-log-container');
                 const logEl = document.getElementById('nexus-req-log');
                 const btnInstall = document.getElementById('btn-req-install');
                 const btnSkip = document.getElementById('btn-req-skip');
                 const btnCheck = document.getElementById('btn-req-check');
+                const btnLite = document.getElementById('btn-req-lite');
                 const statusEl = document.getElementById('nexus-req-install-status');
                 
                 logContainer.style.display = 'flex';
-                logEl.textContent = 'Iniciando instalación de componentes faltantes...\n';
+                logEl.textContent = 'Iniciando instalación de componentes seleccionados...\n';
                 btnInstall.disabled = true;
                 btnInstall.style.opacity = '0.5';
                 btnSkip.disabled = true;
                 btnSkip.style.opacity = '0.5';
                 btnCheck.disabled = true;
                 btnCheck.style.opacity = '0.5';
+                if (btnLite) {
+                    btnLite.disabled = true;
+                    btnLite.style.opacity = '0.5';
+                }
                 
                 const { spawn } = require('child_process');
                 
-                for (const req of missingReqs) {
+                for (const req of toInstall) {
+                    if (req.customInstall && req.id === 'comfyui') {
+                        logEl.textContent += `\nInstalando ComfyUI de forma personalizada...\n`;
+                        const homeDir = process.env.USERPROFILE || process.env.HOME || 'C:\\Users\\gwmki';
+                        const targetDir = require('path').join(homeDir, 'AppData', 'Local', 'Comfy-Desktop');
+                        
+                        logEl.textContent += `Directorio destino: ${targetDir}\n`;
+                        logEl.scrollTop = logEl.scrollHeight;
+                        
+                        // Paso 1: Git clone ComfyUI
+                        if (!require('fs').existsSync(targetDir)) {
+                            statusEl.textContent = `Clonando ComfyUI...`;
+                            logEl.textContent += `Ejecutando: git clone https://github.com/comfyanonymous/ComfyUI.git "${targetDir}"\n`;
+                            const gitCode = await new Promise((resolve) => {
+                                const child = spawn('git', ['clone', 'https://github.com/comfyanonymous/ComfyUI.git', targetDir], { shell: true });
+                                child.stdout.on('data', data => { logEl.textContent += data.toString(); logEl.scrollTop = logEl.scrollHeight; });
+                                child.stderr.on('data', data => { logEl.textContent += data.toString(); logEl.scrollTop = logEl.scrollHeight; });
+                                child.on('close', resolve);
+                            });
+                            logEl.textContent += `Git clone finalizado con código: ${gitCode}\n`;
+                        } else {
+                            logEl.textContent += `El directorio ya existe. Saltando clone.\n`;
+                        }
+                        
+                        // Paso 2: Crear venv
+                        statusEl.textContent = `Creando Entorno Virtual (venv)...`;
+                        const venvDir = require('path').join(targetDir, 'venv');
+                        logEl.textContent += `Ejecutando: python -m venv "${venvDir}"\n`;
+                        logEl.scrollTop = logEl.scrollHeight;
+                        const venvCode = await new Promise((resolve) => {
+                            const child = spawn('python', ['-m', 'venv', venvDir], { shell: true });
+                            child.stdout.on('data', data => { logEl.textContent += data.toString(); logEl.scrollTop = logEl.scrollHeight; });
+                            child.stderr.on('data', data => { logEl.textContent += data.toString(); logEl.scrollTop = logEl.scrollHeight; });
+                            child.on('close', resolve);
+                        });
+                        logEl.textContent += `Creación de venv finalizada con código: ${venvCode}\n`;
+                        
+                        // Paso 3: Pip install requirements
+                        statusEl.textContent = `Instalando dependencias de ComfyUI (pip)...`;
+                        const pipPath = require('path').join(targetDir, 'venv', 'Scripts', 'pip.exe');
+                        logEl.textContent += `Ejecutando: ${pipPath} install -r requirements.txt\n`;
+                        logEl.scrollTop = logEl.scrollHeight;
+                        const pipCode = await new Promise((resolve) => {
+                            const child = spawn(pipPath, ['install', '-r', 'requirements.txt'], { cwd: targetDir, shell: true });
+                            child.stdout.on('data', data => { logEl.textContent += data.toString(); logEl.scrollTop = logEl.scrollHeight; });
+                            child.stderr.on('data', data => { logEl.textContent += data.toString(); logEl.scrollTop = logEl.scrollHeight; });
+                            child.on('close', resolve);
+                        });
+                        logEl.textContent += `Instalación de pip finalizada con código: ${pipCode}\n`;
+                        
+                        localStorage.setItem('comfyui_install_path', targetDir);
+                        logEl.textContent += `ComfyUI instalado con éxito en: ${targetDir}\n`;
+                        logEl.scrollTop = logEl.scrollHeight;
+                        continue;
+                    }
+                    
                     logEl.textContent += `\nDescargando e instalando ${req.name} (${req.wingetId})...\n`;
                     logEl.textContent += `Ejecutando: winget install --id ${req.wingetId} -e --accept-source-agreements --accept-package-agreements\n`;
                     logEl.scrollTop = logEl.scrollHeight;
@@ -14046,6 +14283,10 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
                 btnSkip.style.opacity = '1';
                 btnCheck.disabled = false;
                 btnCheck.style.opacity = '1';
+                if (btnLite) {
+                    btnLite.disabled = false;
+                    btnLite.style.opacity = '1';
+                }
             });
 
             document.getElementById('btnGoogleLogin').addEventListener('click', () => {
@@ -16033,6 +16274,167 @@ if (mesh) {
                         searchWorkspace(e.target.value);
                     }
                 });
+
+                // --- USER TOUR WALKTHROUGH SYSTEM ---
+                const tourSteps = [
+                    {
+                        title: "👋 ¡Bienvenido a Nexus IDE!",
+                        desc: "Descubre cómo potenciar tu desarrollo con Inteligencia Artificial, control de servidores remotos VPS y automatizaciones de forma ágil.",
+                        target: null
+                    },
+                    {
+                        title: "📁 Explorador de Archivos y SFTP",
+                        desc: "Navega por tus archivos locales o cambia al modo VPS en la parte superior para explorar y editar archivos del servidor remoto vía SFTP.",
+                        target: 'button[data-sidebar="explorer"]'
+                    },
+                    {
+                        title: "📝 Editor Monaco Multipestaña",
+                        desc: "Escribe código con autocompletado avanzado y autoguardado. Al modificar archivos remotos se subirán automáticamente por SFTP con Ctrl + S.",
+                        target: '#editor-area'
+                    },
+                    {
+                        title: "🤖 Chat con IA y Modo Agente",
+                        desc: "Habla con la IA, adjunta videos, imágenes o notas de voz. Activa el **Modo Agente** para que la IA escriba archivos y corra comandos de terminal de forma autónoma con tu aprobación.",
+                        target: '#right-panel'
+                    },
+                    {
+                        title: "🎬 Generador de Video Local",
+                        desc: "Crea videos cinematográficos con IA local (LTX-Video GGUF/Hunyuan/SVD). Descarga modelos y enciende tu servidor ComfyUI en un clic.",
+                        target: '#btn-sidebar-video'
+                    },
+                    {
+                        title: "🛡️ Supervisor Cardinal",
+                        desc: "Supervisa tu código de forma silenciosa en segundo plano para evitar errores sintácticos y repara de forma autónoma cualquier crash de consola.",
+                        target: '#btn-sidebar-cardinal'
+                    },
+                    {
+                        title: "🎛️ Conmutador de Modo Lite",
+                        desc: "Si prefieres un entorno minimalista centrado solo en conversar con el Agente de IA, activa el **Modo Lite** desde la configuración general.",
+                        target: '#btn-sidebar-remote'
+                    }
+                ];
+
+                let currentTourStep = 0;
+                let tourHighlightEl = null;
+                let tourOverlayEl = null;
+
+                window.startUserTour = function() {
+                    // Cerrar modal de configuración si está abierto para evitar solapamientos
+                    const configWin = document.getElementById('nexus-win-config');
+                    if (configWin) {
+                        const closeBtn = configWin.querySelector('.win-close-btn') || configWin.querySelector('.window-close');
+                        if (closeBtn) closeBtn.click();
+                    }
+
+                    if (document.getElementById('nexus-tour-overlay')) return;
+                    
+                    currentTourStep = 0;
+                    
+                    // Crear superposición (overlay)
+                    tourOverlayEl = document.createElement('div');
+                    tourOverlayEl.id = 'nexus-tour-overlay';
+                    
+                    // Crear anillo de destaque (highlight ring)
+                    tourHighlightEl = document.createElement('div');
+                    tourHighlightEl.className = 'nexus-tour-highlight-ring';
+                    document.body.appendChild(tourHighlightEl);
+                    
+                    // Crear contenedor de tarjeta
+                    const card = document.createElement('div');
+                    card.className = 'nexus-tour-card';
+                    tourOverlayEl.appendChild(card);
+                    
+                    document.body.appendChild(tourOverlayEl);
+                    
+                    renderTourStep();
+                };
+
+                function renderTourStep() {
+                    const step = tourSteps[currentTourStep];
+                    const card = document.querySelector('.nexus-tour-card');
+                    if (!card) return;
+                    
+                    let targetRect = null;
+                    if (step.target) {
+                        const targetEl = document.querySelector(step.target);
+                        if (targetEl) {
+                            const style = window.getComputedStyle(targetEl);
+                            if (style.display !== 'none' && style.visibility !== 'hidden') {
+                                targetRect = targetEl.getBoundingClientRect();
+                            }
+                        }
+                    }
+                    
+                    if (targetRect) {
+                        tourHighlightEl.style.display = 'block';
+                        tourHighlightEl.style.top = (targetRect.top - 4) + 'px';
+                        tourHighlightEl.style.left = (targetRect.left - 4) + 'px';
+                        tourHighlightEl.style.width = (targetRect.width + 8) + 'px';
+                        tourHighlightEl.style.height = (targetRect.height + 8) + 'px';
+                        
+                        const cardWidth = 320;
+                        const cardHeight = 180;
+                        
+                        let topPos = targetRect.top + (targetRect.height / 2) - (cardHeight / 2);
+                        let leftPos = targetRect.right + 15;
+                        
+                        if (leftPos + cardWidth > window.innerWidth) {
+                            leftPos = targetRect.left - cardWidth - 15;
+                        }
+                        if (topPos < 10) topPos = 10;
+                        if (topPos + cardHeight > window.innerHeight) {
+                            topPos = window.innerHeight - cardHeight - 10;
+                        }
+                        
+                        card.style.top = topPos + 'px';
+                        card.style.left = leftPos + 'px';
+                        card.style.transform = 'none';
+                    } else {
+                        tourHighlightEl.style.display = 'none';
+                        card.style.top = '50%';
+                        card.style.left = '50%';
+                        card.style.transform = 'translate(-50%, -50%)';
+                    }
+                    
+                    card.innerHTML = `
+                        <div class="nexus-tour-title">
+                            <span>✨</span> ${step.title}
+                        </div>
+                        <div class="nexus-tour-desc">${step.desc}</div>
+                        <div class="nexus-tour-footer">
+                            <span class="nexus-tour-progress">Paso ${currentTourStep + 1} de ${tourSteps.length}</span>
+                            <div class="nexus-tour-buttons">
+                                <button class="nexus-tour-btn" id="nexus-tour-skip">Omitir</button>
+                                ${currentTourStep > 0 ? `<button class="nexus-tour-btn" id="nexus-tour-prev">Atrás</button>` : ''}
+                                <button class="nexus-tour-btn nexus-tour-btn-primary" id="nexus-tour-next">
+                                    ${currentTourStep === tourSteps.length - 1 ? 'Finalizar' : 'Siguiente'}
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    
+                    document.getElementById('nexus-tour-skip').addEventListener('click', closeTour);
+                    if (currentTourStep > 0) {
+                        document.getElementById('nexus-tour-prev').addEventListener('click', () => {
+                            currentTourStep--;
+                            renderTourStep();
+                        });
+                    }
+                    document.getElementById('nexus-tour-next').addEventListener('click', () => {
+                        if (currentTourStep === tourSteps.length - 1) {
+                            closeTour();
+                        } else {
+                            currentTourStep++;
+                            renderTourStep();
+                        }
+                    });
+                }
+
+                function closeTour() {
+                    localStorage.setItem('nexus_tour_completed', 'true');
+                    if (tourOverlayEl) tourOverlayEl.remove();
+                    if (tourHighlightEl) tourHighlightEl.remove();
+                }
 
                 // Sidebars toggle panels
                 function togglePanel(panelId) {
