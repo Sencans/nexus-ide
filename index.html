@@ -15353,18 +15353,29 @@ void AMyActor::Tick(float DeltaTime)
                         let videoFilename = '';
                         let subfolder = '';
                         
-                        for (const nodeId in outputs) {
-                            const nodeOut = outputs[nodeId];
-                            if (nodeOut.gifs && nodeOut.gifs.length > 0) {
-                                videoFilename = nodeOut.gifs[0].filename;
-                                subfolder = nodeOut.gifs[0].subfolder || '';
-                                break;
-                            } else if (nodeOut.images && nodeOut.images.length > 0) {
-                                videoFilename = nodeOut.images[0].filename;
-                                subfolder = nodeOut.images[0].subfolder || '';
-                                break;
+                        function searchOutputObject(obj) {
+                            if (!obj || typeof obj !== 'object') return false;
+                            
+                            const keysToCheck = ['gifs', 'movies', 'images', 'videos', 'animated'];
+                            for (const key of keysToCheck) {
+                                if (Array.isArray(obj[key]) && obj[key].length > 0) {
+                                    if (obj[key][0].filename) {
+                                        videoFilename = obj[key][0].filename;
+                                        subfolder = obj[key][0].subfolder || '';
+                                        return true;
+                                    }
+                                }
                             }
+                            
+                            for (const k in obj) {
+                                if (obj[k] && typeof obj[k] === 'object') {
+                                    if (searchOutputObject(obj[k])) return true;
+                                }
+                            }
+                            return false;
                         }
+                        
+                        searchOutputObject(outputs);
                         
                         if (videoFilename) {
                             const videoUrl = `${serverUrl.replace(/\/$/, '')}/view?filename=${encodeURIComponent(videoFilename)}&subfolder=${encodeURIComponent(subfolder)}&type=output`;
