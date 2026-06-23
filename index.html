@@ -945,6 +945,10 @@
                 <button class="sidebar-icon" id="btn-sidebar-remote" data-sidebar="remote" title="Conexiones Remotas VPS (SSH/SFTP)">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
                 </button>
+                <!-- Cardinal Supervisor -->
+                <button class="sidebar-icon" id="btn-sidebar-cardinal" data-sidebar="cardinal" title="Supervisor de Código (Cardinal)">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 11l2 2 4-4"/></svg>
+                </button>
             </div>
             
             <!-- SIDEBAR PANELS -->
@@ -1634,6 +1638,67 @@
                         <span style="font-size: 10px; font-weight: bold; color: #8b949e;">Consola de Conexión</span>
                         <div id="remote-console-log" style="height: 120px; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 8px; font-family: monospace; font-size: 10px; color: #c9d1d9; overflow-y: auto; line-height: 1.4; box-sizing: border-box;">
                             <div style="color: #8b949e;">[Sistema] Listo para conectar...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- panel-cardinal (Supervisor de Código Cardinal) -->
+            <div id="panel-cardinal" class="sidebar-panel hidden" style="display:flex; flex-direction:column; background: #0d1117;">
+                <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center;">
+                    <span>Cardinal Supervisor</span>
+                    <span id="cardinal-status-indicator" style="color: #3fb950; font-size: 9px; font-weight: bold; padding: 2px 6px; border-radius: 10px; background: rgba(63, 185, 80, 0.1); border: 1px solid rgba(63, 185, 80, 0.2);">🟢 Activo</span>
+                </div>
+
+                <div style="padding: 10px; display: flex; flex-direction: column; gap: 10px; flex: 1; overflow-y: auto;">
+                    <!-- Botón de Auditoría Directa -->
+                    <button id="btn-cardinal-audit" onclick="runCardinalAudit()" style="width: 100%; background: #238636; border: 1px solid #2ea44f; border-radius: 4px; color: #fff; font-size: 11px; padding: 8px; cursor: pointer; font-weight: bold; font-family: inherit; text-align: center; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                        <span>🔍</span> Auditar Archivo Activo
+                    </button>
+
+                    <!-- Configuración / Toggles -->
+                    <div style="background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+                        <label style="font-size: 11px; font-weight: bold; color: #8b949e; display: block;">Modos de Supervisión</label>
+                        
+                        <label style="font-size: 11px; display: flex; align-items: center; gap: 8px; cursor: pointer; color: #e6edf3;">
+                            <input type="checkbox" id="cardinal-auto-correct" checked style="accent-color: #7c3aed;">
+                            Auto-corrección al guardar
+                        </label>
+                        
+                        <label style="font-size: 11px; display: flex; align-items: center; gap: 8px; cursor: pointer; color: #e6edf3;">
+                            <input type="checkbox" id="cardinal-proactive-audit" checked style="accent-color: #7c3aed;">
+                            Análisis al guardar
+                        </label>
+
+                        <div>
+                            <label style="font-size: 9px; color: #8b949e; display: block; margin-bottom: 2px;">Motor de IA Supervisor</label>
+                            <select id="cardinal-model-select" style="width: 100%; background: #0d1117; border: 1px solid #30363d; border-radius: 4px; color: #fff; padding: 4px; font-size: 11px; outline: none; font-family: inherit;">
+                                <option value="active" selected>Modelo de Chat Activo</option>
+                                <option value="gemini">Google Gemini Pro</option>
+                                <option value="openai">OpenAI GPT-4o</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Feed de Auditorías / Sugerencias -->
+                    <div style="display: flex; flex-direction: column; gap: 6px; flex: 1;">
+                        <span style="font-size: 10px; font-weight: bold; color: #8b949e; display: flex; justify-content: space-between; align-items: center;">
+                            <span>Sugerencias de Cardinal</span>
+                            <span id="cardinal-suggestions-count" style="background: #30363d; padding: 1px 5px; border-radius: 10px; font-size: 9px;">0</span>
+                        </span>
+                        
+                        <div id="cardinal-suggestions-list" style="flex: 1; min-height: 150px; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 8px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
+                            <div id="cardinal-empty-state" style="color: #8b949e; font-size: 11px; text-align: center; margin-top: 40px; font-style: italic;">
+                                Ninguna sugerencia por ahora. Pulsa "Auditar" o edita un archivo.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Consola de Intervenciones -->
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <span style="font-size: 10px; font-weight: bold; color: #8b949e;">Registro de Intervención (Errores)</span>
+                        <div id="cardinal-intervention-log" style="height: 100px; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 8px; font-family: monospace; font-size: 10px; color: #8b949e; overflow-y: auto; line-height: 1.4; box-sizing: border-box;">
+                            <div>[Cardinal] Supervisor inicializado en puerto seguro.</div>
                         </div>
                     </div>
                 </div>
@@ -7658,18 +7723,27 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
             let match = text.match(pyRegex);
             if (match) {
                 window.highlightErrorInEditor(match[1], parseInt(match[2], 10), "Error de ejecución Python");
+                if (typeof window.triggerCardinalIntervention === 'function') {
+                    window.triggerCardinalIntervention(match[1], parseInt(match[2], 10), text, "Python");
+                }
                 return;
             }
 
             match = text.match(jsRegex);
             if (match) {
                 window.highlightErrorInEditor(match[1], parseInt(match[2], 10), "Error de ejecución Node.js");
+                if (typeof window.triggerCardinalIntervention === 'function') {
+                    window.triggerCardinalIntervention(match[1], parseInt(match[2], 10), text, "Node.js");
+                }
                 return;
             }
 
             match = text.match(cppRegex);
             if (match) {
                 window.highlightErrorInEditor(match[1], parseInt(match[2], 10), "Error de compilación C++");
+                if (typeof window.triggerCardinalIntervention === 'function') {
+                    window.triggerCardinalIntervention(match[1], parseInt(match[2], 10), text, "C++");
+                }
                 return;
             }
             
@@ -7680,6 +7754,9 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                 const localPath = resPath.replace('res://', '').replace(/\//g, path.sep);
                 const fullPath = path.resolve(workspaceRoot, localPath);
                 window.highlightErrorInEditor(fullPath, lineNum, "Error de GDScript");
+                if (typeof window.triggerCardinalIntervention === 'function') {
+                    window.triggerCardinalIntervention(fullPath, lineNum, text, "GDScript");
+                }
                 return;
             }
         };
@@ -9291,6 +9368,13 @@ except Exception as e:
                 } else {
                     showToast(`Archivo guardado: ${path.basename(activeFilePath)}`, 'success');
                     updateGitStatus();
+                }
+
+                // Hook de Cardinal Code Supervisor
+                if (document.getElementById('cardinal-proactive-audit') && document.getElementById('cardinal-proactive-audit').checked) {
+                    if (typeof runCardinalAudit === 'function') {
+                        runCardinalAudit(true);
+                    }
                 }
             } catch(e) {
                 showToast("Error al guardar archivo: " + e.message, "error");
@@ -15963,6 +16047,7 @@ if (mesh) {
                   document.getElementById('panel-engines').classList.add('hidden');
                   document.getElementById('panel-video').classList.add('hidden');
                   document.getElementById('panel-remote').classList.add('hidden');
+                  document.getElementById('panel-cardinal').classList.add('hidden');
                   if (panelId) document.getElementById(panelId).classList.remove('hidden');
                 }
 
@@ -16000,6 +16085,10 @@ if (mesh) {
                         }
                         else if (target === 'remote') {
                             togglePanel('panel-remote');
+                        }
+                        else if (target === 'cardinal') {
+                            togglePanel('panel-cardinal');
+                            if (typeof window.refreshCardinalUI === 'function') window.refreshCardinalUI();
                         }
                     });
                 });
@@ -17606,6 +17695,299 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                     });
                 }
             }
+
+            // =========================================================================
+            // CORE DE SUPERVISIÓN CARDINAL
+            // =========================================================================
+            window.cardinalSuggestions = [];
+
+            window.refreshCardinalUI = function() {
+                const list = document.getElementById('cardinal-suggestions-list');
+                const count = document.getElementById('cardinal-suggestions-count');
+                if (!list || !count) return;
+
+                count.textContent = window.cardinalSuggestions.length;
+                list.innerHTML = '';
+
+                if (window.cardinalSuggestions.length === 0) {
+                    list.innerHTML = `
+                        <div id="cardinal-empty-state" style="color: #8b949e; font-size: 11px; text-align: center; margin-top: 40px; font-style: italic;">
+                            Ninguna sugerencia por ahora. Pulsa "Auditar" o edita un archivo.
+                        </div>
+                    `;
+                    return;
+                }
+
+                window.cardinalSuggestions.forEach((sug, idx) => {
+                    const card = document.createElement('div');
+                    const severityColor = sug.gravedad === 'alta' ? '#ff7b72' : (sug.gravedad === 'media' ? '#d29922' : '#58a6ff');
+                    const severityBg = sug.gravedad === 'alta' ? 'rgba(255, 123, 114, 0.1)' : (sug.gravedad === 'media' ? 'rgba(210, 153, 34, 0.1)' : 'rgba(88, 166, 255, 0.1)');
+                    const borderStyle = sug.gravedad === 'alta' ? '1px solid rgba(255, 123, 114, 0.3)' : '1px solid rgba(48, 54, 61, 1)';
+                    
+                    card.style.background = '#161b22';
+                    card.style.border = borderStyle;
+                    card.style.borderRadius = '6px';
+                    card.style.padding = '8px';
+                    card.style.display = 'flex';
+                    card.style.flexDirection = 'column';
+                    card.style.gap = '6px';
+
+                    card.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 4px;">
+                            <span style="font-size: 9px; font-weight: bold; color: ${severityColor}; background: ${severityBg}; padding: 1px 4px; border-radius: 4px; border: 1px solid ${severityColor}33; text-transform: uppercase;">
+                                ${sug.gravedad}
+                            </span>
+                            <span style="font-size: 9px; color: #8b949e; font-family: monospace;">Línea ${sug.linea}</span>
+                        </div>
+                        <div style="font-size: 11px; color: #e6edf3; line-height: 1.4;">
+                            ${sug.descripcion}
+                        </div>
+                        <div style="display: flex; gap: 6px; margin-top: 4px;">
+                            <button onclick="applyCardinalCorrection(${idx})" style="flex: 1; background: #238636; border: 1px solid #2ea44f; border-radius: 4px; color: #fff; font-size: 10px; padding: 4px; cursor: pointer; font-weight: bold; font-family: inherit;">
+                                Aplicar Corrección
+                            </button>
+                            <button onclick="dismissCardinalSuggestion(${idx})" style="background: #21262d; border: 1px solid #30363d; border-radius: 4px; color: #8b949e; font-size: 10px; padding: 4px 8px; cursor: pointer; font-family: inherit;">
+                                Ignorar
+                            </button>
+                        </div>
+                    `;
+                    list.appendChild(card);
+                });
+            };
+
+            window.dismissCardinalSuggestion = function(idx) {
+                window.cardinalSuggestions.splice(idx, 1);
+                window.refreshCardinalUI();
+            };
+
+            function cleanJsonResponse(text) {
+                let clean = (text || '').trim();
+                if (clean.startsWith('```')) {
+                    clean = clean.replace(/^```[a-zA-Z]*\n/, '');
+                    clean = clean.replace(/\n```$/, '');
+                }
+                return clean.trim();
+            }
+
+            function logCardinalIntervention(msg, isError = false) {
+                const log = document.getElementById('cardinal-intervention-log');
+                if (!log) return;
+                const div = document.createElement('div');
+                div.style.color = isError ? '#ff7b72' : '#8b949e';
+                div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+                log.appendChild(div);
+                log.scrollTop = log.scrollHeight;
+            }
+
+            window.runCardinalAudit = async function(isBackground = false) {
+                if (!activeFilePath) {
+                    if (!isBackground) {
+                        showToast("Abre un archivo para auditarlo", "info");
+                    }
+                    return;
+                }
+
+                const indicator = document.getElementById('cardinal-status-indicator');
+                if (indicator) {
+                    indicator.textContent = "🟡 Analizando...";
+                    indicator.style.color = "#d29922";
+                    indicator.style.background = "rgba(210, 153, 34, 0.1)";
+                    indicator.style.borderColor = "rgba(210, 153, 34, 0.2)";
+                }
+
+                logCardinalIntervention(`Iniciando auditoría de ${path.basename(activeFilePath)}...`);
+
+                try {
+                    const content = fs.readFileSync(activeFilePath, 'utf8');
+                    const sel = document.getElementById('cardinal-model-select').value;
+                    let targetModel = activeModel;
+                    if (sel === 'gemini') targetModel = 'gemini-2.5-pro';
+                    else if (sel === 'openai') targetModel = 'gpt-4o';
+
+                    if (!targetModel) {
+                        throw new Error("No hay un modelo de IA seleccionado o configurado.");
+                    }
+
+                    const prompt = `Analiza este archivo: ${path.basename(activeFilePath)}. Código:\n\n${content}`;
+                    const systemInstruction = `Eres Cardinal, el Supervisor de Código de Nexus IDE. Tu objetivo es inspeccionar el código provisto en busca de errores lógicos, bugs sintácticos, problemas de rendimiento o malas prácticas.
+Debes devolver la respuesta estrictamente en un objeto JSON con este formato:
+{
+  "sugerencias": [
+    {
+      "descripcion": "Descripción en español del error o mejora",
+      "linea": 10,
+      "gravedad": "alta" o "media" o "baja",
+      "tipo": "bug" o "style" o "performance",
+      "codigo_original": "líneas exactas a reemplazar",
+      "codigo_corregido": "líneas de reemplazo"
+    }
+  ]
+}
+Si no hay problemas, devuelve un JSON con sugerencias vacío. No rodees tu respuesta con bloques de código markdown \`\`\`json ni texto explicativo adicional. Devuelve únicamente el JSON válido.`;
+
+                    const response = await sendRequestToAI(targetModel, prompt, systemInstruction);
+                    const cleanJson = cleanJsonResponse(response);
+                    
+                    const data = JSON.parse(cleanJson);
+                    if (data && Array.isArray(data.sugerencias)) {
+                        if (isBackground) {
+                            // Filter only new or high severity
+                            const newSugs = data.sugerencias.filter(s => s.gravedad === 'alta');
+                            if (newSugs.length > 0) {
+                                showToast(`Cardinal: Detectadas ${newSugs.length} sugerencias de gravedad alta.`, 'warning');
+                            }
+                        }
+                        
+                        window.cardinalSuggestions = data.sugerencias;
+                        window.refreshCardinalUI();
+                        logCardinalIntervention(`Auditoría finalizada. Encontradas ${data.sugerencias.length} sugerencias.`);
+                    } else {
+                        throw new Error("Formato de respuesta incorrecto");
+                    }
+                } catch (e) {
+                    console.error("Error en auditoría Cardinal:", e);
+                    logCardinalIntervention(`Error de auditoría: ${e.message}`, true);
+                    if (!isBackground) {
+                        showToast(`Error de Cardinal: ${e.message}`, 'error');
+                    }
+                } finally {
+                    if (indicator) {
+                        indicator.textContent = "🟢 Activo";
+                        indicator.style.color = "#3fb950";
+                        indicator.style.background = "rgba(63, 185, 80, 0.1)";
+                        indicator.style.borderColor = "rgba(63, 185, 80, 0.2)";
+                    }
+                }
+            };
+
+            window.applyCardinalCorrection = function(idx) {
+                const sug = window.cardinalSuggestions[idx];
+                if (!sug || !activeFilePath) return;
+
+                try {
+                    let content = '';
+                    if (isMonacoLoaded) {
+                        const model = fileModels[activeFilePath];
+                        if (model) content = model.getValue();
+                    } else {
+                        const ta = document.getElementById('fallback-textarea-1') || document.getElementById('fallback-textarea-2');
+                        if (ta) content = ta.value;
+                    }
+
+                    if (!content) {
+                        content = fs.readFileSync(activeFilePath, 'utf8');
+                    }
+
+                    // Replace original code with corrected code
+                    const targetText = sug.codigo_original;
+                    const replacementText = sug.codigo_corregido;
+
+                    if (content.includes(targetText)) {
+                        const newContent = content.replace(targetText, replacementText);
+                        
+                        // Write to disk
+                        fs.writeFileSync(activeFilePath, newContent, 'utf8');
+                        
+                        // Update Monaco view
+                        if (isMonacoLoaded) {
+                            const model = fileModels[activeFilePath];
+                            if (model) model.setValue(newContent);
+                        } else {
+                            const ta = document.getElementById('fallback-textarea-1') || document.getElementById('fallback-textarea-2');
+                            if (ta) ta.value = newContent;
+                        }
+
+                        showToast("Corrección aplicada correctamente por Cardinal", "success");
+                        logCardinalIntervention(`Corrección aplicada en línea ${sug.linea}.`);
+                        
+                        // Remove from suggestions
+                        window.cardinalSuggestions.splice(idx, 1);
+                        window.refreshCardinalUI();
+                        
+                        updateGitStatus();
+                    } else {
+                        throw new Error("El código original ya no coincide con el archivo actual. Realiza otra auditoría.");
+                    }
+                } catch(e) {
+                    showToast(e.message, "error");
+                    logCardinalIntervention(`Fallo al aplicar corrección: ${e.message}`, true);
+                }
+            };
+
+            window.triggerCardinalIntervention = async function(filePath, lineNum, errorDetails, errorType) {
+                logCardinalIntervention(`Intervención: Detectado ${errorType} en ${path.basename(filePath)}:${lineNum}`, true);
+                
+                const indicator = document.getElementById('cardinal-status-indicator');
+                if (indicator) {
+                    indicator.textContent = "🔴 Reparando...";
+                    indicator.style.color = "#ff7b72";
+                    indicator.style.background = "rgba(255, 123, 114, 0.1)";
+                    indicator.style.borderColor = "rgba(255, 123, 114, 0.2)";
+                }
+
+                try {
+                    const content = fs.readFileSync(filePath, 'utf8');
+                    const sel = document.getElementById('cardinal-model-select').value;
+                    let targetModel = activeModel;
+                    if (sel === 'gemini') targetModel = 'gemini-2.5-pro';
+                    else if (sel === 'openai') targetModel = 'gpt-4o';
+
+                    if (!targetModel) return;
+
+                    const prompt = `Corrige este error en el archivo ${path.basename(filePath)} en la línea ${lineNum}.
+Detalles del error: ${errorDetails}
+Código del archivo completo:
+\n\n${content}`;
+
+                    const systemInstruction = `Eres Cardinal, el Agente de Auto-Reparación de Nexus IDE. Se te ha provisto el código y la traza del error.
+Analiza la línea ofensiva y el contexto circundante, diagnostica el problema y ofrece una corrección exacta.
+Debes devolver la respuesta estrictamente en un objeto JSON con este formato:
+{
+  "sugerencias": [
+    {
+      "descripcion": "Explicación del error y de cómo se repara",
+      "linea": ${lineNum},
+      "gravedad": "alta",
+      "tipo": "bug",
+      "codigo_original": "líneas exactas a reemplazar",
+      "codigo_corregido": "líneas de reemplazo"
+    }
+  ]
+}
+Asegúrate de que la corrección resuelva completamente la causa del error. No rodees tu respuesta con markdown \`\`\`json ni texto explicativo adicional.`;
+
+                    const response = await sendRequestToAI(targetModel, prompt, systemInstruction);
+                    const cleanJson = cleanJsonResponse(response);
+                    
+                    const data = JSON.parse(cleanJson);
+                    if (data && Array.isArray(data.sugerencias) && data.sugerencias.length > 0) {
+                        const sug = data.sugerencias[0];
+                        
+                        // Add to suggestions feed
+                        window.cardinalSuggestions.unshift(sug);
+                        window.refreshCardinalUI();
+                        
+                        // If auto correct checkbox is enabled, apply it automatically!
+                        const autoCorrectChecked = document.getElementById('cardinal-auto-correct') && document.getElementById('cardinal-auto-correct').checked;
+                        if (autoCorrectChecked) {
+                            logCardinalIntervention("Auto-corrección activa. Aplicando reparación automática...");
+                            window.applyCardinalCorrection(0);
+                        } else {
+                            showToast(`Cardinal: Sugerida reparación para el error en línea ${lineNum}`, 'warning');
+                        }
+                    }
+                } catch(e) {
+                    console.error("Fallo en auto-reparación Cardinal:", e);
+                    logCardinalIntervention(`Fallo en auto-reparación: ${e.message}`, true);
+                } finally {
+                    if (indicator) {
+                        indicator.textContent = "🟢 Activo";
+                        indicator.style.color = "#3fb950";
+                        indicator.style.background = "rgba(63, 185, 80, 0.1)";
+                        indicator.style.borderColor = "rgba(63, 185, 80, 0.2)";
+                    }
+                }
+            };
         });
     </script>
 </body>
