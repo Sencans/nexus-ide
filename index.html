@@ -14904,7 +14904,7 @@ void AMyActor::Tick(float DeltaTime)
                                 "8": { "inputs": { "samples": ["3", 0], "vae": ["13", 0] }, "class_type": "VAEDecode" },
                                 "10": { "inputs": { "unet_name": "ltx-video-2b-v0.9-Q8_0.gguf" }, "class_type": "UnetLoaderGGUF" },
                                 "11": { "inputs": { "images": ["8", 0], "fps": 16, "filename_prefix": "nexus_ltx", "format": "video/h264-mp4", "save_output": true, "frame_rate": 16, "pingpong": false, "loop_count": 0 }, "class_type": "VHS_VideoCombine" },
-                                "12": { "inputs": { "clip_name1": "clip_l.safetensors", "clip_name2": "gemma_2_2b_it_elm_fp8_scaled.safetensors", "type": "ltxv" }, "class_type": "DualCLIPLoader" },
+                                "12": { "inputs": { "clip_name1": "gemma_2_2b_it_elm_fp8_scaled.safetensors", "clip_name2": "clip_l.safetensors", "type": "ltxv" }, "class_type": "DualCLIPLoader" },
                                 "13": { "inputs": { "vae_name": "LTX-Video-VAE-BF16.safetensors" }, "class_type": "VAELoader" }
                             };
                         } else if (model === 'ltx-video-heavy') {

@@ -1161,10 +1161,12 @@ function calculateCpuUsage() {
     return Math.min(100, Math.max(0, Math.round(100 - (100 * idleDifference / totalDifference))));
 }
 
+let hasNvidiaSmi = true;
+
 function startHardwareTelemetry() {
     if (hardwareTelemetryInterval) clearInterval(hardwareTelemetryInterval);
     
-    const { exec } = require('child_process');
+    const { spawn } = require('child_process');
     
     hardwareTelemetryInterval = setInterval(() => {
         if (!mainWindow || mainWindow.isDestroyed()) return;
@@ -1176,29 +1178,56 @@ function startHardwareTelemetry() {
         const freeMem = os.freemem();
         const ram = Math.round((1 - freeMem / totalMem) * 100);
         
-        // GPU & VRAM (nvidia-smi fallback)
-        exec('nvidia-smi --query-gpu=utilization.gpu,memory.used --format=csv,noheader,nounits', (err, stdout) => {
-            let gpu = 0;
-            let vram = 0.0;
-            
-            if (!err && stdout) {
-                const parts = stdout.trim().split(',');
-                if (parts.length >= 2) {
-                    gpu = parseInt(parts[0].trim(), 10) || 0;
-                    const vramMb = parseInt(parts[1].trim(), 10) || 0;
-                    vram = parseFloat((vramMb / 1024).toFixed(1));
-                }
-            } else {
-                // Fallback simulation that correlates with CPU and RAM usage
-                gpu = Math.min(100, Math.max(0, Math.round(cpu * 0.4 + Math.random() * 5)));
-                const baseVram = 1.5 + (ram / 100) * 2.0;
-                vram = parseFloat((baseVram + Math.random() * 0.3).toFixed(1));
-            }
-            
+        const sendFallbackTelemetry = () => {
+            const gpu = Math.min(100, Math.max(0, Math.round(cpu * 0.4 + Math.random() * 5)));
+            const baseVram = 1.5 + (ram / 100) * 2.0;
+            const vram = parseFloat((baseVram + Math.random() * 0.3).toFixed(1));
             if (mainWindow && !mainWindow.isDestroyed()) {
                 mainWindow.webContents.send('hardware-telemetry', { cpu, ram, gpu, vram });
             }
-        });
+        };
+
+        if (!hasNvidiaSmi) {
+            sendFallbackTelemetry();
+            return;
+        }
+
+        try {
+            const child = spawn('nvidia-smi', ['--query-gpu=utilization.gpu,memory.used', '--format=csv,noheader,nounits']);
+            
+            let stdoutData = '';
+            if (child.stdout) {
+                child.stdout.on('data', (data) => {
+                    stdoutData += data.toString();
+                });
+            }
+            
+            child.on('error', (err) => {
+                hasNvidiaSmi = false;
+                sendFallbackTelemetry();
+            });
+            
+            child.on('close', (code) => {
+                if (code === 0 && stdoutData) {
+                    const parts = stdoutData.trim().split(',');
+                    if (parts.length >= 2) {
+                        const gpu = parseInt(parts[0].trim(), 10) || 0;
+                        const vramMb = parseInt(parts[1].trim(), 10) || 0;
+                        const vram = parseFloat((vramMb / 1024).toFixed(1));
+                        if (mainWindow && !mainWindow.isDestroyed()) {
+                            mainWindow.webContents.send('hardware-telemetry', { cpu, ram, gpu, vram });
+                        }
+                    } else {
+                        sendFallbackTelemetry();
+                    }
+                } else {
+                    sendFallbackTelemetry();
+                }
+            });
+        } catch (e) {
+            hasNvidiaSmi = false;
+            sendFallbackTelemetry();
+        }
     }, 2000);
 }
 
