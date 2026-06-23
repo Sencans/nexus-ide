@@ -1102,6 +1102,38 @@ ipcMain.handle('check-comfy-model-status', async (event, { modelType, comfyPath 
     return { status: 'missing' };
 });
 
+ipcMain.handle('launch-comfy-desktop', async () => {
+    const { spawn } = require('child_process');
+    const fs = require('fs');
+    const path = require('path');
+    
+    let exePath = "C:\\Users\\gwmki\\AppData\\Local\\Programs\\Comfy Desktop\\Comfy Desktop.exe";
+    
+    if (!fs.existsSync(exePath)) {
+        const desktopShortcut = "C:\\Users\\gwmki\\Desktop\\Comfy Desktop.lnk";
+        if (fs.existsSync(desktopShortcut)) {
+            try {
+                const { shell } = require('electron');
+                const shortcut = shell.readShortcutLink(desktopShortcut);
+                if (shortcut && shortcut.target) {
+                    exePath = shortcut.target;
+                }
+            } catch(e) {}
+        }
+    }
+    
+    if (fs.existsSync(exePath)) {
+        const child = spawn(exePath, [], {
+            detached: true,
+            stdio: 'ignore'
+        });
+        child.unref();
+        return { status: 'launched' };
+    } else {
+        throw new Error("No se encontró el ejecutable de Comfy Desktop.");
+    }
+});
+
 let hardwareTelemetryInterval = null;
 let prevCpuTime = getCpuTime();
 

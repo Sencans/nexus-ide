@@ -1362,6 +1362,9 @@
                             <label style="font-size: 10px; color: #8b949e; display: block; margin-bottom: 3px;">Ruta ComfyUI Local</label>
                             <input id="video-comfy-path" type="text" placeholder="Ej: C:\ComfyUI_windows_portable" style="width: 100%; box-sizing: border-box; background: #161b22; border: 1px solid #30363d; border-radius: 4px; color: #fff; padding: 5px 8px; font-size: 11px; outline: none;" onchange="saveVideoConfig()"/>
                         </div>
+                        <div id="video-launch-container" style="display: none; border-top: 1px solid #21262d; padding-top: 8px; margin-top: 4px;">
+                            <button onclick="launchComfyDesktop()" style="width: 100%; background: #7c3aed; border: none; border-radius: 4px; color: #fff; font-size: 11px; padding: 6px; cursor: pointer; font-weight: bold; font-family: inherit;">🚀 Iniciar Comfy Desktop</button>
+                        </div>
                     </div>
 
                     <!-- Navegación de Pestañas del Panel (Generar / Modelos) -->
@@ -14694,6 +14697,7 @@ void AMyActor::Tick(float DeltaTime)
                 const url = document.getElementById('video-comfy-url').value.trim();
                 const dot = document.getElementById('video-status-dot');
                 const txt = document.getElementById('video-status-text');
+                const launchContainer = document.getElementById('video-launch-container');
                 
                 fetch(url.replace(/\/$/, '') + '/system_stats')
                     .then(res => {
@@ -14701,6 +14705,7 @@ void AMyActor::Tick(float DeltaTime)
                             dot.style.background = '#3fb950';
                             txt.textContent = 'Conectado';
                             txt.style.color = '#3fb950';
+                            if (launchContainer) launchContainer.style.display = 'none';
                         } else {
                             throw new Error("HTTP " + res.status);
                         }
@@ -14709,9 +14714,33 @@ void AMyActor::Tick(float DeltaTime)
                         dot.style.background = '#ff7b72';
                         txt.textContent = 'Desconectado (' + (err.message || 'Error') + ')';
                         txt.style.color = '#ff7b72';
+                        if (launchContainer) launchContainer.style.display = 'block';
                     });
             }
             window.checkComfyStatus = checkComfyStatus;
+
+            function launchComfyDesktop() {
+                const ipcRenderer = require('electron').ipcRenderer;
+                showToast("Iniciando Comfy Desktop...", "info");
+                
+                ipcRenderer.invoke('launch-comfy-desktop')
+                    .then(res => {
+                        showToast("Comfy Desktop iniciado. Esperando conexión...", "success");
+                        let attempts = 0;
+                        const poll = setInterval(() => {
+                            attempts++;
+                            checkComfyStatus();
+                            const txt = document.getElementById('video-status-text').textContent;
+                            if (txt === 'Conectado' || attempts > 25) {
+                                clearInterval(poll);
+                            }
+                        }, 2000);
+                    })
+                    .catch(err => {
+                        showToast(`Error al iniciar: ${err.message}`, "error");
+                    });
+            }
+            window.launchComfyDesktop = launchComfyDesktop;
             
             function saveVideoConfig() {
                 const url = document.getElementById('video-comfy-url').value.trim();
