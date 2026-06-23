@@ -1843,6 +1843,7 @@
                     <div style="display:flex; width: 100%; align-items: center;">
                         <button id="btnChatAttachment" class="chat-btn" style="flex: 0 0 36px; display: flex; align-items: center; justify-content: center; background: #21262d; border: 1px solid #30363d; margin-right: 6px; color: #fff;" title="Adjuntar archivos o imágenes">📎</button>
                         <button id="btnVoiceInput" class="chat-btn" style="flex: 0 0 36px; display: flex; align-items: center; justify-content: center; background: #21262d; border: 1px solid #30363d; margin-right: 6px; color: #fff;" title="Voz a texto (Micrófono)">🎤</button>
+                        <button id="btnScreenCapture" class="chat-btn" style="flex: 0 0 36px; display: flex; align-items: center; justify-content: center; background: #21262d; border: 1px solid #30363d; margin-right: 6px; color: #fff;" title="Capturar Pantalla del IDE (📸)">📸</button>
                         <button id="sendBtn" class="chat-btn" style="flex: 1;">Enviar a IA</button>
                         <button id="stopBtn" class="chat-btn" style="background:#852222; border-color:#852222; display:none; margin-left: 6px; flex: 0 0 80px; justify-content: center; align-items: center; gap: 4px;">🛑 Detener</button>
                         <input type="file" id="chat-attachment-input" multiple style="display:none;">
@@ -16834,6 +16835,42 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                     document.getElementById('chat-attachment-input').click();
                 });
 
+                // Capturar pantalla del IDE
+                document.getElementById('btnScreenCapture').addEventListener('click', async () => {
+                    try {
+                        const indicator = document.getElementById('cardinal-status-indicator');
+                        if (indicator) {
+                            indicator.textContent = "📸 Capturando...";
+                            indicator.style.color = "#d29922";
+                            indicator.style.background = "rgba(210, 153, 34, 0.1)";
+                        }
+                        const base64Data = await ipcRenderer.invoke('capture-page');
+                        if (base64Data) {
+                            const base64Clean = base64Data.replace(/^data:image\/png;base64,/, '');
+                            const attachment = {
+                                id: 'screenshot-' + Date.now(),
+                                name: 'Captura de Pantalla.png',
+                                type: 'image/png',
+                                base64: base64Clean,
+                                isImage: true
+                            };
+                            chatAttachments.push(attachment);
+                            renderChatAttachmentsPreview();
+                            showToast("Captura de pantalla añadida como adjunto", "success");
+                        }
+                    } catch (err) {
+                        console.error("Error al capturar pantalla:", err);
+                        showToast("Error al capturar pantalla: " + err.message, "error");
+                    } finally {
+                        const indicator = document.getElementById('cardinal-status-indicator');
+                        if (indicator) {
+                            indicator.textContent = "🟢 Activo";
+                            indicator.style.color = "#3fb950";
+                            indicator.style.background = "rgba(63, 185, 80, 0.1)";
+                        }
+                    }
+                });
+
                 document.getElementById('chat-attachment-input').addEventListener('change', async (e) => {
                     const files = Array.from(e.target.files);
                     for (const file of files) {
@@ -17250,6 +17287,43 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                             }
 
                             let response = await sendRequestToAI(selectedModelId, textWithContextAndAttachments, sysPrompt, chatHistory.slice(0, -1), chatAbortController.signal, imgAttachments);
+                            
+                            // Bucle silencioso de pre-flight check de Cardinal
+                            let attempts = 0;
+                            const maxAttempts = 3;
+                            let checkResult = window.cardinalPreFlightCheck(response);
+                            
+                            while (!checkResult.valid && attempts < maxAttempts) {
+                                attempts++;
+                                console.warn(`Cardinal pre-flight check falló (Intento ${attempts}/${maxAttempts}):`, checkResult.error);
+                                
+                                // Mostrar estado en el indicador de Cardinal
+                                const cardIndicator = document.getElementById('cardinal-status-indicator');
+                                if (cardIndicator) {
+                                    cardIndicator.textContent = `🔴 Reparando (${attempts}/3)...`;
+                                    cardIndicator.style.color = "#ff7b72";
+                                    cardIndicator.style.background = "rgba(255, 123, 114, 0.1)";
+                                }
+                                
+                                const feedbackPrompt = `El bloque de código o acciones que propusiste contiene errores que el supervisor Cardinal ha rechazado:\n\n${checkResult.error}\n\nPor favor, re-escribe el bloque completo corrigiendo los errores indicados. Asegúrate de declarar o importar todas las funciones invocadas.`;
+                                
+                                // Crear una copia temporal del historial que incluya la respuesta fallida
+                                const tempHistory = [...chatHistory.slice(0, -1), { role: 'assistant', content: response }];
+                                
+                                // Volver a consultar a la IA con el feedback
+                                response = await sendRequestToAI(selectedModelId, feedbackPrompt, sysPrompt, tempHistory, chatAbortController.signal, []);
+                                response = normalizeAgentResponse(response);
+                                checkResult = window.cardinalPreFlightCheck(response);
+                            }
+                            
+                            // Restaurar indicador de Cardinal
+                            const finalIndicator = document.getElementById('cardinal-status-indicator');
+                            if (finalIndicator) {
+                                finalIndicator.textContent = "🟢 Activo";
+                                finalIndicator.style.color = "#3fb950";
+                                finalIndicator.style.background = "rgba(63, 185, 80, 0.1)";
+                            }
+
                             loadingMsg.remove();
 
                             // Normalizar la respuesta para convertir bloques de código Markdown a tags de acción executables
@@ -17700,6 +17774,176 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
             // CORE DE SUPERVISIÓN CARDINAL
             // =========================================================================
             window.cardinalSuggestions = [];
+
+            // =========================================================================
+            // DATABASE DE SÍMBOLOS Y PRE-FLIGHT CHECK DE CARDINAL
+            // =========================================================================
+            window.CardinalDB = {
+                symbols: {}, // name -> { file, type, params }
+                files: {}    // file -> { lastModified, symbols }
+            };
+
+            window.indexWorkspaceSymbols = async function() {
+                if (typeof workspaceRoot === 'undefined' || !workspaceRoot) return;
+                try {
+                    const indexFile = async (filePath) => {
+                        try {
+                            const stat = fs.statSync(filePath);
+                            if (window.CardinalDB.files[filePath] && window.CardinalDB.files[filePath].lastModified === stat.mtimeMs) {
+                                return; // Ya indexado y no modificado
+                            }
+                            const content = fs.readFileSync(filePath, 'utf8');
+                            const ext = path.extname(filePath);
+                            const fileSymbols = [];
+                            
+                            if (ext === '.js' || ext === '.html') {
+                                // Match javascript function declarations: function name(args)
+                                const funcRegex = /function\s+([a-zA-Z0-9_$]+)\s*\(([^)]*)\)/g;
+                                let match;
+                                while ((match = funcRegex.exec(content)) !== null) {
+                                    const name = match[1];
+                                    const params = match[2].split(',').map(p => p.trim()).filter(Boolean);
+                                    fileSymbols.push({ name, type: 'function', params });
+                                    window.CardinalDB.symbols[name] = { file: filePath, type: 'function', params };
+                                }
+                                // Match arrow functions: const name = (args) =>
+                                const arrowRegex = /(?:const|let|var)\s+([a-zA-Z0-9_$]+)\s*=\s*(?:\(([^)]*)\)|([a-zA-Z0-9_$]+))\s*=>/g;
+                                while ((match = arrowRegex.exec(content)) !== null) {
+                                    const name = match[1];
+                                    const params = (match[2] || match[3] || '').split(',').map(p => p.trim()).filter(Boolean);
+                                    fileSymbols.push({ name, type: 'arrow_function', params });
+                                    window.CardinalDB.symbols[name] = { file: filePath, type: 'arrow_function', params };
+                                }
+                            } else if (ext === '.py') {
+                                // Match python defs: def name(args):
+                                const defRegex = /def\s+([a-zA-Z0-9_$]+)\s*\(([^)]*)\):/g;
+                                let match;
+                                while ((match = defRegex.exec(content)) !== null) {
+                                    const name = match[1];
+                                    const params = match[2].split(',').map(p => p.trim()).filter(Boolean);
+                                    fileSymbols.push({ name, type: 'function', params });
+                                    window.CardinalDB.symbols[name] = { file: filePath, type: 'function', params };
+                                }
+                            }
+                            
+                            window.CardinalDB.files[filePath] = {
+                                lastModified: stat.mtimeMs,
+                                symbols: fileSymbols
+                            };
+                        } catch (e) {
+                            console.error("Error al indexar archivo Cardinal:", filePath, e);
+                        }
+                    };
+
+                    const scanDir = async (dir) => {
+                        if (!fs.existsSync(dir)) return;
+                        const entries = fs.readdirSync(dir, { withFileTypes: true });
+                        for (const entry of entries) {
+                            const fullPath = path.join(dir, entry.name);
+                            if (entry.isDirectory()) {
+                                if (['node_modules', '.git', '.venv', 'nexus-ide-win32-x64'].includes(entry.name)) {
+                                    continue;
+                                }
+                                await scanDir(fullPath);
+                            } else if (entry.isFile()) {
+                                const ext = path.extname(entry.name);
+                                if (['.js', '.py', '.html'].includes(ext)) {
+                                    await indexFile(fullPath);
+                                }
+                            }
+                        }
+                    };
+
+                    await scanDir(workspaceRoot);
+                    console.log("Cardinal VFS DB indexada:", Object.keys(window.CardinalDB.symbols).length, "símbolos.");
+                } catch (err) {
+                    console.error("Fallo al indexar espacio de trabajo:", err);
+                }
+            };
+
+            window.cardinalPreFlightCheck = function(response) {
+                // Parsear todos los bloques WRITE_FILE: [WRITE_FILE:filepath]content[END_WRITE_FILE]
+                const writeRegex = /\[WRITE_FILE:([^\]]+)\]([\s\S]*?)\[END_WRITE_FILE\]/g;
+                let match;
+                const errors = [];
+                
+                while ((match = writeRegex.exec(response)) !== null) {
+                    const filePath = match[1].trim();
+                    const content = match[2];
+                    const ext = path.extname(filePath);
+                    
+                    // 1. Verificación sintáctica básica
+                    if (ext === '.js') {
+                        try {
+                            new Function(content);
+                        } catch (e) {
+                            if (e instanceof SyntaxError) {
+                                errors.push(`Error de sintaxis JS en ${path.basename(filePath)}: ${e.message}`);
+                            }
+                        }
+                    } else if (ext === '.json') {
+                        try {
+                            JSON.parse(content);
+                        } catch (e) {
+                            errors.push(`JSON inválido en ${path.basename(filePath)}: ${e.message}`);
+                        }
+                    }
+                    
+                    // 2. Verificación de referencias contra la VFS DB
+                    if (ext === '.js' || ext === '.py') {
+                        // Buscar llamadas a funciones en el contenido
+                        const callRegex = /\b([a-zA-Z0-9_$]+)\s*\(/g;
+                        let callMatch;
+                        const seenCalls = new Set();
+                        while ((callMatch = callRegex.exec(content)) !== null) {
+                            seenCalls.add(callMatch[1]);
+                        }
+                        
+                        const commonFuncs = new Set([
+                            'require', 'console', 'log', 'error', 'warn', 'info', 'setInterval', 'setTimeout', 'clearInterval', 'clearTimeout',
+                            'print', 'len', 'range', 'str', 'int', 'float', 'list', 'dict', 'set', 'tuple', 'type', 'open', 'abs', 'round',
+                            'fetch', 'showToast', 'updateGitStatus', 'fs', 'path', 'ipcRenderer', 'localStorage', 'document', 'window',
+                            'addEventListener', 'querySelector', 'getElementById', 'querySelectorAll', 'JSON', 'stringify', 'parse',
+                            'push', 'pop', 'shift', 'unshift', 'splice', 'slice', 'filter', 'map', 'forEach', 'reduce', 'join', 'split',
+                            'replace', 'match', 'test', 'exec', 'trim', 'toLowerCase', 'toUpperCase', 'startsWith', 'endsWith', 'includes'
+                        ]);
+                        
+                        seenCalls.forEach(funcName => {
+                            if (commonFuncs.has(funcName)) return;
+                            // Comprobar si está declarada en el mismo contenido propuesto
+                            const isDefinedInContent = content.includes(`function ${funcName}`) || 
+                                                       content.includes(`const ${funcName} =`) ||
+                                                       content.includes(`let ${funcName} =`) ||
+                                                       content.includes(`var ${funcName} =`) ||
+                                                       content.includes(`def ${funcName}`);
+                            if (!isDefinedInContent) {
+                                const symbolInfo = window.CardinalDB.symbols[funcName];
+                                if (!symbolInfo) {
+                                    errors.push(`Llamada a función no declarada '${funcName}' en ${path.basename(filePath)}. Asegúrate de definirla o importarla.`);
+                                }
+                            }
+                        });
+                    }
+                }
+                
+                if (errors.length > 0) {
+                    return { valid: false, error: errors.join('\n') };
+                }
+                return { valid: true };
+            };
+
+            // Programar indexador periódico e inicial
+            setInterval(() => {
+                if (typeof window.indexWorkspaceSymbols === 'function') {
+                    window.indexWorkspaceSymbols();
+                }
+            }, 15000);
+
+            setTimeout(() => {
+                if (typeof window.indexWorkspaceSymbols === 'function') {
+                    window.indexWorkspaceSymbols();
+                }
+            }, 3000);
 
             window.refreshCardinalUI = function() {
                 const list = document.getElementById('cardinal-suggestions-list');

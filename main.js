@@ -99,6 +99,13 @@ function createWindow () {
   });
 }
 
+// Handler para capturar la pantalla del IDE
+ipcMain.handle('capture-page', async () => {
+  if (!mainWindow || mainWindow.isDestroyed()) return null;
+  const image = await mainWindow.webContents.capturePage();
+  return image.toDataURL(); // Devuelve base64 data URL
+});
+
 // Handler para abrir carpetas
 ipcMain.handle('open-directory', async () => {
   const result = await dialog.showOpenDialog({
