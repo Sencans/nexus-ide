@@ -950,12 +950,22 @@ ipcMain.handle('download-comfy-model', async (event, { modelType, comfyPath }) =
             const http = require('http');
             const https = require('https');
             
-            const download = (url) => {
-                const client = url.startsWith('https') ? https : http;
-                client.get(url, (res) => {
+            const download = (urlStr) => {
+                const parsedUrl = new URL(urlStr);
+                const client = parsedUrl.protocol === 'https:' ? https : http;
+                const options = {
+                    hostname: parsedUrl.hostname,
+                    port: parsedUrl.port || (parsedUrl.protocol === 'https:' ? 443 : 80),
+                    path: parsedUrl.pathname + parsedUrl.search,
+                    method: 'GET',
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                    }
+                };
+                client.get(options, (res) => {
                     if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
                         try {
-                            const nextUrl = new URL(res.headers.location, url).toString();
+                            const nextUrl = new URL(res.headers.location, urlStr).toString();
                             download(nextUrl);
                         } catch (err) {
                             fileStream.close();
