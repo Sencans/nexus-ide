@@ -685,6 +685,60 @@
             z-index: 99998;
             transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
         }
+
+        /* Visual Blueprints Editor Styles */
+        .bp-node {
+            position: absolute;
+            background: rgba(22, 27, 34, 0.95);
+            border: 1.5px solid rgba(255, 255, 255, 0.12);
+            border-radius: 8px;
+            width: 210px;
+            display: flex;
+            flex-direction: column;
+            color: #e6edf3;
+            font-size: 11px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            user-select: none;
+            backdrop-filter: blur(12px);
+            z-index: 10;
+        }
+
+        .bp-node:hover {
+            border-color: rgba(255, 255, 255, 0.25);
+            box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6);
+        }
+
+        .bp-pin {
+            transition: transform 0.1s ease;
+            font-size: 11px;
+        }
+
+        .bp-pin:hover {
+            transform: scale(1.3);
+        }
+
+        .bp-delete-node:hover {
+            color: #ff7b72;
+            transform: scale(1.1);
+        }
+
+        #blueprint-canvas-container {
+            background-color: #0b0d11 !important;
+            background-image: radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px) !important;
+            background-size: 24px 24px !important;
+            user-select: none;
+            overflow: hidden;
+        }
+
+        .bp-sidebar button:hover {
+            background: #21262d !important;
+            border-color: #8b949e !important;
+            transform: translateY(-1px);
+        }
+
+        .bp-sidebar button {
+            transition: all 0.2s ease;
+        }
     </style>
 </head>
 <body>
@@ -8048,7 +8102,8 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
             { id: 'excalidraw-board', name: '🎨 Excalidraw Sketchpad', description: 'Dibuja esquemas de arquitectura, diagramas de flujo y bocetos interactivos directamente en el IDE.', author: 'Community Labs', version: '2.1.0', type: 'iframe' },
             { id: 'regex-tester', name: '🔍 RegEx Sandbox & Tester', description: 'Prueba, valida y depura expresiones regulares en tiempo real con resaltado visual de coincidencias.', author: 'Regex Devs', version: '1.1.0', type: 'tool' },
             { id: 'spotify-mini', name: '🎵 Spotify Controller', description: 'Controla tu música favorita y reproduce/pausa pistas directamente desde la barra inferior de la aplicación.', author: 'Audio Integration', version: '1.0.0', type: 'widget' },
-            { id: 'json-prettifier', name: '📦 JSON Formatter & Parser', description: 'Formatea, valida, minifica y visualiza la jerarquía de tus archivos JSON con un validador de errores integrado.', author: 'DevUtils Corp', version: '1.3.1', type: 'tool' }
+            { id: 'json-prettifier', name: '📦 JSON Formatter & Parser', description: 'Formatea, valida, minifica y visualiza la jerarquía de tus archivos JSON con un validador de errores integrado.', author: 'DevUtils Corp', version: '1.3.1', type: 'tool' },
+            { id: 'visual-blueprints', name: '⚡ Visual Blueprints (Visual Scripting)', description: 'Diseña lógica de forma visual conectando nodos (inicio, condicionales, bucles, variables, archivos, APIs) y compila código fuente JavaScript limpio al instante.', author: 'Nexus Dev Team', version: '1.0.0', type: 'core' }
         ];
 
         function getInstalledPlugins() {
@@ -8330,7 +8385,7 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
 
         function runPlugin(pluginId) {
             const installed = getInstalledPlugins();
-            if (!installed.includes(pluginId) && pluginId !== 'git-graph' && pluginId !== 'db-client' && pluginId !== 'excalidraw-board') {
+            if (!installed.includes(pluginId) && pluginId !== 'git-graph' && pluginId !== 'db-client' && pluginId !== 'excalidraw-board' && pluginId !== 'visual-blueprints') {
                 showToast("Este plugin no está instalado.", "error");
                 return;
             }
@@ -8347,6 +8402,8 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                 openSpotifyPlugin();
             } else if (pluginId === 'json-prettifier') {
                 openJsonPrettifierPlugin();
+            } else if (pluginId === 'visual-blueprints') {
+                openVisualBlueprintsPlugin();
             } else {
                 openGenericPluginWindow(pluginId);
             }
@@ -8776,6 +8833,992 @@ if __name__ == "__main__":
                 height: 550,
                 content: iframe
             });
+        }
+
+        // 3.5. PLUGIN: VISUAL BLUEPRINTS (Visual Scripting Editor)
+        function openVisualBlueprintsPlugin() {
+            let nodes = [
+                {
+                    id: 'node_inicio',
+                    type: 'inicio',
+                    title: 'Inicio',
+                    x: 80,
+                    y: 180,
+                    inputs: [],
+                    outputs: [
+                        { name: 'out', label: 'Ejecutar', type: 'flow' }
+                    ]
+                }
+            ];
+            let connections = [];
+            let panX = 0;
+            let panY = 0;
+            let zoom = 1;
+            let activePin = null;
+
+            const htmlContent = `
+                <div style="display:flex; height: 100%; background: #0b0d11; color: #fff; font-family: 'Segoe UI', system-ui, sans-serif; overflow:hidden;">
+                    <!-- Sidebar -->
+                    <div style="width: 220px; display:flex; flex-direction:column; background: #0d0f14; border-right: 1px solid #30363d; flex-shrink:0;">
+                        <div style="padding:10px; font-weight:bold; font-size:12px; border-bottom:1px solid #30363d; color:#8b949e; display:flex; align-items:center; gap:6px;">
+                            <span>⚡ Caja de Nodos</span>
+                        </div>
+                        <div style="flex:1; overflow-y:auto; padding:10px; display:flex; flex-direction:column; gap:10px;">
+                            <div style="font-size:10px; font-weight:bold; color:#8b949e; text-transform:uppercase; margin-top:5px;">Estructuras de Control</div>
+                            <button onclick="window.addBpNode('condicion')" class="dash-btn" style="text-align:left; font-size:11px; padding:6px 10px; width:100%; display:flex; justify-content:space-between; align-items:center; background:#161b22; border:1px solid #30363d;">
+                                <span>🌿 Condición (If)</span>
+                                <span style="font-size:9px; color:#8b949e;">Añadir</span>
+                            </button>
+                            <button onclick="window.addBpNode('bucle')" class="dash-btn" style="text-align:left; font-size:11px; padding:6px 10px; width:100%; display:flex; justify-content:space-between; align-items:center; background:#161b22; border:1px solid #30363d;">
+                                <span>🔁 Bucle (Loop)</span>
+                                <span style="font-size:9px; color:#8b949e;">Añadir</span>
+                            </button>
+                            
+                            <div style="font-size:10px; font-weight:bold; color:#8b949e; text-transform:uppercase; margin-top:5px;">Variables</div>
+                            <button onclick="window.addBpNode('definir_variable')" class="dash-btn" style="text-align:left; font-size:11px; padding:6px 10px; width:100%; display:flex; justify-content:space-between; align-items:center; background:#161b22; border:1px solid #30363d;">
+                                <span>📦 Definir Variable</span>
+                                <span style="font-size:9px; color:#8b949e;">Añadir</span>
+                            </button>
+                            <button onclick="window.addBpNode('obtener_variable')" class="dash-btn" style="text-align:left; font-size:11px; padding:6px 10px; width:100%; display:flex; justify-content:space-between; align-items:center; background:#161b22; border:1px solid #30363d;">
+                                <span>🔑 Obtener Variable</span>
+                                <span style="font-size:9px; color:#8b949e;">Añadir</span>
+                            </button>
+                            
+                            <div style="font-size:10px; font-weight:bold; color:#8b949e; text-transform:uppercase; margin-top:5px;">Acciones e I/O</div>
+                            <button onclick="window.addBpNode('imprimir')" class="dash-btn" style="text-align:left; font-size:11px; padding:6px 10px; width:100%; display:flex; justify-content:space-between; align-items:center; background:#161b22; border:1px solid #30363d;">
+                                <span>🔊 Imprimir (Log)</span>
+                                <span style="font-size:9px; color:#8b949e;">Añadir</span>
+                            </button>
+                            <button onclick="window.addBpNode('concatenar')" class="dash-btn" style="text-align:left; font-size:11px; padding:6px 10px; width:100%; display:flex; justify-content:space-between; align-items:center; background:#161b22; border:1px solid #30363d;">
+                                <span>🔗 Concatenar</span>
+                                <span style="font-size:9px; color:#8b949e;">Añadir</span>
+                            </button>
+                            <button onclick="window.addBpNode('http_get')" class="dash-btn" style="text-align:left; font-size:11px; padding:6px 10px; width:100%; display:flex; justify-content:space-between; align-items:center; background:#161b22; border:1px solid #30363d;">
+                                <span>🌐 Petición HTTP GET</span>
+                                <span style="font-size:9px; color:#8b949e;">Añadir</span>
+                            </button>
+                            <button onclick="window.addBpNode('escribir_archivo')" class="dash-btn" style="text-align:left; font-size:11px; padding:6px 10px; width:100%; display:flex; justify-content:space-between; align-items:center; background:#161b22; border:1px solid #30363d;">
+                                <span>💾 Escribir Archivo</span>
+                                <span style="font-size:9px; color:#8b949e;">Añadir</span>
+                            </button>
+                            <button onclick="window.addBpNode('codigo_js')" class="dash-btn" style="text-align:left; font-size:11px; padding:6px 10px; width:100%; display:flex; justify-content:space-between; align-items:center; background:#161b22; border: 1px solid #30363d;">
+                                <span>🛠️ Código JS Propio</span>
+                                <span style="font-size:9px; color:#8b949e;">Añadir</span>
+                            </button>
+                        </div>
+                        <div style="padding:10px; font-size:9px; color:#8b949e; border-top:1px solid #30363d; background: #0b0d11; line-height: 1.3;">
+                            Tip: Haz clic en los pines para conectar. Haz clic en un cable para eliminarlo.
+                        </div>
+                    </div>
+                    
+                    <!-- Canvas Area -->
+                    <div id="blueprint-canvas-container" style="flex:1; display:flex; flex-direction:column; position:relative; min-width:0; background: #0b0d11; cursor: grab;">
+                        <!-- Glassmorphic Toolbar inside canvas -->
+                        <div style="position:absolute; top:12px; left:12px; z-index:100; display:flex; gap:8px; background:rgba(22, 27, 34, 0.85); backdrop-filter:blur(10px); padding:6px 10px; border:1px solid #30363d; border-radius:6px; box-shadow:0 8px 24px rgba(0,0,0,0.3);">
+                            <button onclick="window.saveBp()" class="dash-btn" style="font-size:11px; padding:4px 8px; background:#161b22; border:1px solid #30363d;">💾 Guardar</button>
+                            <button onclick="window.loadBp()" class="dash-btn" style="font-size:11px; padding:4px 8px; background:#161b22; border:1px solid #30363d;">📂 Cargar</button>
+                            <button onclick="window.clearBp()" class="dash-btn" style="font-size:11px; padding:4px 8px; background:#161b22; border:1px solid #30363d; color:#ff7b72;">🧹 Limpiar</button>
+                            <div style="width:1px; background:#30363d; margin:0 4px;"></div>
+                            <button onclick="window.triggerBpCompilation()" class="dash-btn dash-primary-btn" style="font-size:11px; padding:4px 10px;">⚡ Compilar</button>
+                            <button onclick="window.executeBp()" class="dash-btn" style="font-size:11px; padding:4px 10px; background:#2ea44f; border:1px solid #3cc35e; color:#fff;">🚀 Ejecutar</button>
+                        </div>
+                        
+                        <!-- Zoom & Pan Indicator -->
+                        <div id="bp-zoom-indicator" style="position:absolute; bottom:12px; left:12px; z-index:100; font-size:10px; color:#8b949e; background:rgba(22, 27, 34, 0.8); padding:3px 8px; border-radius:4px; border:1px solid #30363d;">
+                            Zoom: 100% | Pan: 0, 0
+                        </div>
+                        
+                        <!-- Inner Canvas -->
+                        <div id="blueprint-canvas" style="position: absolute; top:0; left:0; width:3000px; height:3000px; transform-origin: 0 0; transform: translate(0px, 0px) scale(1);">
+                            <!-- Connections SVG -->
+                            <svg id="blueprint-svg" style="position: absolute; top:0; left:0; width:100%; height:100%; pointer-events: none; overflow: visible;"></svg>
+                        </div>
+                    </div>
+                    
+                    <!-- Split Code/Console Pane -->
+                    <div style="width: 420px; display:flex; flex-direction:column; background: #161b22; border-left: 1px solid #30363d; flex-shrink:0;">
+                        <!-- Tab Bar -->
+                        <div style="height: 36px; border-bottom:1px solid #30363d; background:#0d0f14; display:flex; align-items:center; padding:0 12px; justify-content:space-between;">
+                            <span style="font-size:11px; font-weight:bold; color:#8b949e; text-transform:uppercase;">💻 Código JS Generado</span>
+                            <span id="bp-sync-status" style="font-size:9px; color:#56d364;">● Sincronizado</span>
+                        </div>
+                        
+                        <!-- Monaco Container -->
+                        <div id="bp-monaco-container" style="flex:1; min-height:0; background:#0d1117;"></div>
+                        
+                        <!-- Console Output -->
+                        <div style="height: 180px; border-top:1px solid #30363d; display:flex; flex-direction:column; background:#0b0d11;">
+                            <div style="padding:6px 12px; background:#0d0f14; border-bottom:1px solid #30363d; font-size:10px; font-weight:bold; color:#8b949e; display:flex; justify-content:space-between; align-items:center;">
+                                <span>🖥️ CONSOLA DE SALIDA</span>
+                                <span onclick="document.getElementById('bp-console-output').innerHTML=''" style="cursor:pointer; font-size:9px; color:#ff7b72;">Limpiar</span>
+                            </div>
+                            <div id="bp-console-output" style="flex:1; overflow-y:auto; padding:8px; font-family:monospace; font-size:11px; background:#010409; color:#e6edf3; line-height:1.4;">
+                                <span style="color:#6e7681;">Los resultados de la ejecución aparecerán aquí...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            const win = new NexusWindow({
+                id: 'nexus-win-visual-blueprints',
+                title: 'Nexus Visual Blueprints (Visual Scripting Environment)',
+                icon: '⚡',
+                width: 1100,
+                height: 700,
+                content: htmlContent
+            });
+
+            setTimeout(() => {
+                const monacoContainer = document.getElementById('bp-monaco-container');
+                if (!monacoContainer) return;
+                
+                const blueprintCodeEditor = monaco.editor.create(monacoContainer, {
+                    value: '// Código autogenerado del blueprint\n',
+                    language: 'javascript',
+                    theme: 'vs-dark',
+                    readOnly: true,
+                    minimap: { enabled: false },
+                    automaticLayout: true
+                });
+
+                const canvasContainer = document.getElementById('blueprint-canvas-container');
+                const canvasInner = document.getElementById('blueprint-canvas');
+                const zoomIndicator = document.getElementById('bp-zoom-indicator');
+
+                canvasContainer.addEventListener('mousedown', (e) => {
+                    if (e.target !== canvasContainer && e.target !== canvasInner && e.target.id !== 'blueprint-svg') return;
+                    
+                    const startX = e.clientX - panX;
+                    const startY = e.clientY - panY;
+                    canvasContainer.style.cursor = 'grabbing';
+                    
+                    const onMouseMove = (moveEv) => {
+                        panX = moveEv.clientX - startX;
+                        panY = moveEv.clientY - startY;
+                        canvasInner.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
+                        updateZoomIndicator();
+                    };
+                    
+                    const onMouseUp = () => {
+                        window.removeEventListener('mousemove', onMouseMove);
+                        window.removeEventListener('mouseup', onMouseUp);
+                        canvasContainer.style.cursor = 'grab';
+                    };
+                    
+                    window.addEventListener('mousemove', onMouseMove);
+                    window.addEventListener('mouseup', onMouseUp);
+                });
+
+                canvasContainer.addEventListener('wheel', (e) => {
+                    e.preventDefault();
+                    const zoomIntensity = 0.04;
+                    const rect = canvasContainer.getBoundingClientRect();
+                    const mouseX = e.clientX - rect.left;
+                    const mouseY = e.clientY - rect.top;
+                    
+                    const oldZoom = zoom;
+                    if (e.deltaY < 0) {
+                        zoom = Math.min(1.5, zoom + zoomIntensity);
+                    } else {
+                        zoom = Math.max(0.5, zoom - zoomIntensity);
+                    }
+                    
+                    panX = mouseX - (mouseX - panX) * (zoom / oldZoom);
+                    panY = mouseY - (mouseY - panY) * (zoom / oldZoom);
+                    
+                    canvasInner.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
+                    updateZoomIndicator();
+                    drawConnections();
+                });
+
+                function updateZoomIndicator() {
+                    if (zoomIndicator) {
+                        zoomIndicator.innerHTML = `Zoom: ${Math.round(zoom * 100)}% | Pan: ${Math.round(panX)}, ${Math.round(panY)}`;
+                    }
+                }
+
+                window.addBpNode = (type) => {
+                    const nodeId = 'node_' + Date.now() + '_' + Math.floor(Math.random()*1000);
+                    let inputs = [];
+                    let outputs = [];
+                    let title = '';
+                    
+                    if (type === 'condicion') {
+                        title = 'Condición (If)';
+                        inputs = [
+                            { name: 'in', label: 'Ejecutar', type: 'flow' },
+                            { name: 'condition', label: 'Condición', type: 'boolean', default: 'true' }
+                        ];
+                        outputs = [
+                            { name: 'true', label: 'Verdadero', type: 'flow' },
+                            { name: 'false', label: 'Falso', type: 'flow' }
+                        ];
+                    } else if (type === 'bucle') {
+                        title = 'Bucle (Loop)';
+                        inputs = [
+                            { name: 'in', label: 'Ejecutar', type: 'flow' },
+                            { name: 'from', label: 'Desde', type: 'number', default: '1' },
+                            { name: 'to', label: 'Hasta', type: 'number', default: '5' }
+                        ];
+                        outputs = [
+                            { name: 'body', label: 'Cuerpo', type: 'flow' },
+                            { name: 'completed', label: 'Completado', type: 'flow' },
+                            { name: 'index', label: 'Índice', type: 'number' }
+                        ];
+                    } else if (type === 'definir_variable') {
+                        title = 'Definir Variable';
+                        inputs = [
+                            { name: 'in', label: 'Ejecutar', type: 'flow' },
+                            { name: 'varname', label: 'Nombre Var', type: 'string', default: 'mi_variable' },
+                            { name: 'value', label: 'Valor', type: 'any', default: '10' }
+                        ];
+                        outputs = [
+                            { name: 'out', label: 'Ejecutar', type: 'flow' }
+                        ];
+                    } else if (type === 'obtener_variable') {
+                        title = 'Obtener Variable';
+                        inputs = [
+                            { name: 'varname', label: 'Nombre Var', type: 'string', default: 'mi_variable' }
+                        ];
+                        outputs = [
+                            { name: 'value', label: 'Valor', type: 'any' }
+                        ];
+                    } else if (type === 'imprimir') {
+                        title = 'Imprimir (Log)';
+                        inputs = [
+                            { name: 'in', label: 'Ejecutar', type: 'flow' },
+                            { name: 'message', label: 'Mensaje', type: 'any', default: 'Hola Mundo' }
+                        ];
+                        outputs = [
+                            { name: 'out', label: 'Ejecutar', type: 'flow' }
+                        ];
+                    } else if (type === 'concatenar') {
+                        title = 'Concatenar';
+                        inputs = [
+                            { name: 'a', label: 'Texto A', type: 'string', default: 'Hola ' },
+                            { name: 'b', label: 'Texto B', type: 'string', default: 'Mundo' }
+                        ];
+                        outputs = [
+                            { name: 'result', label: 'Resultado', type: 'string' }
+                        ];
+                    } else if (type === 'http_get') {
+                        title = 'Petición HTTP GET';
+                        inputs = [
+                            { name: 'in', label: 'Ejecutar', type: 'flow' },
+                            { name: 'url', label: 'URL API', type: 'string', default: 'https://api.github.com/users/Sencans' }
+                        ];
+                        outputs = [
+                            { name: 'out', label: 'Ejecutar', type: 'flow' },
+                            { name: 'response', label: 'Respuesta', type: 'string' }
+                        ];
+                    } else if (type === 'escribir_archivo') {
+                        title = 'Escribir Archivo';
+                        inputs = [
+                            { name: 'in', label: 'Ejecutar', type: 'flow' },
+                            { name: 'path', label: 'Ruta Archivo', type: 'string', default: 'resultado.txt' },
+                            { name: 'content', label: 'Contenido', type: 'string', default: 'Contenido del archivo' }
+                        ];
+                        outputs = [
+                            { name: 'out', label: 'Ejecutar', type: 'flow' }
+                        ];
+                    } else if (type === 'codigo_js') {
+                        title = 'Código JS Propio';
+                        inputs = [
+                            { name: 'in', label: 'Ejecutar', type: 'flow' },
+                            { name: 'param', label: 'Parámetro In', type: 'any', default: '42' },
+                            { name: 'code', label: 'Código JS', type: 'any' }
+                        ];
+                        outputs = [
+                            { name: 'out', label: 'Ejecutar', type: 'flow' },
+                            { name: 'result', label: 'Retorno', type: 'any' }
+                        ];
+                    }
+
+                    const rect = canvasContainer.getBoundingClientRect();
+                    const posX = (-panX + rect.width / 2 - 100) / zoom;
+                    const posY = (-panY + rect.height / 2 - 80) / zoom;
+
+                    const newNode = {
+                        id: nodeId,
+                        type,
+                        title,
+                        x: posX,
+                        y: posY,
+                        inputs,
+                        outputs
+                    };
+
+                    nodes.push(newNode);
+                    renderNode(newNode);
+                    triggerBpCompilation();
+                };
+
+                window.clearBp = () => {
+                    if (confirm("¿Seguro que deseas limpiar el lienzo?")) {
+                        nodes = [
+                            {
+                                id: 'node_inicio',
+                                type: 'inicio',
+                                title: 'Inicio',
+                                x: 80,
+                                y: 180,
+                                inputs: [],
+                                outputs: [
+                                    { name: 'out', label: 'Ejecutar', type: 'flow' }
+                                ]
+                            }
+                        ];
+                        connections = [];
+                        panX = 0;
+                        panY = 0;
+                        zoom = 1;
+                        canvasInner.style.transform = 'translate(0px, 0px) scale(1)';
+                        updateZoomIndicator();
+                        refreshNodeUIs();
+                        drawConnections();
+                        triggerBpCompilation();
+                    }
+                };
+
+                window.saveBp = () => {
+                    const filename = prompt("Guardar Blueprint como:", "mi_flujo.nexusbp");
+                    if (!filename) return;
+                    
+                    nodes.forEach(node => {
+                        node.inputs.forEach(pin => {
+                            const el = document.getElementById(`val-${node.id}-${pin.name}`);
+                            if (el) pin.default = el.value;
+                        });
+                    });
+                    
+                    const payload = { nodes, connections, panX, panY, zoom };
+                    const fs = require('fs');
+                    const fullPath = path.resolve(workspaceRoot, filename.endsWith('.nexusbp') ? filename : filename + '.nexusbp');
+                    
+                    try {
+                        fs.writeFileSync(fullPath, JSON.stringify(payload, null, 2), 'utf-8');
+                        showToast("Blueprint guardado correctamente", "success");
+                    } catch(err) {
+                        showToast("Error al guardar: " + err.message, "error");
+                    }
+                };
+
+                window.loadBp = () => {
+                    const fs = require('fs');
+                    let files = [];
+                    try {
+                        files = fs.readdirSync(workspaceRoot).filter(f => f.endsWith('.nexusbp'));
+                    } catch(e) {}
+                    
+                    if (files.length === 0) {
+                        const manualName = prompt("No se encontraron archivos .nexusbp automáticos en tu workspace. Escribe el nombre del archivo a cargar:", "mi_flujo.nexusbp");
+                        if (!manualName) return;
+                        performLoad(manualName);
+                        return;
+                    }
+                    
+                    const selectHtml = `
+                        <div style="padding:15px; color:#fff; display:flex; flex-direction:column; gap:10px;">
+                            <span style="font-size:11px; color:#8b949e;">Selecciona un Blueprint del espacio de trabajo:</span>
+                            <select id="bp-load-select" style="background:#161b22; border:1px solid #30363d; color:#fff; font-size:12px; padding:6px; border-radius:4px; outline:none; width: 100%;">
+                                ${files.map(f => `<option value="${f}">${f}</option>`).join('')}
+                            </select>
+                            <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:10px;">
+                                <button id="bp-cancel-load" class="dash-btn" style="padding:6px 12px; font-size:11px; background:#161b22; border:1px solid #30363d;">Cancelar</button>
+                                <button id="bp-confirm-load" class="dash-btn dash-primary-btn" style="padding:6px 12px; font-size:11px;">Cargar</button>
+                            </div>
+                        </div>
+                    `;
+                    
+                    const loadModal = document.createElement('div');
+                    loadModal.style.cssText = 'position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background:#0d1117; border:1px solid #30363d; border-radius:8px; box-shadow:0 8px 32px rgba(0,0,0,0.6); z-index:99999; width:300px;';
+                    loadModal.innerHTML = selectHtml;
+                    document.body.appendChild(loadModal);
+                    
+                    document.getElementById('bp-cancel-load').onclick = () => loadModal.remove();
+                    document.getElementById('bp-confirm-load').onclick = () => {
+                        const chosen = document.getElementById('bp-load-select').value;
+                        loadModal.remove();
+                        performLoad(chosen);
+                    };
+                    
+                    function performLoad(filename) {
+                        const fullPath = path.resolve(workspaceRoot, filename);
+                        try {
+                            const data = JSON.parse(fs.readFileSync(fullPath, 'utf-8'));
+                            nodes = data.nodes || [];
+                            connections = data.connections || [];
+                            panX = data.panX || 0;
+                            panY = data.panY || 0;
+                            zoom = data.zoom || 1;
+                            
+                            canvasInner.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
+                            updateZoomIndicator();
+                            refreshNodeUIs();
+                            drawConnections();
+                            triggerBpCompilation();
+                            showToast(`Blueprint ${filename} cargado correctamente`, "success");
+                        } catch(err) {
+                            showToast("Error al cargar: " + err.message, "error");
+                        }
+                    }
+                };
+
+                window.executeBp = () => {
+                    const code = blueprintCodeEditor.getValue();
+                    const consoleLogBackup = console.log;
+                    const consoleErrorBackup = console.error;
+                    const consoleWarnBackup = console.warn;
+
+                    const outputEl = document.getElementById('bp-console-output');
+                    outputEl.innerHTML = '';
+
+                    const addLog = (msg, type = 'info') => {
+                        const color = type === 'error' ? '#ff7b72' : type === 'warn' ? '#d29922' : '#7ee787';
+                        outputEl.innerHTML += `<div style="color:${color}; margin-bottom: 2px;">${msg}</div>`;
+                        outputEl.scrollTop = outputEl.scrollHeight;
+                    };
+
+                    console.log = (...args) => {
+                        addLog(args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' '), 'info');
+                        consoleLogBackup(...args);
+                    };
+                    console.warn = (...args) => {
+                        addLog(args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' '), 'warn');
+                        consoleWarnBackup(...args);
+                    };
+                    console.error = (...args) => {
+                        addLog(args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' '), 'error');
+                        consoleErrorBackup(...args);
+                    };
+
+                    try {
+                        addLog('🚀 Ejecutando script visual...', 'info');
+                        const runFn = new Function(`
+                            return (async () => {
+                                const variables = {};
+                                ${code}
+                            })();
+                        `);
+                        
+                        runFn()
+                            .then(() => {
+                                addLog('✅ Ejecución finalizada con éxito.', 'info');
+                            })
+                            .catch(err => {
+                                addLog('❌ Error en ejecución: ' + err.message, 'error');
+                            })
+                            .finally(() => {
+                                console.log = consoleLogBackup;
+                                console.warn = consoleWarnBackup;
+                                console.error = consoleErrorBackup;
+                            });
+                    } catch(err) {
+                        addLog('❌ Error al compilar/iniciar ejecución: ' + err.message, 'error');
+                        console.log = consoleLogBackup;
+                        console.warn = consoleWarnBackup;
+                        console.error = consoleErrorBackup;
+                    }
+                };
+
+                window.triggerBpCompilation = () => {
+                    const statusText = document.getElementById('bp-sync-status');
+                    if (statusText) {
+                        statusText.innerHTML = '⏳ Compilando...';
+                        statusText.style.color = '#facc15';
+                    }
+                    
+                    setTimeout(() => {
+                        try {
+                            const code = compileBlueprint();
+                            blueprintCodeEditor.setValue(code);
+                            if (statusText) {
+                                statusText.innerHTML = '● Sincronizado';
+                                statusText.style.color = '#56d364';
+                            }
+                        } catch(e) {
+                            blueprintCodeEditor.setValue(`// Error al compilar el grafo:\n// ${e.message}`);
+                            if (statusText) {
+                                statusText.innerHTML = '⚠️ Error de Compilación';
+                                statusText.style.color = '#ff7b72';
+                            }
+                        }
+                    }, 100);
+                };
+
+                function getPinCoords(nodeId, pinName, direction) {
+                    const node = nodes.find(n => n.id === nodeId);
+                    if (!node) return { x: 0, y: 0 };
+                    
+                    const pinEl = document.getElementById(`${nodeId}_pin_${pinName}`);
+                    if (!pinEl) return { x: node.x, y: node.y };
+                    
+                    const nodeEl = document.getElementById(nodeId);
+                    const nodeRect = nodeEl.getBoundingClientRect();
+                    const pinRect = pinEl.getBoundingClientRect();
+                    
+                    const rx = pinRect.left + pinRect.width/2 - nodeRect.left;
+                    const ry = pinRect.top + pinRect.height/2 - nodeRect.top;
+                    
+                    return {
+                        x: node.x + rx,
+                        y: node.y + ry
+                    };
+                }
+
+                function drawConnections() {
+                    const svg = document.getElementById('blueprint-svg');
+                    if (!svg) return;
+                    svg.innerHTML = '';
+                    
+                    connections.forEach((conn, idx) => {
+                        const fromCoords = getPinCoords(conn.fromNodeId, conn.fromPinName, 'out');
+                        const toCoords = getPinCoords(conn.toNodeId, conn.toPinName, 'in');
+                        
+                        const pathEl = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                        const dx = Math.abs(toCoords.x - fromCoords.x) * 0.4;
+                        const dStr = `M ${fromCoords.x} ${fromCoords.y} C ${fromCoords.x + dx} ${fromCoords.y}, ${toCoords.x - dx} ${toCoords.y}, ${toCoords.x} ${toCoords.y}`;
+                        
+                        let color = '#fff';
+                        if (conn.type === 'flow') color = '#eceff1';
+                        else if (conn.type === 'string') color = '#ffa726';
+                        else if (conn.type === 'number') color = '#29b6f6';
+                        else if (conn.type === 'boolean') color = '#9ccc65';
+                        else color = '#ab47bc';
+                        
+                        pathEl.setAttribute('d', dStr);
+                        pathEl.setAttribute('stroke', color);
+                        pathEl.setAttribute('stroke-width', conn.type === 'flow' ? '3.5' : '2');
+                        pathEl.setAttribute('fill', 'none');
+                        pathEl.setAttribute('style', 'cursor: pointer; pointer-events: stroke;');
+                        
+                        pathEl.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            connections.splice(idx, 1);
+                            refreshNodeUIs();
+                            drawConnections();
+                            triggerBpCompilation();
+                        });
+                        
+                        svg.appendChild(pathEl);
+                    });
+                    
+                    if (activePin) {
+                        const startCoords = getPinCoords(activePin.nodeId, activePin.pinName, activePin.direction);
+                        const pathEl = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                        const endX = activePin.tempX !== null ? activePin.tempX : startCoords.x;
+                        const endY = activePin.tempY !== null ? activePin.tempY : startCoords.y;
+                        const dx = Math.abs(endX - startCoords.x) * 0.4;
+                        const dStr = `M ${startCoords.x} ${startCoords.y} C ${startCoords.x + dx} ${startCoords.y}, ${endX - dx} ${endY}, ${endX} ${endY}`;
+                        
+                        pathEl.setAttribute('d', dStr);
+                        pathEl.setAttribute('stroke', '#58a6ff');
+                        pathEl.setAttribute('stroke-dasharray', '5,5');
+                        pathEl.setAttribute('stroke-width', activePin.pinType === 'flow' ? '3' : '2');
+                        pathEl.setAttribute('fill', 'none');
+                        svg.appendChild(pathEl);
+                    }
+                }
+
+                function onPinClick(pinEl) {
+                    const nodeId = pinEl.getAttribute('data-node');
+                    const pinName = pinEl.getAttribute('data-pin');
+                    const direction = pinEl.getAttribute('data-direction');
+                    const type = pinEl.getAttribute('data-type');
+                    
+                    if (!activePin) {
+                        activePin = {
+                            nodeId,
+                            pinName,
+                            direction,
+                            pinType: type,
+                            tempX: null,
+                            tempY: null
+                        };
+                        
+                        const onCanvasMouseMove = (moveEv) => {
+                            const rect = canvasContainer.getBoundingClientRect();
+                            activePin.tempX = (moveEv.clientX - rect.left - panX) / zoom;
+                            activePin.tempY = (moveEv.clientY - rect.top - panY) / zoom;
+                            drawConnections();
+                        };
+                        
+                        const onCanvasMouseUp = () => {
+                            window.removeEventListener('mousemove', onCanvasMouseMove);
+                            window.removeEventListener('mouseup', onCanvasMouseUp);
+                            setTimeout(() => {
+                                if (activePin) {
+                                    activePin = null;
+                                    drawConnections();
+                                }
+                            }, 100);
+                        };
+                        
+                        window.addEventListener('mousemove', onCanvasMouseMove);
+                        window.addEventListener('mouseup', onCanvasMouseUp);
+                        drawConnections();
+                        
+                    } else {
+                        const startPin = activePin;
+                        activePin = null;
+                        
+                        if (startPin.nodeId === nodeId) {
+                            showToast("No puedes conectar un nodo consigo mismo", "error");
+                            drawConnections();
+                            return;
+                        }
+                        
+                        if (startPin.direction === direction) {
+                            showToast("Debes conectar una salida con una entrada", "error");
+                            drawConnections();
+                            return;
+                        }
+                        
+                        if (startPin.pinType !== type && startPin.pinType !== 'any' && type !== 'any') {
+                            showToast(`Tipos incompatibles: ${startPin.pinType} y ${type}`, "error");
+                            drawConnections();
+                            return;
+                        }
+                        
+                        const fromNodeId = startPin.direction === 'out' ? startPin.nodeId : nodeId;
+                        const fromPinName = startPin.direction === 'out' ? startPin.pinName : pinName;
+                        const toNodeId = startPin.direction === 'in' ? startPin.nodeId : nodeId;
+                        const toPinName = startPin.direction === 'in' ? startPin.pinName : pinName;
+                        
+                        connections = connections.filter(c => !(c.toNodeId === toNodeId && c.toPinName === toPinName));
+                        
+                        connections.push({
+                            fromNodeId,
+                            fromPinName,
+                            toNodeId,
+                            toPinName,
+                            type
+                        });
+                        
+                        refreshNodeUIs();
+                        drawConnections();
+                        triggerBpCompilation();
+                    }
+                }
+
+                function refreshNodeUIs() {
+                    const canvas = document.getElementById('blueprint-canvas');
+                    if (!canvas) return;
+                    
+                    const savedValues = {};
+                    nodes.forEach(node => {
+                        node.inputs.forEach(pin => {
+                            const el = document.getElementById(`val-${node.id}-${pin.name}`);
+                            if (el) savedValues[`${node.id}-${pin.name}`] = el.value;
+                        });
+                    });
+                    
+                    canvas.innerHTML = '<svg id="blueprint-svg" style="position: absolute; top:0; left:0; width:100%; height:100%; pointer-events: none; overflow: visible;"></svg>';
+                    
+                    nodes.forEach(node => {
+                        renderNode(node);
+                        node.inputs.forEach(pin => {
+                            const el = document.getElementById(`val-${node.id}-${pin.name}`);
+                            if (el && savedValues[`${node.id}-${pin.name}`] !== undefined) {
+                                el.value = savedValues[`${node.id}-${pin.name}`];
+                            }
+                        });
+                    });
+                }
+
+                function renderNode(node) {
+                    const canvas = document.getElementById('blueprint-canvas');
+                    if (!canvas) return;
+                    
+                    const nodeDiv = document.createElement('div');
+                    nodeDiv.id = node.id;
+                    nodeDiv.className = 'bp-node';
+                    nodeDiv.style.left = `${node.x}px`;
+                    nodeDiv.style.top = `${node.y}px`;
+                    
+                    let headerBg = 'linear-gradient(90deg, #1f6feb, #0052d4)';
+                    if (node.type === 'inicio') headerBg = 'linear-gradient(90deg, #2ea44f, #1e7e34)';
+                    else if (node.type === 'condicion' || node.type === 'bucle') headerBg = 'linear-gradient(90deg, #d29922, #b07d00)';
+                    else if (node.type === 'definir_variable' || node.type === 'obtener_variable') headerBg = 'linear-gradient(90deg, #f0883e, #d05b10)';
+                    else if (node.type === 'http_get') headerBg = 'linear-gradient(90deg, #ab47bc, #7b1fa2)';
+                    else if (node.type === 'escribir_archivo') headerBg = 'linear-gradient(90deg, #f85149, #b62323)';
+                    else if (node.type === 'codigo_js') headerBg = 'linear-gradient(90deg, #484f58, #30363d)';
+
+                    let inputsHtml = '';
+                    node.inputs.forEach(pin => {
+                        const isConnected = connections.some(c => c.toNodeId === node.id && c.toPinName === pin.name);
+                        let valField = '';
+                        if (pin.type !== 'flow' && !isConnected) {
+                            if (pin.name === 'code') {
+                                valField = `<textarea id="val-${node.id}-${pin.name}" style="width: 120px; height: 50px; background:#161b22; border:1px solid #30363d; color:#fff; font-size:9px; font-family:monospace; resize:none; padding:2px; border-radius:4px; margin-top:2px; display:block;">return param;</textarea>`;
+                            } else if (pin.name === 'varname') {
+                                valField = `<input type="text" id="val-${node.id}-${pin.name}" value="${pin.default || 'mi_variable'}" style="width:80px; background:#161b22; border:1px solid #30363d; color:#fff; font-size:9px; padding:2px; border-radius:4px; margin-top:2px; display:block;">`;
+                            } else {
+                                valField = `<input type="text" id="val-${node.id}-${pin.name}" value="${pin.default || ''}" placeholder="valor..." style="width:80px; background:#161b22; border:1px solid #30363d; color:#fff; font-size:9px; padding:2px; border-radius:4px; margin-top:2px; display:block;">`;
+                            }
+                        }
+                        
+                        inputsHtml += `
+                            <div style="display:flex; align-items:center; margin-bottom:6px; gap:6px;">
+                                <div id="${node.id}_pin_${pin.name}" class="bp-pin pin-in" data-node="${node.id}" data-pin="${pin.name}" data-direction="in" data-type="${pin.type}" style="cursor:pointer; display:flex; align-items:center; justify-content:center; width:12px; height:12px;">
+                                    ${pin.type === 'flow' ? '▶' : '●'}
+                                </div>
+                                <div style="display:flex; flex-direction:column;">
+                                    <span style="font-size:10px; color:#8b949e;">${pin.label}</span>
+                                    ${valField}
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    let outputsHtml = '';
+                    node.outputs.forEach(pin => {
+                        outputsHtml += `
+                            <div style="display:flex; align-items:center; justify-content:flex-end; margin-bottom:6px; gap:6px;">
+                                <span style="font-size:10px; color:#8b949e;">${pin.label}</span>
+                                <div id="${node.id}_pin_${pin.name}" class="bp-pin pin-out" data-node="${node.id}" data-pin="${pin.name}" data-direction="out" data-type="${pin.type}" style="cursor:pointer; display:flex; align-items:center; justify-content:center; width:12px; height:12px;">
+                                    ${pin.type === 'flow' ? '▶' : '●'}
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    nodeDiv.innerHTML = `
+                        <div class="bp-node-header" style="background:${headerBg}; padding:6px 10px; border-top-left-radius:6px; border-top-right-radius:6px; display:flex; justify-content:space-between; align-items:center; cursor:grab; font-weight:bold; font-size:11px;">
+                            <span>${node.title}</span>
+                            ${node.type !== 'inicio' ? `<span class="bp-delete-node" style="cursor:pointer; font-size:12px; font-weight:bold; opacity:0.8;">×</span>` : ''}
+                        </div>
+                        <div style="padding:10px; display:flex; justify-content:space-between; gap:16px;">
+                            <div style="display:flex; flex-direction:column; align-items:flex-start;">
+                                ${inputsHtml}
+                            </div>
+                            <div style="display:flex; flex-direction:column; align-items:flex-end;">
+                                ${outputsHtml}
+                            </div>
+                        </div>
+                    `;
+                    
+                    canvas.appendChild(nodeDiv);
+                    
+                    const header = nodeDiv.querySelector('.bp-node-header');
+                    header.addEventListener('mousedown', (e) => {
+                        e.stopPropagation();
+                        const startX = e.clientX;
+                        const startY = e.clientY;
+                        const initialNodeX = node.x;
+                        const initialNodeY = node.y;
+                        
+                        const onMouseMove = (moveEv) => {
+                            const dx = (moveEv.clientX - startX) / zoom;
+                            const dy = (moveEv.clientY - startY) / zoom;
+                            node.x = initialNodeX + dx;
+                            node.y = initialNodeY + dy;
+                            nodeDiv.style.left = `${node.x}px`;
+                            nodeDiv.style.top = `${node.y}px`;
+                            drawConnections();
+                        };
+                        
+                        const onMouseUp = () => {
+                            window.removeEventListener('mousemove', onMouseMove);
+                            window.removeEventListener('mouseup', onMouseUp);
+                            triggerBpCompilation();
+                        };
+                        
+                        window.addEventListener('mousemove', onMouseMove);
+                        window.addEventListener('mouseup', onMouseUp);
+                    });
+                    
+                    const deleteBtn = nodeDiv.querySelector('.bp-delete-node');
+                    if (deleteBtn) {
+                        deleteBtn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            nodes = nodes.filter(n => n.id !== node.id);
+                            connections = connections.filter(c => c.fromNodeId !== node.id && c.toNodeId !== node.id);
+                            nodeDiv.remove();
+                            drawConnections();
+                            triggerBpCompilation();
+                        });
+                    }
+                    
+                    const pins = nodeDiv.querySelectorAll('.bp-pin');
+                    pins.forEach(pinEl => {
+                        const type = pinEl.getAttribute('data-type');
+                        let pinColor = '#fff';
+                        if (type === 'flow') pinColor = '#eceff1';
+                        else if (type === 'string') pinColor = '#ffa726';
+                        else if (type === 'number') pinColor = '#29b6f6';
+                        else if (type === 'boolean') pinColor = '#9ccc65';
+                        else pinColor = '#ab47bc';
+                        pinEl.style.color = pinColor;
+                        
+                        pinEl.addEventListener('mouseenter', () => {
+                            pinEl.style.transform = 'scale(1.3)';
+                        });
+                        pinEl.addEventListener('mouseleave', () => {
+                            pinEl.style.transform = 'scale(1)';
+                        });
+                        
+                        pinEl.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            onPinClick(pinEl);
+                        });
+                    });
+                }
+
+                function getNextExecNode(nodeId, pinName) {
+                    const conn = connections.find(c => c.fromNodeId === nodeId && c.fromPinName === pinName && c.type === 'flow');
+                    return conn ? conn.toNodeId : null;
+                }
+
+                function resolveDataPin(nodeId, pinName) {
+                    const pinId = `${nodeId}_pin_${pinName}`;
+                    const connection = connections.find(c => c.toPinId === pinId);
+                    if (!connection) {
+                        const el = document.getElementById(`val-${nodeId}-${pinName}`);
+                        if (!el) return '""';
+                        const raw = el.value;
+                        const pinType = getPinType(nodeId, pinName, 'in');
+                        if (pinType === 'number') {
+                            return isNaN(Number(raw)) ? '0' : raw;
+                        } else if (pinType === 'boolean') {
+                            return raw === 'true' ? 'true' : 'false';
+                        } else {
+                            return JSON.stringify(raw);
+                        }
+                    }
+                    
+                    const fromPinId = connection.fromPinId || `${connection.fromNodeId}_pin_${connection.fromPinName}`;
+                    const parts = fromPinId.split('_pin_');
+                    const sourceNodeId = parts[0];
+                    const sourcePinName = parts[1];
+                    
+                    const sourceNode = nodes.find(n => n.id === sourceNodeId);
+                    if (!sourceNode) return '""';
+                    
+                    if (sourceNode.type === 'http_get') {
+                        return `res_${sourceNodeId}`;
+                    } else if (sourceNode.type === 'codigo_js') {
+                        return `res_${sourceNodeId}`;
+                    } else if (sourceNode.type === 'bucle' && sourcePinName === 'index') {
+                        return `idx_${sourceNodeId}`;
+                    } else if (sourceNode.type === 'obtener_variable') {
+                        const varNameInput = document.getElementById(`val-${sourceNodeId}-varname`);
+                        const varName = varNameInput ? varNameInput.value.trim() : '';
+                        return `variables[${JSON.stringify(varName)}]`;
+                    } else if (sourceNode.type === 'concatenar') {
+                        const exprA = resolveDataPin(sourceNodeId, 'a');
+                        const exprB = resolveDataPin(sourceNodeId, 'b');
+                        return `(String(${exprA}) + String(${exprB}))`;
+                    }
+                    
+                    return '""';
+                }
+
+                function getPinType(nodeId, pinName, direction) {
+                    const node = nodes.find(n => n.id === nodeId);
+                    if (!node) return 'any';
+                    const arr = direction === 'in' ? node.inputs : node.outputs;
+                    const pin = arr.find(p => p.name === pinName);
+                    return pin ? pin.type : 'any';
+                }
+
+                function compileBlueprint() {
+                    let compiledNodes = new Set();
+                    
+                    function compileExecutionFlow(startNodeId) {
+                        if (!startNodeId || compiledNodes.has(startNodeId)) return '';
+                        
+                        const node = nodes.find(n => n.id === startNodeId);
+                        if (!node) return '';
+                        
+                        compiledNodes.add(startNodeId);
+                        let code = `// --- Nodo: ${node.title} (${node.id}) ---\n`;
+                        
+                        if (node.type === 'imprimir') {
+                            const msgExpr = resolveDataPin(node.id, 'message');
+                            code += `console.log(${msgExpr});\n`;
+                            const nextNodeId = getNextExecNode(node.id, 'out');
+                            code += compileExecutionFlow(nextNodeId);
+                            
+                        } else if (node.type === 'definir_variable') {
+                            const varNameInput = document.getElementById(`val-${node.id}-varname`);
+                            const varName = varNameInput ? varNameInput.value.trim() : 'mi_variable';
+                            const valExpr = resolveDataPin(node.id, 'value');
+                            code += `variables[${JSON.stringify(varName)}] = ${valExpr};\n`;
+                            const nextNodeId = getNextExecNode(node.id, 'out');
+                            code += compileExecutionFlow(nextNodeId);
+                            
+                        } else if (node.type === 'escribir_archivo') {
+                            const pathExpr = resolveDataPin(node.id, 'path');
+                            const contentExpr = resolveDataPin(node.id, 'content');
+                            code += `require('fs').writeFileSync(${pathExpr}, ${contentExpr}, 'utf-8');\n`;
+                            const nextNodeId = getNextExecNode(node.id, 'out');
+                            code += compileExecutionFlow(nextNodeId);
+                            
+                        } else if (node.type === 'http_get') {
+                            const urlExpr = resolveDataPin(node.id, 'url');
+                            code += `const res_${node.id} = await fetch(${urlExpr}).then(r => r.text());\n`;
+                            const nextNodeId = getNextExecNode(node.id, 'out');
+                            code += compileExecutionFlow(nextNodeId);
+                            
+                        } else if (node.type === 'codigo_js') {
+                            const paramExpr = resolveDataPin(node.id, 'param');
+                            const textarea = document.getElementById(`val-${node.id}-code`);
+                            const customCode = textarea ? textarea.value : 'return param;';
+                            code += `const res_${node.id} = await (async () => {\n  const param = ${paramExpr};\n  ${customCode.split('\n').join('\n  ')}\n})();\n`;
+                            const nextNodeId = getNextExecNode(node.id, 'out');
+                            code += compileExecutionFlow(nextNodeId);
+                            
+                        } else if (node.type === 'condicion') {
+                            const condExpr = resolveDataPin(node.id, 'condition');
+                            const trueNodeId = getNextExecNode(node.id, 'true');
+                            const falseNodeId = getNextExecNode(node.id, 'false');
+                            
+                            code += `if (${condExpr}) {\n`;
+                            code += `  ${compileExecutionFlow(trueNodeId).split('\n').join('\n  ')}\n`;
+                            code += `} else {\n`;
+                            code += `  ${compileExecutionFlow(falseNodeId).split('\n').join('\n  ')}\n`;
+                            code += `}\n`;
+                            
+                        } else if (node.type === 'bucle') {
+                            const fromExpr = resolveDataPin(node.id, 'from');
+                            const toExpr = resolveDataPin(node.id, 'to');
+                            const bodyNodeId = getNextExecNode(node.id, 'body');
+                            const completedNodeId = getNextExecNode(node.id, 'completed');
+                            
+                            code += `for (let idx_${node.id} = ${fromExpr}; idx_${node.id} <= ${toExpr}; idx_${node.id}++) {\n`;
+                            code += `  ${compileExecutionFlow(bodyNodeId).split('\n').join('\n  ')}\n`;
+                            code += `}\n`;
+                            code += compileExecutionFlow(completedNodeId);
+                            
+                        } else if (node.type === 'inicio') {
+                            const nextNodeId = getNextExecNode(node.id, 'out');
+                            code += compileExecutionFlow(nextNodeId);
+                        }
+                        
+                        return code;
+                    }
+
+                    const inicioNode = nodes.find(n => n.type === 'inicio');
+                    if (!inicioNode) return '// Error: No se encontró nodo de Inicio.\n';
+                    return compileExecutionFlow(inicioNode.id);
+                }
+
+                refreshNodeUIs();
+                drawConnections();
+                triggerBpCompilation();
+
+            }, 200);
+
+            win.onClose = () => {
+                delete window.addBpNode;
+                delete window.clearBp;
+                delete window.saveBp;
+                delete window.loadBp;
+                delete window.executeBp;
+                delete window.triggerBpCompilation;
+            };
         }
 
         // 4. PLUGIN: REGEX SANDBOX & TESTER
