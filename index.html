@@ -1570,6 +1570,10 @@
                         <p style="margin: 0; font-size: 10px; color: #8b949e; line-height: 1.4;">
                             Descarga modelos ligeros (cuantizados) o pesados (originales) para ComfyUI según la potencia de tu GPU.
                         </p>
+                        <div style="display:flex; align-items:center; gap:6px; background: rgba(124, 58, 237, 0.08); border: 1px solid rgba(124, 58, 237, 0.2); border-radius: 4px; padding: 6px; margin-bottom: 2px;">
+                            <input id="video-dl-use-mirror" type="checkbox" style="cursor:pointer; width:12px; height:12px; margin: 0;"/>
+                            <label for="video-dl-use-mirror" style="font-size:10px; color:#e6edf3; cursor:pointer; user-select:none; font-weight:600; margin: 0;">⚡ Usar Mirror de Hugging Face (Descarga ultra-rápida)</label>
+                        </div>
 
                         <!-- LTX-Video -->
                         <div style="background: rgba(255,255,255,0.01); border: 1px solid #30363d; border-radius: 6px; padding: 8px; display: flex; flex-direction: column; gap: 6px;">
@@ -8410,13 +8414,50 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
         function openDbClientPlugin() {
             const htmlContent = `
                 <div style="padding: 16px; color: #c9d1d9; background: #0d1117; font-family: 'Segoe UI', sans-serif; height: calc(100% - 32px); display: flex; flex-direction: column; gap: 12px;">
-                    <div style="display: flex; gap: 10px; align-items: center; border-bottom: 1px solid #30363d; padding-bottom: 10px;">
-                        <div style="display:flex; flex-direction:column; flex:1;">
-                            <span style="font-size:10px; color:#8b949e;">Ruta base de datos SQLite</span>
-                            <input type="text" id="db-path-input" value="db.sqlite" style="background:#161b22; border:1px solid #30363d; border-radius:4px; padding:4px 8px; color:#e6edf3; font-size:12px; outline:none;">
+                    <div style="display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid #30363d; padding-bottom: 12px;">
+                        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                            <div style="display:flex; flex-direction:column; width:130px;">
+                                <span style="font-size:10px; color:#8b949e; margin-bottom: 4px;">Motor de Base de Datos</span>
+                                <select id="db-engine-select" onchange="window.toggleDbEngineUI()" style="background:#161b22; border:1px solid #30363d; border-radius:4px; padding:4px; color:#fff; font-size:12px; outline:none; height:28px;">
+                                    <option value="sqlite">SQLite (Archivo)</option>
+                                    <option value="mssql">SQL Server / Azure SQL</option>
+                                    <option value="mysql">MySQL</option>
+                                    <option value="postgres">PostgreSQL</option>
+                                </select>
+                            </div>
+                            
+                            <div id="db-local-path-container" style="display:flex; flex-direction:column; flex:1; min-width: 200px;">
+                                <span style="font-size:10px; color:#8b949e; margin-bottom: 4px;">Ruta base de datos SQLite</span>
+                                <input type="text" id="db-path-input" value="db.sqlite" style="background:#161b22; border:1px solid #30363d; border-radius:4px; padding:4px 8px; color:#e6edf3; font-size:12px; outline:none; height:18px;">
+                            </div>
+                            
+                            <div id="db-remote-conn-container" style="display:none; gap:8px; flex:1; flex-wrap:wrap; min-width: 300px;">
+                                <div style="display:flex; flex-direction:column; flex:2; min-width: 120px;">
+                                    <span style="font-size:10px; color:#8b949e; margin-bottom: 4px;">Servidor / Host</span>
+                                    <input type="text" id="db-host-input" placeholder="ej. localhost o sql.database.windows.net" style="background:#161b22; border:1px solid #30363d; border-radius:4px; padding:4px 8px; color:#fff; font-size:12px; outline:none; height:18px;">
+                                </div>
+                                <div style="display:flex; flex-direction:column; width:50px;">
+                                    <span style="font-size:10px; color:#8b949e; margin-bottom: 4px;">Puerto</span>
+                                    <input type="text" id="db-port-input" placeholder="1433" style="background:#161b22; border:1px solid #30363d; border-radius:4px; padding:4px 8px; color:#fff; font-size:12px; outline:none; height:18px;">
+                                </div>
+                                <div style="display:flex; flex-direction:column; flex:1; min-width: 80px;">
+                                    <span style="font-size:10px; color:#8b949e; margin-bottom: 4px;">Base de Datos</span>
+                                    <input type="text" id="db-name-input" placeholder="db_name" style="background:#161b22; border:1px solid #30363d; border-radius:4px; padding:4px 8px; color:#fff; font-size:12px; outline:none; height:18px;">
+                                </div>
+                                <div style="display:flex; flex-direction:column; flex:1; min-width: 80px;">
+                                    <span style="font-size:10px; color:#8b949e; margin-bottom: 4px;">Usuario</span>
+                                    <input type="text" id="db-user-input" placeholder="sa" style="background:#161b22; border:1px solid #30363d; border-radius:4px; padding:4px 8px; color:#fff; font-size:12px; outline:none; height:18px;">
+                                </div>
+                                <div style="display:flex; flex-direction:column; flex:1; min-width: 80px;">
+                                    <span style="font-size:10px; color:#8b949e; margin-bottom: 4px;">Contraseña</span>
+                                    <input type="password" id="db-pass-input" placeholder="••••••••" style="background:#161b22; border:1px solid #30363d; border-radius:4px; padding:4px 8px; color:#fff; font-size:12px; outline:none; height:18px;">
+                                </div>
+                            </div>
+                            
+                            <button onclick="window.runSqlDbQuery()" class="dash-btn dash-primary-btn" style="padding: 6px 14px; margin-top:14px; font-size:11px; height: 28px;">Ejecutar SQL</button>
                         </div>
-                        <button onclick="window.runSqlDbQuery()" class="dash-btn dash-primary-btn" style="padding: 6px 12px; margin-top:14px; font-size:11px;">Ejecutar SQL</button>
                     </div>
+                    
                     <div style="display: flex; flex-direction: column; gap: 6px; height: 110px;">
                         <span style="font-size: 11px; font-weight: bold; color: #8b949e;">Consulta SQL</span>
                         <textarea id="db-sql-query" style="flex:1; background:#161b22; border:1px solid #30363d; border-radius:6px; color:#e6edf3; font-family:monospace; font-size:12px; padding:8px; outline:none; resize:none;">SELECT name FROM sqlite_master WHERE type='table';</textarea>
@@ -8424,7 +8465,7 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                     <div style="display: flex; flex-direction: column; flex: 1; min-height:0; gap: 6px;">
                         <span style="font-size: 11px; font-weight: bold; color: #8b949e;">Resultado de la Consulta</span>
                         <div id="db-result-container" style="flex:1; overflow:auto; background:#010409; border:1px solid #30363d; border-radius:6px; padding:8px;">
-                            <span style="font-size:11px; color:#6e7681;">Escribe una query y haz clic en Ejecutar.</span>
+                            <span style="font-size:11px; color:#6e7681;">Configura la conexión, escribe una consulta y haz clic en Ejecutar SQL.</span>
                         </div>
                     </div>
                 </div>
@@ -8432,56 +8473,259 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
 
             const win = new NexusWindow({
                 id: 'nexus-win-db-client-plugin',
-                title: 'Database Client (SQLite)',
+                title: 'Database Client (Universal SQL Server & SQLite)',
                 icon: '🗄️',
-                width: 720,
-                height: 500,
+                width: 760,
+                height: 520,
                 content: htmlContent
             });
 
+            window.toggleDbEngineUI = () => {
+                const engine = document.getElementById('db-engine-select').value;
+                const localContainer = document.getElementById('db-local-path-container');
+                const remoteContainer = document.getElementById('db-remote-conn-container');
+                const queryTextarea = document.getElementById('db-sql-query');
+                const portInput = document.getElementById('db-port-input');
+
+                if (engine === 'sqlite') {
+                    localContainer.style.display = 'flex';
+                    remoteContainer.style.display = 'none';
+                    if (queryTextarea.value.trim().startsWith('SELECT') && queryTextarea.value.includes('sqlite_master')) {
+                        // Keep as is
+                    } else {
+                        queryTextarea.value = "SELECT name FROM sqlite_master WHERE type='table';";
+                    }
+                } else {
+                    localContainer.style.display = 'none';
+                    remoteContainer.style.display = 'flex';
+                    
+                    if (engine === 'mssql') {
+                        portInput.value = '1433';
+                        queryTextarea.value = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE';";
+                    } else if (engine === 'mysql') {
+                        portInput.value = '3306';
+                        queryTextarea.value = "SHOW TABLES;";
+                    } else if (engine === 'postgres') {
+                        portInput.value = '5432';
+                        queryTextarea.value = "SELECT table_name FROM information_schema.tables WHERE table_schema='public';";
+                    }
+                }
+            };
+
             window.runSqlDbQuery = () => {
-                const dbPath = document.getElementById('db-path-input').value.trim();
+                const engine = document.getElementById('db-engine-select').value;
                 const sql = document.getElementById('db-sql-query').value.trim();
                 const resultBox = document.getElementById('db-result-container');
-                if (!dbPath || !sql) return;
+                if (!sql) return;
 
-                resultBox.innerHTML = '<span style="color:#8b949e; font-size:11px;">Ejecutando consulta en SQLite...</span>';
-                
-                const absDbPath = path.isAbsolute(dbPath) ? dbPath : path.resolve(workspaceRoot, dbPath);
+                resultBox.innerHTML = '<span style="color:#facc15; font-size:11px; font-weight:bold;">⚡ Preparando entorno y ejecutando consulta...</span>';
+
+                const config = {
+                    engine: engine,
+                    sql: sql
+                };
+
+                if (engine === 'sqlite') {
+                    const dbPath = document.getElementById('db-path-input').value.trim();
+                    if (!dbPath) {
+                        resultBox.innerHTML = '<span style="color:#ff7b72; font-size:11px;">⚠️ Error: Especifica la ruta del archivo SQLite.</span>';
+                        return;
+                    }
+                    config.db_path = path.isAbsolute(dbPath) ? dbPath : path.resolve(workspaceRoot, dbPath);
+                } else {
+                    config.host = document.getElementById('db-host-input').value.trim();
+                    config.port = document.getElementById('db-port-input').value.trim();
+                    config.database = document.getElementById('db-name-input').value.trim();
+                    config.user = document.getElementById('db-user-input').value.trim();
+                    config.password = document.getElementById('db-pass-input').value.trim();
+
+                    if (!config.host || !config.database || !config.user) {
+                        resultBox.innerHTML = '<span style="color:#ff7b72; font-size:11px;">⚠️ Error: Host, Base de datos y Usuario son obligatorios para motores remotos.</span>';
+                        return;
+                    }
+                }
+
+                const fs = require('fs');
+                const os = require('os');
                 const { exec } = require('child_process');
+                
+                const tempRunnerPath = path.join(os.tmpdir(), `nexus_db_runner_${Date.now()}.py`);
+                
+                const pythonCode = `
+import sys
+import json
 
-                // Helper de ejecución mediante un inline de Python
-                const pythonCode = `import sqlite3, json, sys;
-try:
-    conn = sqlite3.connect("${absDbPath.replace(/\\/g, '\\\\')}");
-    c = conn.cursor();
-    c.execute("""${sql.replace(/"/g, '\\"')}""");
-    cols = [d[0] for d in c.description] if c.description else [];
-    rows = c.fetchall();
-    print(json.dumps({"success": True, "cols": cols, "rows": rows}));
-    conn.commit();
-except Exception as e:
-    print(json.dumps({"success": False, "error": str(e)}));
+def install_package(package_name):
+    try:
+        __import__(package_name)
+    except ImportError:
+        import subprocess
+        try:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", package_name, "--quiet"])
+        except Exception as e:
+            print(json.dumps({"success": False, "error": f"Falta driver '{package_name}'. Autoinstalacion fallida: " + str(e)}))
+            sys.exit(1)
+
+def run():
+    try:
+        config = json.loads(sys.stdin.read())
+    except Exception as e:
+        print(json.dumps({"success": False, "error": "Error leyendo config stdin: " + str(e)}))
+        return
+
+    engine = config.get("engine")
+    sql = config.get("sql")
+
+    if engine == "sqlite":
+        import sqlite3
+        try:
+            conn = sqlite3.connect(config.get("db_path"))
+            c = conn.cursor()
+            c.execute(sql)
+            cols = [d[0] for d in c.description] if c.description else []
+            rows = c.fetchall()
+            print(json.dumps({"success": True, "cols": cols, "rows": rows}))
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            print(json.dumps({"success": False, "error": str(e)}))
+
+    elif engine == "mssql":
+        install_package("pymssql")
+        import pymssql
+        try:
+            conn = pymssql.connect(
+                server=config.get("host"),
+                port=int(config.get("port") or 1433),
+                user=config.get("user"),
+                password=config.get("password"),
+                database=config.get("database"),
+                timeout=15,
+                login_timeout=15
+            )
+            c = conn.cursor()
+            c.execute(sql)
+            cols = [d[0] for d in c.description] if c.description else []
+            rows = c.fetchall()
+            formatted_rows = []
+            for row in rows:
+                new_row = []
+                for val in row:
+                    if hasattr(val, "isoformat"):
+                        new_row.append(val.isoformat())
+                    elif hasattr(val, "to_eng_string"):
+                        new_row.append(str(val))
+                    elif isinstance(val, (bytes, bytearray)):
+                        new_row.append(val.hex())
+                    else:
+                        new_row.append(val)
+                formatted_rows.append(new_row)
+            print(json.dumps({"success": True, "cols": cols, "rows": formatted_rows}))
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            print(json.dumps({"success": False, "error": str(e)}))
+
+    elif engine == "mysql":
+        install_package("pymysql")
+        import pymysql
+        try:
+            conn = pymysql.connect(
+                host=config.get("host"),
+                port=int(config.get("port") or 3306),
+                user=config.get("user"),
+                password=config.get("password"),
+                database=config.get("database"),
+                charset='utf8mb4',
+                connect_timeout=15
+            )
+            c = conn.cursor()
+            c.execute(sql)
+            cols = [d[0] for d in c.description] if c.description else []
+            rows = c.fetchall()
+            formatted_rows = []
+            for row in rows:
+                new_row = []
+                for val in row:
+                    if hasattr(val, "isoformat"):
+                        new_row.append(val.isoformat())
+                    elif isinstance(val, (bytes, bytearray)):
+                        new_row.append(val.hex())
+                    else:
+                        new_row.append(val)
+                formatted_rows.append(new_row)
+            print(json.dumps({"success": True, "cols": cols, "rows": formatted_rows}))
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            print(json.dumps({"success": False, "error": str(e)}))
+
+    elif engine == "postgres":
+        install_package("pg8000")
+        import pg8000
+        try:
+            conn = pg8000.connect(
+                host=config.get("host"),
+                port=int(config.get("port") or 5432),
+                user=config.get("user"),
+                password=config.get("password"),
+                database=config.get("database"),
+                timeout=15
+            )
+            c = conn.cursor()
+            c.execute(sql)
+            cols = [d[0] for d in c.description] if c.description else []
+            rows = c.fetchall()
+            formatted_rows = []
+            for row in rows:
+                new_row = []
+                for val in row:
+                    if hasattr(val, "isoformat"):
+                        new_row.append(val.isoformat())
+                    elif isinstance(val, (bytes, bytearray)):
+                        new_row.append(val.hex())
+                    else:
+                        new_row.append(val)
+                formatted_rows.append(new_row)
+            print(json.dumps({"success": True, "cols": cols, "rows": formatted_rows}))
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            print(json.dumps({"success": False, "error": str(e)}))
+
+if __name__ == "__main__":
+    run()
 `;
-                exec(`python -c "${pythonCode.replace(/\n/g, ' ')}"`, (error, stdout, stderr) => {
+
+                try {
+                    fs.writeFileSync(tempRunnerPath, pythonCode, 'utf-8');
+                } catch(e) {
+                    resultBox.innerHTML = `<span style="color:#ff7b72; font-size:11px;">⚠️ Error escribiendo runner: ${e.message}</span>`;
+                    return;
+                }
+
+                const child = exec(`python "${tempRunnerPath}"`, (error, stdout, stderr) => {
+                    try { fs.unlinkSync(tempRunnerPath); } catch(ex) {}
+
                     if (error) {
-                        resultBox.innerHTML = `<span style="color:#ff7b72; font-size:11px;">⚠️ Error de Sistema: ${error.message}</span>`;
+                        resultBox.innerHTML = `<span style="color:#ff7b72; font-size:11px;">⚠️ Error de Sistema: ${error.message}</span><br><pre style="font-size:10px; color:#8b949e; margin-top:5px;">${stderr}</pre>`;
                         return;
                     }
 
                     try {
                         const res = JSON.parse(stdout.trim());
                         if (!res.success) {
-                            resultBox.innerHTML = `<span style="color:#ff7b72; font-size:11px;">⚠️ Error SQL: ${res.error}</span>`;
+                            resultBox.innerHTML = `<span style="color:#ff7b72; font-size:11px;">⚠️ Error SQL / Conexión: ${res.error}</span>`;
                             return;
                         }
 
                         if (res.cols.length === 0) {
-                            resultBox.innerHTML = `<span style="color:#56d364; font-size:11px;">✓ Sentencia ejecutada correctamente. Filas afectadas/consultadas: ${res.rows ? res.rows.length : 0}</span>`;
+                            resultBox.innerHTML = `<span style="color:#56d364; font-size:11px; font-weight:bold;">✓ Consulta ejecutada con éxito. Filas afectadas: ${res.rows ? res.rows.length : 0}</span>`;
                             return;
                         }
 
                         let tableHtml = `
+                            <div style="font-size:10px; color:#8b949e; margin-bottom:6px;">Resultados: ${res.rows.length} registros encontrados</div>
                             <table style="width:100%; border-collapse:collapse; font-size:11px; text-align:left; color:#c9d1d9;">
                                 <thead>
                                     <tr style="border-bottom:2px solid #30363d; background:#161b22;">
@@ -8491,8 +8735,9 @@ except Exception as e:
                         });
                         tableHtml += `</tr></thead><tbody>`;
 
-                        res.rows.forEach(row => {
-                            tableHtml += `<tr style="border-bottom:1px solid #21262d;">`;
+                        res.rows.forEach((row, rIdx) => {
+                            const bg = rIdx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)';
+                            tableHtml += `<tr style="border-bottom:1px solid #21262d; background:${bg};">`;
                             row.forEach(val => {
                                 tableHtml += `<td style="padding:6px; border:1px solid #30363d;">${val === null ? '<span style="color:#8b949e;font-style:italic;">null</span>' : val}</td>`;
                             });
@@ -8503,12 +8748,16 @@ except Exception as e:
                         resultBox.innerHTML = tableHtml;
 
                     } catch(err) {
-                        resultBox.innerHTML = `<span style="color:#ff7b72; font-size:11px;">⚠️ Error al analizar salida: ${err.message}</span><br><pre style="font-size:10px; color:#8b949e; margin-top:5px;">${stdout}</pre>`;
+                        resultBox.innerHTML = `<span style="color:#ff7b72; font-size:11px;">⚠️ Error al analizar salida JSON del runner: ${err.message}</span><br><pre style="font-size:10px; color:#8b949e; margin-top:5px;">${stdout}</pre>`;
                     }
                 });
+
+                child.stdin.write(JSON.stringify(config));
+                child.stdin.end();
             };
 
             win.onClose = () => {
+                delete window.toggleDbEngineUI;
                 delete window.runSqlDbQuery;
             };
         }
@@ -15002,10 +15251,11 @@ void AMyActor::Tick(float DeltaTime)
                     logEl.scrollTop = logEl.scrollHeight;
                 };
                 
-                addLog(`Iniciando descarga de ${modelType}...`);
+                const useMirror = document.getElementById('video-dl-use-mirror') ? document.getElementById('video-dl-use-mirror').checked : false;
+                addLog(`Iniciando descarga de ${modelType} (Mirror: ${useMirror ? 'Activado (hf-mirror.com)' : 'Desactivado (Hugging Face)'})...`);
                 const ipcRenderer = require('electron').ipcRenderer;
                 
-                ipcRenderer.invoke('download-comfy-model', { modelType, comfyPath })
+                ipcRenderer.invoke('download-comfy-model', { modelType, comfyPath, useMirror })
                     .then(res => {
                         addLog(`✅ Descarga completada: ${res.path}`);
                         checkAllVideoModelsStatus();

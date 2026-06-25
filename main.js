@@ -803,7 +803,7 @@ ipcMain.on('focus-window', () => {
     }
 });
 
-ipcMain.handle('download-comfy-model', async (event, { modelType, comfyPath }) => {
+ipcMain.handle('download-comfy-model', async (event, { modelType, comfyPath, useMirror }) => {
     const fs = require('fs');
     const path = require('path');
     
@@ -887,8 +887,14 @@ ipcMain.handle('download-comfy-model', async (event, { modelType, comfyPath }) =
         ]
     };
     
-    const targets = urls[modelType];
+    let targets = urls[modelType];
     if (!targets) throw new Error("Modelo de video desconocido");
+    if (useMirror) {
+        targets = targets.map(t => ({
+            ...t,
+            url: t.url.replace('huggingface.co', 'hf-mirror.com')
+        }));
+    }
     if (!comfyPath) throw new Error("La ruta de instalación de ComfyUI no está configurada");
     
     let resolvedComfyPath = comfyPath;
@@ -946,7 +952,7 @@ ipcMain.handle('download-comfy-model', async (event, { modelType, comfyPath }) =
         }
         
         return new Promise((resolve, reject) => {
-            const fileStream = fs.createWriteStream(destFile);
+            const fileStream = fs.createWriteStream(destFile, { highWaterMark: 1024 * 1024 });
             const http = require('http');
             const https = require('https');
             
