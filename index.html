@@ -7109,6 +7109,131 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
               { name:'agent_extension.py', content:'import sys\n\ndef main():\n    print("Agente de extensión iniciado.")\n    print("Parámetros recibidos:", sys.argv[1:])\n\nif __name__ == "__main__":\n    main()' },
               { name:'README.md', content:'# Nexus Agent Extension\n\nUsa esta plantilla para crear extensiones para la IA del IDE.' }
             ]
+          },
+          {
+            id: 'aspnet-api',
+            name: '⚡ ASP.NET Core API',
+            desc: 'Web API mínima con .NET 8 y C#',
+            files: [
+              { name: 'MiApi.csproj', content: '<Project Sdk="Microsoft.NET.Sdk.Web">\n  <PropertyGroup>\n    <TargetFramework>net8.0</TargetFramework>\n    <Nullable>enable</Nullable>\n    <ImplicitUsings>enable</ImplicitUsings>\n  </PropertyGroup>\n</Project>' },
+              { name: 'Program.cs', content: 'var builder = WebApplication.CreateBuilder(args);\nvar app = builder.Build();\n\napp.MapGet("/", () => new { Message = "ASP.NET Core API Funcionando", ServerTime = DateTime.UtcNow });\napp.MapGet("/api/users", () => new[] {\n    new { Id = 1, Name = "Admin" },\n    new { Id = 2, Name = "Desarrollador" }\n});\n\napp.Run();' },
+              { name: 'appsettings.json', content: '{\n  "Logging": {\n    "LogLevel": {\n      "Default": "Information",\n      "Microsoft.AspNetCore": "Warning"\n    }\n  },\n  "AllowedHosts": "*"\n}' }
+            ]
+          },
+          {
+            id: 'azure-functions',
+            name: '⚡ Azure Functions Node',
+            desc: 'HTTP Trigger para Azure Serverless',
+            files: [
+              { name: 'host.json', content: '{\n  "version": "2.0",\n  "logging": {\n    "applicationInsights": {\n      "samplingSettings": {\n        "isEnabled": true,\n        "excludedTypes": "Request"\n      }\n    }\n  },\n  "extensionBundle": {\n    "id": "Microsoft.Azure.Functions.ExtensionBundle",\n    "version": "[4.*, 5.0.0)"\n  }\n}' },
+              { name: 'local.settings.json', content: '{\n  "IsEncrypted": false,\n  "Values": {\n    "AzureWebJobsStorage": "",\n    "FUNCTIONS_WORKER_RUNTIME": "node"\n  }\n}' },
+              { name: 'package.json', content: '{\n  "name": "mi-funcion-azure",\n  "version": "1.0.0",\n  "dependencies": {}\n}' },
+              { name: 'HttpTrigger/function.json', content: '{\n  "bindings": [\n    {\n      "authLevel": "anonymous",\n      "type": "httpTrigger",\n      "direction": "in",\n      "name": "req",\n      "methods": ["get", "post"]\n    },\n    {\n      "type": "http",\n      "direction": "out",\n      "name": "res"\n    }\n  ]\n}' },
+              { name: 'HttpTrigger/index.js', content: 'module.exports = async function (context, req) {\n    context.log("Función ejecutada por HTTP.");\n    const name = (req.query.name || (req.body && req.body.name));\n    const responseMessage = name\n        ? "Hola, " + name + ". Esta función de Azure se ejecutó con éxito."\n        : "Esta función de Azure se ejecutó con éxito. Pasa un nombre en la query o en el body para personalizar la respuesta.";\n    context.res = {\n        status: 200,\n        body: { message: responseMessage }\n    };\n}' }
+            ]
+          },
+          {
+            id: 'ai-agent',
+            name: '🧠 AI Agent Script',
+            desc: 'Agente autónomo con OpenAI / Gemini',
+            files: [
+              { name: 'agent.py', content: 'import os\nimport sys\n\ndef run_agent(prompt):\n    print(f"🤖 Procesando solicitud con Inteligencia Artificial: \'{prompt}\'...")\n    # Simulación de respuesta de modelo LLM\n    api_key = os.environ.get("OPENAI_API_KEY", "vacío")\n    print(f"Usando API Key: {api_key[:6]}...")\n    return f"Respuesta de Agente: He procesado tu solicitud de \'{prompt}\' exitosamente."\n\nif __name__ == "__main__":\n    user_prompt = sys.argv[1] if len(sys.argv) > 1 else "Hola Agente"\n    result = run_agent(user_prompt)\n    print(result)' },
+              { name: 'requirements.txt', content: 'openai>=1.0.0\ngoogle-genai>=0.1.0\npython-dotenv>=1.0.0' }
+            ]
+          },
+          {
+            id: 'data-science',
+            name: '📊 Science & Analytics',
+            desc: 'Análisis de datos con Pandas y Matplotlib',
+            files: [
+              { name: 'analysis.py', content: 'import pandas as pd\nimport numpy as np\n\ndef run_analysis():\n    print("📊 Iniciando análisis de datos en Nexus...")\n    data = {\n        "Mes": ["Ene", "Feb", "Mar", "Abr", "May", "Jun"],\n        "Ventas": [120, 150, 170, 210, 240, 300],\n        "Usuarios": [1000, 1200, 1500, 1800, 2200, 2800]\n    }\n    df = pd.DataFrame(data)\n    print("\\n--- Dataset de Ventas ---")\n    print(df)\n    print("\\n--- Estadísticas Descriptivas ---")\n    print(df.describe())\n    \n    # Guardar reporte CSV\n    df.to_csv("reporte_ventas.csv", index=False)\n    print("\\n✅ Reporte guardado como \'reporte_ventas.csv\'.")\n\nif __name__ == "__main__":\n    run_analysis()' },
+              { name: 'requirements.txt', content: 'pandas>=2.0.0\nnumpy>=1.24.0\nmatplotlib>=3.7.0' }
+            ]
+          },
+          {
+            id: 'mobile-ui',
+            name: '📱 Mobile Responsive UI',
+            desc: 'Interfaz móvil híbrida premium',
+            files: [
+              { name: 'index.html', content: '<!DOCTYPE html>\n<html lang="es">\n<head>\n  <meta charset="UTF-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n  <title>App Móvil Premium</title>\n  <script src="https://cdn.tailwindcss.com"><' + '/script>\n  <style>\n    body { background-color: #0b0f19; color: #f3f4f6; }\n  </style>\n</head>\n<body class="flex flex-col h-screen overflow-hidden font-sans">\n  <!-- Header -->\n  <header class="bg-gray-900/80 backdrop-blur border-b border-gray-800 p-4 flex justify-between items-center">\n    <h1 class="text-lg font-bold text-violet-400">📱 NexusMobile</h1>\n    <span class="bg-violet-900/50 text-violet-300 text-xs px-2 py-1 rounded-full border border-violet-700">v1.0</span>\n  </header>\n\n  <!-- Content -->\n  <main class="flex-1 overflow-y-auto p-4 space-y-4">\n    <div class="bg-gray-900/50 border border-gray-800 rounded-xl p-4">\n      <h2 class="font-semibold text-white">¡Desarrollo Móvil Listo!</h2>\n      <p class="text-sm text-gray-400 mt-1">Esta plantilla cuenta con diseño responsivo móvil-primero ideal para Cordova, Capacitor o PWA.</p>\n    </div>\n  </main>\n\n  <!-- Nav -->\n  <nav class="bg-gray-900 border-t border-gray-800 p-3 flex justify-around">\n    <button class="text-violet-400 text-xs flex flex-col items-center"><span>🏠</span><span>Inicio</span></button>\n    <button class="text-gray-400 text-xs flex flex-col items-center"><span>⚙️</span><span>Ajustes</span></button>\n  </nav>\n</body>\n</html>' }
+            ]
+          },
+          {
+            id: 'dotnet-desktop',
+            name: '🖥️ .NET Desktop Console',
+            desc: 'Consola moderna C# de .NET 8',
+            files: [
+              { name: 'MiAppEscritorio.csproj', content: '<Project Sdk="Microsoft.NET.Sdk">\n  <PropertyGroup>\n    <OutputType>Exe</OutputType>\n    <TargetFramework>net8.0</TargetFramework>\n    <ImplicitUsings>enable</ImplicitUsings>\n    <Nullable>enable</Nullable>\n  </PropertyGroup>\n</Project>' },
+              { name: 'Program.cs', content: 'using System;\n\nnamespace MiAppEscritorio\n{\n    internal class Program\n    {\n        static void Main(string[] args)\n        {\n            Console.ForegroundColor = ConsoleColor.Magenta;\n            Console.WriteLine("=======================================");\n            Console.WriteLine("🖥️  App de Escritorio .NET en C#");\n            Console.WriteLine("=======================================");\n            Console.ResetColor();\n            \n            Console.WriteLine($"Fecha de Ejecución: {DateTime.Now}");\n            Console.WriteLine("Hola mundo. Presiona cualquier tecla para salir...");\n        }\n    }\n}' }
+            ]
+          },
+          {
+            id: 'winui-app',
+            name: '🪟 WinUI 3 App',
+            desc: 'Estructura de aplicación nativa Windows',
+            files: [
+              { name: 'MiWinUIApp.csproj', content: '<Project Sdk="Microsoft.NET.Sdk">\n  <PropertyGroup>\n    <OutputType>WinExe</OutputType>\n    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>\n    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>\n    <UseWinUI>true</UseWinUI>\n  </PropertyGroup>\n</Project>' },
+              { name: 'App.xaml', content: '<Application\n    x:Class="MiWinUIApp.App"\n    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"\n    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">\n    <Application.Resources>\n        <ResourceDictionary>\n            <ResourceDictionary.MergedDictionaries>\n                <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />\n            </ResourceDictionary.MergedDictionaries>\n        </ResourceDictionary>\n    </Application.Resources>\n</Application>' },
+              { name: 'MainWindow.xaml', content: '<Window\n    x:Class="MiWinUIApp.MainWindow"\n    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"\n    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">\n    <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">\n        <Button x:Name="myButton" Click="myButton_Click">Haz clic aquí</Button>\n    </StackPanel>\n</Window>' },
+              { name: 'MainWindow.xaml.cs', content: 'using Microsoft.UI.Xaml;\n\nnamespace MiWinUIApp\n{\n    public sealed partial class MainWindow : Window\n    {\n        public MainWindow()\n        {\n            this.InitializeComponent();\n        }\n\n        private void myButton_Click(object sender, RoutedEventArgs e)\n        {\n            myButton.Content = "¡Clic Guardado!";\n        }\n    }\n}' }
+            ]
+          },
+          {
+            id: 'cpp-mobile',
+            name: '📱 Mobile C++ NDK',
+            desc: 'Estructura nativa C++ para Android',
+            files: [
+              { name: 'CMakeLists.txt', content: 'cmake_minimum_required(VERSION 3.10.2)\nproject("MiMobileCpp")\nadd_library(native-lib SHARED native-lib.cpp)' },
+              { name: 'native-lib.cpp', content: '#include <jni.h>\n#include <string>\n\nextern "C" JNIEXPORT jstring JNICALL\nJava_com_example_mimobilecpp_MainActivity_stringFromJNI(\n        JNIEnv* env,\n        jobject /* this */) {\n    std::string hello = "Hola desde C++ Nativo (Android NDK)";\n    return env->NewStringUTF(hello.c_str());\n}' },
+              { name: 'AndroidManifest.xml', content: '<?xml version="1.0" encoding="utf-8"?>\n<manifest xmlns:android="http://schemas.microsoft.com/apk/res/android"\n    package="com.example.mimobilecpp">\n</manifest>' }
+            ]
+          },
+          {
+            id: 'cpp-game',
+            name: '🎮 C++ Game (Raylib)',
+            desc: 'Bucle de juego con raylib y CMake',
+            files: [
+              { name: 'CMakeLists.txt', content: 'cmake_minimum_required(VERSION 3.12)\nproject(MiJuegoCpp)\nset(CMAKE_CXX_STANDARD 17)\nfind_package(raylib REQUIRED)\nadd_executable(MiJuegoCpp main.cpp)\ntarget_link_libraries(MiJuegoCpp PRIVATE raylib)' },
+              { name: 'main.cpp', content: '#include "raylib.h"\n\nint main() {\n    InitWindow(800, 450, "Mi Juego C++ con Raylib");\n    SetTargetFPS(60);\n    \n    while (!WindowShouldClose()) {\n        BeginDrawing();\n        ClearBackground(RAYWHITE);\n        DrawText("¡Mi Juego C++ está Corriendo!", 190, 200, 20, LIGHTGRAY);\n        EndDrawing();\n    }\n    \n    CloseWindow();\n    return 0;\n}' }
+            ]
+          },
+          {
+            id: 'data-processing',
+            name: '🗄️ Database SQLite API',
+            desc: 'Estructura de Base de Datos y Consultas',
+            files: [
+              { name: 'schema.sql', content: 'CREATE TABLE IF NOT EXISTS usuarios (\n    id INTEGER PRIMARY KEY AUTOINCREMENT,\n    nombre TEXT NOT NULL,\n    email TEXT UNIQUE NOT NULL,\n    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n);\n\nINSERT INTO usuarios (nombre, email) VALUES (\'Nexus User\', \'user@nexuside.com\');' },
+              { name: 'database.js', content: 'const sqlite3 = require(\'sqlite3\').verbose();\nconst db = new sqlite3.Database(\'./mi_base_de_datos.db\');\n\ndb.serialize(() => {\n    db.run(require(\'fs\').readFileSync(\'./schema.sql\', \'utf8\'));\n    db.all("SELECT * FROM usuarios", [], (err, rows) => {\n        if (err) throw err;\n        console.log("Usuarios en Base de Datos:");\n        rows.forEach(r => console.log(`- ${r.nombre} (${r.email})`));\n    });\n});\ndb.close();' },
+              { name: 'package.json', content: '{\n  "name": "base-de-datos",\n  "version": "1.0.0",\n  "dependencies": {\n    "sqlite3": "^5.1.0"\n  }\n}' }
+            ]
+          },
+          {
+            id: 'm365-addin',
+            name: '📎 Office Add-in M365',
+            desc: 'Manifest y lógica para Microsoft 365',
+            files: [
+              { name: 'manifest.xml', content: '<?xml version="1.0" encoding="UTF-8"?>\n<OfficeApp xmlns="http://schemas.microsoft.com/office/appshmanifest/1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="MailApp">\n  <Id>11111111-2222-3333-4444-555555555555</Id>\n  <Version>1.0.0.0</Version>\n  <ProviderName>Nexus Developer</ProviderName>\n  <DefaultLocale>es-ES</DefaultLocale>\n  <DisplayName DefaultValue="Nexus Add-in"/>\n  <Description DefaultValue="Complemento de Office desarrollado en Nexus IDE."/>\n</OfficeApp>' },
+              { name: 'taskpane.html', content: '<!DOCTYPE html>\n<html>\n<head>\n  <title>Nexus Office Add-in</title>\n  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"><' + '/script>\n</head>\n<body>\n  <h1>Nexus M365 Add-in</h1>\n  <button onclick="writeToDocument()">Insertar Texto</button>\n  <' + 'script>\n    Office.onReady(() => {\n      console.log("Office cargado.");\n    });\n    function writeToDocument() {\n      Office.context.document.setSelectedDataAsync("Hola desde Nexus M365 Add-in!", (result) => {\n        if (result.status === Office.AsyncResultStatus.Failed) {\n          console.error(result.error.message);\n        }\n      });\n    }\n  <' + '/script>\n</body>\n</html>' }
+            ]
+          },
+          {
+            id: 'cross-platform',
+            name: '🌍 Cross-platform Script',
+            desc: 'Herramienta de terminal multi-OS',
+            files: [
+              { name: 'check_os.py', content: 'import sys\nimport platform\n\ndef report_stats():\n    print("🌍 Herramienta Multiplataforma de Nexus")\n    print(f"Sistema Operativo: {platform.system()} {platform.release()}")\n    print(f"Arquitectura: {platform.machine()}")\n    print(f"Versión de Python: {sys.version}")\n\nif __name__ == "__main__":\n    report_stats()' },
+              { name: 'run.sh', content: '#!/bin/bash\necho "Iniciando script en Linux/macOS..."\npython3 check_os.py' },
+              { name: 'run.bat', content: '@echo off\necho Iniciando script en Windows...\npython check_os.py\npause' }
+            ]
+          },
+          {
+            id: 'embedded-cpp',
+            name: '🔌 Embedded Arduino C++',
+            desc: 'Estructura C++ para Arduino o ESP32',
+            files: [
+              { name: 'sketch.ino', content: 'void setup() {\n  Serial.begin(115200);\n  pinMode(LED_BUILTIN, OUTPUT);\n  Serial.println("🔌 Placa Iniciada con Nexus IDE");\n}\n\nvoid loop() {\n  digitalWrite(LED_BUILTIN, HIGH);\n  delay(1000);\n  digitalWrite(LED_BUILTIN, LOW);\n  delay(1000);\n}' },
+              { name: 'platformio.ini', content: '[env:esp32dev]\nplatform = espressif32\nboard = esp32dev\nframework = arduino\nmonitor_speed = 115200' }
+            ]
           }
         ];
 

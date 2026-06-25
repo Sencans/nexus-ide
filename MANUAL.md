@@ -801,6 +801,62 @@ Si experimentas problemas de conexión o velocidades de descarga lentas desde lo
 - **Especialmente útil en redes con restricciones**: Ideal si tu ISP restringe o limita las descargas grandes desde el dominio principal de Hugging Face.
 - **Optimización de Escritura en Disco**: Las descargas ahora utilizan un buffer ampliado de 1MB (`highWaterMark`) en la escritura de streams, reduciendo la fragmentación de archivos y el uso excesivo de I/O en disco, lo que permite aprovechar conexiones de internet de alta velocidad de forma eficiente.
 
+## 35. Entornos y Flujos de Desarrollo Avanzados
+
+Nexus IDE proporciona plantillas y soporte nativo para los siguientes flujos de desarrollo avanzados a través de su gestor de plantillas y de la terminal integrada:
+
+### 1. ASP.NET Core & Web (.NET 8)
+- **Plantilla**: `⚡ ASP.NET Core API`. Crea una API REST mínima moderna con C# 12.
+- **Flujo de Ejecución**: Abre la terminal de Nexus e instala el SDK de .NET. Luego ejecuta:
+  ```bash
+  dotnet run
+  ```
+  La API estará escuchando por defecto en `http://localhost:5000` o `http://localhost:5001`.
+
+### 2. Azure Serverless (Azure Functions)
+- **Plantilla**: `⚡ Azure Functions Node`. Configuración mínima para un trigger HTTP local compatible con Azure Functions Core Tools.
+- **Flujo de Ejecución**: Instala las herramientas de Azure (`npm install -g azure-functions-core-tools`) y en la terminal ejecuta:
+  ```bash
+  func start
+  ```
+
+### 3. Inteligencia Artificial (AI Agents)
+- **Plantilla**: `🧠 AI Agent Script`. Estructura Python para crear scripts y agentes interactivos con soporte integrado de las librerías `openai` y `google-genai`.
+- **Flujo de Ejecución**: Configura tu clave de API local en la pestaña de Ajustes → APIs, luego instala dependencias y ejecuta:
+  ```bash
+  pip install -r requirements.txt
+  python agent.py "Hola, escribe un código de ejemplo"
+  ```
+
+### 4. Ciencia de Datos & Análisis
+- **Plantilla**: `📊 Science & Analytics`. Automatiza la manipulación de datos con `pandas`, `numpy` y la exportación de reportes limpios a CSV.
+- **Flujo de Ejecución**:
+  ```bash
+  pip install -r requirements.txt
+  python analysis.py
+  ```
+
+### 5. Aplicaciones Móviles (HTML5 / Tailwind UI)
+- **Plantilla**: `📱 Mobile Responsive UI`. Una interfaz móvil híbrida premium con Tailwind CSS lista para empaquetarse en APK/IPA mediante Apache Cordova, Capacitor o como una Progressive Web App (PWA).
+
+### 6. Aplicaciones de Escritorio con .NET & WinUI 3
+- **Plantillas**: `🖥️ .NET Desktop Console` y `🪟 WinUI 3 App`. Estructuras de proyecto .csproj modernas en C# preparadas para compilarse y ejecutarse en Windows.
+- **Flujo de Ejecución**:
+  ```bash
+  dotnet build
+  dotnet run
+  ```
+
+### 7. Runtimes y Juegos de C++ (Raylib & Mobile NDK)
+- **Plantillas**: `🎮 C++ Game (Raylib)` y `📱 Mobile C++ NDK`.
+- **Flujo de Ejecución**: Utiliza CMake y el compilador local (`g++` o clang NDK) para compilar y enlazar el bucle de juego interactivo o la librería compartida `.so` para móviles.
+
+### 8. Almacenamiento SQLite y Microsoft 365
+- **Plantillas**: `🗄️ Database SQLite API` y `📎 Office Add-in M365`. Lógica para consultar bases de datos locales SQL y estructurar complementos interactivos Office.js cargados en Word, Excel o Outlook.
+
+### 9. Runtimes Cruzados (Cross-platform) e Integrados (Arduino/ESP32)
+- **Plantillas**: `🌍 Cross-platform Script` y `🔌 Embedded Arduino C++`. Scripts universales con adaptadores de plataforma para Windows, Linux y macOS, y bocetos C++ (`sketch.ino` / `platformio.ini`) listos para flashearse en microcontroladores.
+
 ---
 
 ## Glosario
