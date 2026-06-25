@@ -38,6 +38,8 @@
 30. [Paseo de Bienvenida Interactivo (User Tour)](#30-paseo-de-bienvenida-interactivo-user-tour)
 31. [Gestión Personalizada de Requisitos y Autoinstalador ComfyUI](#31-gestión-personalizada-de-requisitos-y-autoinstalador-comfyui)
 32. [Optimización de Recursos: Modo Lite](#32-optimización-de-recursos-modo-lite)
+33. [Cliente de Base de Datos SQL Universal (SQLite, SQL Server, Azure SQL, MySQL, Postgres)](#33-cliente-de-base-de-datos-sql-universal-sqlite-sql-server-azure-sql-mysql-postgres)
+34. [Mirror de Descarga Hugging Face (Acelerador de Modelos)](#34-mirror-de-descarga-hugging-face-acelerador-de-modelos)
 
 ---
 
@@ -773,6 +775,31 @@ Para aquellos desarrolladores que prefieren un entorno minimalista centrado excl
 - **Interfaz Simplificada**: Al activar el Modo Lite se oculta el editor de código Monaco, las pestañas de archivos y el explorador lateral, dejando una ventana estilizada de chat directo con la IA.
 - **Persistencia Local**: Tu preferencia de modo (Full o Lite) se almacena en el sistema y se aplica automáticamente en cada inicio de la aplicación.
 - **Activación Rápida**: Puedes alternar entre ambos modos en caliente desde el desplegable de **Modo de Ejecución** en la pestaña **Editor** de la ventana de Configuración.
+
+## 33. Cliente de Base de Datos SQL Universal (SQLite, SQL Server, Azure SQL, MySQL, Postgres)
+
+El cliente de base de datos integrado en Nexus IDE se ha expandido para admitir la administración de cualquier infraestructura de SQL, local o remota.
+
+### Características
+- **Múltiples Motores Soportados**:
+  - **SQLite**: Carga de bases de datos locales en tu disco o en el workspace.
+  - **Microsoft SQL Server y Azure SQL**: Conexiones nativas a servidores locales y de nube (Azure SQL).
+  - **MySQL / MariaDB**: Soporte completo para bases de datos relacionales tradicionales.
+  - **PostgreSQL**: Integración directa con bases de datos avanzadas.
+- **Autoinstalador de Controladores (Drivers)**: Si el sistema detecta que falta algún controlador de Python en tu entorno (como `pymssql`, `pymysql` o `pg8000`), el IDE se encargará de descargarlo e instalarlo de manera silenciosa mediante `pip` antes de realizar la consulta, asegurando un inicio sin fricciones.
+- **Formateador de Datos Complejos**: Convierte tipos de datos de fecha (`datetime`/`date`), tipos decimales (`decimal`) y datos binarios en cadenas amigables legibles en el visor de resultados de tablas.
+- **Acceso Rápido**: Puedes abrir el cliente desde el **Marketplace de Plugins** o ejecutando el plugin `db-client`.
+
+---
+
+## 34. Mirror de Descarga Hugging Face (Acelerador de Modelos)
+
+Si experimentas problemas de conexión o velocidades de descarga lentas desde los servidores de Hugging Face en tu región, el IDE incluye un selector de mirror alternativo.
+
+### Características
+- **Canalización Ultra-Rápida**: Al activar la opción **⚡ Usar Mirror de Hugging Face** en la pestaña de descargas del Generador de Video, todas las solicitudes a `huggingface.co` se canalizarán a través del mirror público y abierto `hf-mirror.com`.
+- **Especialmente útil en redes con restricciones**: Ideal si tu ISP restringe o limita las descargas grandes desde el dominio principal de Hugging Face.
+- **Optimización de Escritura en Disco**: Las descargas ahora utilizan un buffer ampliado de 1MB (`highWaterMark`) en la escritura de streams, reduciendo la fragmentación de archivos y el uso excesivo de I/O en disco, lo que permite aprovechar conexiones de internet de alta velocidad de forma eficiente.
 
 ---
 
