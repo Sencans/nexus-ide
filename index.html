@@ -5527,9 +5527,33 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                     <label style="font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">${NexusLocalization.t('api_ollama_url')}</label>
                     <input id="cfg-ollama-url-input" type="text" value="${ollamaUrl}" placeholder="http://127.0.0.1:11434" style="width:100%;box-sizing:border-box;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#e6edf3;padding:8px 12px;font-size:13px;font-family:monospace;outline:none;" onfocus="this.style.borderColor='#7c3aed'" onblur="this.style.borderColor='#30363d'">
                   </div>
-                  <div style="margin-bottom:16px">
+                  <div style="margin-bottom:12px">
                     <label style="font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">${NexusLocalization.t('api_ollama_model')}</label>
                     <input id="cfg-ollama-model-input" type="text" value="${ollamaCustomModel}" placeholder="qwen2.5-coder:7b" style="width:100%;box-sizing:border-box;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#e6edf3;padding:8px 12px;font-size:13px;font-family:monospace;outline:none;" onfocus="this.style.borderColor='#7c3aed'" onblur="this.style.borderColor='#30363d'">
+                  </div>
+                  <div style="margin-bottom:16px;background:rgba(255,255,255,0.03);border:1px solid #30363d;border-radius:6px;padding:12px;">
+                    <label style="font-size:11px;color:#a78bfa;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px;font-weight:bold;">📥 Descargador Rápido de Modelos</label>
+                    <div style="display:flex;gap:6px;margin-bottom:8px;">
+                      <select id="cfg-ollama-quick-select" style="flex:1;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#e6edf3;padding:6px;font-size:12px;outline:none;" onchange="document.getElementById('cfg-ollama-model-input').value = this.value">
+                        <option value="gemma2:2b">Gemma 2 2B (Recomendado - Ultrarrápido)</option>
+                        <option value="qwen2.5-coder:1.5b">Qwen 2.5 Coder 1.5B (Ultrarrápido)</option>
+                        <option value="qwen2.5-coder:7b">Qwen 2.5 Coder 7B (Rápido)</option>
+                        <option value="gemma2:9b">Gemma 2 9B (Rápido y Preciso)</option>
+                        <option value="codegemma:7b">CodeGemma 7B (Especializado en código)</option>
+                        <option value="gemma2:27b">Gemma 2 27B (Alta capacidad - GPU pesada)</option>
+                        <option value="gemma4">Gemma 4 (Próxima gen - Custom)</option>
+                      </select>
+                      <button id="btn-ollama-pull" onclick="pullOllamaModelFromServer()" style="background:#238636;border:none;border-radius:4px;color:#fff;padding:6px 12px;cursor:pointer;font-size:12px;font-weight:bold;font-family:inherit;">Descargar</button>
+                    </div>
+                    <div id="ollama-pull-progress-container" style="display:none;margin-top:8px;">
+                      <div style="display:flex;justify-content:space-between;font-size:10px;color:#8b949e;margin-bottom:4px;">
+                        <span id="ollama-pull-status">Conectando...</span>
+                        <span id="ollama-pull-percent" style="margin-left:auto;">0%</span>
+                      </div>
+                      <div style="width:100%;height:4px;background:#161b22;border-radius:2px;overflow:hidden;">
+                        <div id="ollama-pull-bar" style="width:0%;height:100%;background:#3fb950;transition:width 0.2s;"></div>
+                      </div>
+                    </div>
                   </div>
                 `;
             }
@@ -5556,6 +5580,93 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
               <a href="${p.docs}" target="_blank" style="color:#58a6ff;font-size:12px;text-decoration:none;">${NexusLocalization.t('api_more_info')} → ${p.docs}</a>
             `;
           };
+
+            window.pullOllamaModelFromServer = async () => {
+                const btn = document.getElementById('btn-ollama-pull');
+                const select = document.getElementById('cfg-ollama-quick-select');
+                const modelName = select.value;
+                const statusText = document.getElementById('ollama-pull-status');
+                const percentText = document.getElementById('ollama-pull-percent');
+                const bar = document.getElementById('ollama-pull-bar');
+                const progressContainer = document.getElementById('ollama-pull-progress-container');
+                let ollamaUrl = localStorage.getItem('nexus_ollama_url') || 'http://127.0.0.1:11434';
+                ollamaUrl = ollamaUrl.replace('localhost', '127.0.0.1').replace(/\/$/, '');
+
+                if (!modelName) {
+                    showToast('Por favor, selecciona un modelo', 'error');
+                    return;
+                }
+
+                btn.disabled = true;
+                btn.style.opacity = '0.5';
+                progressContainer.style.display = 'block';
+                statusText.textContent = 'Iniciando descarga...';
+                percentText.textContent = '0%';
+                bar.style.width = '0%';
+
+                try {
+                    const response = await fetch(ollamaUrl + '/api/pull', {
+                        method: 'POST',
+                        body: JSON.stringify({ name: modelName, stream: true }),
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+                    let buffer = '';
+
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+
+                        buffer += decoder.decode(value, { stream: true });
+                        const lines = buffer.split('\n');
+                        buffer = lines.pop(); // Keep partial line
+
+                        for (const line of lines) {
+                            if (!line.trim()) continue;
+                            try {
+                                const parsed = JSON.parse(line);
+                                if (parsed.status) {
+                                    statusText.textContent = parsed.status;
+                                }
+                                if (parsed.total && parsed.completed) {
+                                    const percent = Math.round((parsed.completed / parsed.total) * 100);
+                                    percentText.textContent = `${percent}%`;
+                                    bar.style.width = `${percent}%`;
+                                }
+                            } catch (e) {
+                                // Ignore json parse errors for partial lines
+                            }
+                        }
+                    }
+
+                    statusText.textContent = '¡Completado!';
+                    percentText.textContent = '100%';
+                    bar.style.width = '100%';
+                    showToast(`Modelo ${modelName} descargado e instalado con éxito en Ollama`, 'success');
+                    
+                    const modelInput = document.getElementById('cfg-ollama-model-input');
+                    if (modelInput) {
+                        modelInput.value = modelName;
+                    }
+                    if (typeof createModelSelector === 'function') createModelSelector();
+                } catch (err) {
+                    console.error("Error pulling Ollama model:", err);
+                    statusText.textContent = 'Error al descargar';
+                    showToast(`Error de Ollama: ${err.message}`, 'error');
+                } finally {
+                    btn.disabled = false;
+                    btn.style.opacity = '1';
+                    setTimeout(() => {
+                        progressContainer.style.display = 'none';
+                    }, 4000);
+                }
+            };
 
            window.verifyAndSaveKey = (id) => {
             if (id === 'ollama') {
@@ -12494,6 +12605,13 @@ WICHTIG! Wenn der Entwickler Sie auffordert, eine Datei zu erstellen, zu schreib
             // Ollama
             { id: "ollama/qwen2.5-coder:7b", name: "Qwen 2.5 Coder 7B (Ollama Local)", provider: "ollama", context: "32k", speed: "Rápido", description: "Qwen Coder ejecutándose en tu máquina local" },
             { id: "ollama/qwen2.5-coder:1.5b", name: "Qwen 2.5 Coder 1.5B (Ollama Local)", provider: "ollama", context: "32k", speed: "Ultrarrápido", description: "Modelo ultra-ligero para autocompletado en local" },
+            { id: "ollama/gemma2:2b", name: "Gemma 2 2B (Ollama Local - Google)", provider: "ollama", context: "8k", speed: "Ultrarrápido", description: "Modelo ultra-rápido de Google Gemma 2, optimizado para CPUs y baja latencia" },
+            { id: "ollama/gemma2:9b", name: "Gemma 2 9B (Ollama Local - Google)", provider: "ollama", context: "8k", speed: "Rápido", description: "Gemma 2 de Google balanceado para razonamiento general y código" },
+            { id: "ollama/gemma2:27b", name: "Gemma 2 27B (Ollama Local - Google)", provider: "ollama", context: "8k", speed: "Moderado", description: "Gemma 2 de alta precisión para tareas complejas en GPU local" },
+            { id: "ollama/gemma4", name: "Gemma 4 (Ollama Local - Google)", provider: "ollama", context: "16k", speed: "Rápido", description: "Opción de próxima generación local de Google Gemma" },
+            { id: "ollama/gemma:2b", name: "Gemma 2B (Ollama Local - Google)", provider: "ollama", context: "8k", speed: "Ultrarrápido", description: "Google Gemma original de 2B de parámetros" },
+            { id: "ollama/gemma:7b", name: "Gemma 7B (Ollama Local - Google)", provider: "ollama", context: "8k", speed: "Rápido", description: "Google Gemma original de 7B de parámetros" },
+            { id: "ollama/codegemma:7b", name: "CodeGemma 7B (Ollama Local - Google)", provider: "ollama", context: "8k", speed: "Rápido", description: "Google CodeGemma especializado para tareas de codificación" },
             { id: "ollama/custom", name: "Ollama Customizado", provider: "ollama", context: "Variable", speed: "Variable", description: "Cualquier modelo local configurado en Ollama" }
         ];
 

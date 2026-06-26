@@ -324,8 +324,10 @@ Accede a la configuración en **⚙ (engranaje)** → Tab **🤖 APIs**.
 ### Configurar Ollama Local
 1. Selecciona **Ollama (Local)** en la lista de proveedores.
 2. Ingresa la **URL del servidor** (por defecto: `http://127.0.0.1:11434`).
-3. Especifica el **nombre del modelo** (ej. `qwen2.5-coder:7b`, `llama3:8b`).
+3. Especifica el **nombre del modelo** (ej. `gemma2:2b`, `qwen2.5-coder:7b`, `llama3:8b`).
 4. Haz clic en **Guardar**.
+
+> **Modelos Google Gemma Locales**: Hemos preconfigurado varios modelos de Google Gemma en la lista oficial de IAs, incluyendo **Gemma 2 2B** (ultrarrápido para CPU/GPU ligeros), **Gemma 2 9B**, **Gemma 2 27B**, **Gemma 4**, y **CodeGemma 7B**. Asegúrate de descargar el modelo correspondiente en tu terminal ejecutando por ejemplo `ollama pull gemma2:2b` antes de seleccionarlo en el chat para obtener respuestas locales de inmediato.
 
 > **Nota**: Ollama no requiere API Key. Asegúrate de tener el daemon de Ollama corriendo con `ollama serve` antes de usarlo.
 
