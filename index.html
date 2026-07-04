@@ -1109,7 +1109,7 @@
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>
                 </button>
                 <!-- Generador de Video (ComfyUI) -->
-                <button class="sidebar-icon" id="btn-sidebar-video" data-sidebar="video" title="Generador de Video (ComfyUI)">
+                <button class="sidebar-icon" id="btn-sidebar-video" data-sidebar="video" title="Generador de Video (ComfyUI)" style="display:none;">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2" ry="2"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></svg>
                 </button>
                 <!-- Conexiones Remotas VPS -->
@@ -12943,6 +12943,357 @@ WICHTIG! Wenn der Entwickler Sie auffordert, eine Datei zu erstellen, zu schreib
             }
         };
 
+        function parseGenerationRequest(text) {
+            const cleanText = text.trim();
+            const videoRegexes = [
+                /(?:genera|crea|haz|produce|quiero)\s+(?:un\s+)?video\s+(?:de|sobre|donde)\s+(.+)/i,
+                /video\s+of\s+(.+)/i,
+                /generate\s+(?:a\s+)?video\s+(?:of|about)\s+(.+)/i,
+                /create\s+(?:a\s+)?video\s+(?:of|about)\s+(.+)/i
+            ];
+            for (const regex of videoRegexes) {
+                const match = cleanText.match(regex);
+                if (match && match[1]) {
+                    return { type: 'video', prompt: match[1].trim() };
+                }
+            }
+            if (cleanText.toLowerCase().includes('video') && (/(genera|crea|haz|make|generate|create)/i.test(cleanText))) {
+                let prompt = cleanText.replace(/(genera|crea|haz|produce|quiero|generate|create|make|un|a|the|video|clip|de|sobre|of|about)/ig, '').replace(/\s+/g, ' ').trim();
+                if (prompt.length > 3) {
+                    return { type: 'video', prompt: prompt };
+                }
+            }
+            const imageRegexes = [
+                /(?:genera|crea|haz|dibuja|produce|pintame|quiero)\s+(?:una\s+)?(?:imagen|foto|dibujo|retrato|ilustracion|pintura)\s+(?:de|sobre)\s+(.+)/i,
+                /(?:dibuja|pinta)\s+(?:un\s+)?(.+)/i,
+                /draw\s+(?:a\s+)?(.+)/i,
+                /image\s+of\s+(.+)/i,
+                /picture\s+of\s+(.+)/i,
+                /generate\s+(?:an\s+)?image\s+(?:of|about)\s+(.+)/i,
+                /create\s+(?:an\s+)?image\s+(?:of|about)\s+(.+)/i
+            ];
+            for (const regex of imageRegexes) {
+                const match = cleanText.match(regex);
+                if (match && match[1]) {
+                    return { type: 'image', prompt: match[1].trim() };
+                }
+            }
+            if ((cleanText.toLowerCase().includes('imagen') || cleanText.toLowerCase().includes('dibujo') || cleanText.toLowerCase().includes('dibuja') || cleanText.toLowerCase().includes('image') || cleanText.toLowerCase().includes('picture')) && (/(genera|crea|haz|dibuja|pinta|make|generate|create|draw|paint)/i.test(cleanText))) {
+                let prompt = cleanText.replace(/(genera|crea|haz|dibuja|pinta|produce|quiero|generate|create|make|draw|paint|una|un|a|the|imagen|image|foto|picture|dibujo|retrato|de|sobre|of|about)/ig, '').replace(/\s+/g, ' ').trim();
+                if (prompt.length > 3) {
+                    return { type: 'image', prompt: prompt };
+                }
+            }
+            return null;
+        }
+
+        async function generateMediaFromChat(type, prompt, bubbleId) {
+            const bubble = document.getElementById(bubbleId);
+            if (!bubble) return;
+            
+            const serverUrl = localStorage.getItem('nexus_comfy_url') || 'http://127.0.0.1:8188';
+            let comfyPath = localStorage.getItem('nexus_comfy_path') || '';
+            
+            // Auto-detect standard ComfyUI-Desktop installation path if empty
+            if (!comfyPath) {
+                try {
+                    const path = require('path');
+                    const fs = require('fs');
+                    const localAppData = process.env.LOCALAPPDATA || path.join(require('os').homedir(), 'AppData', 'Local');
+                    const defaultDesktopPath = path.join(localAppData, 'Comfy-Desktop', 'ComfyUI-Installs', 'ComfyUI', 'ComfyUI');
+                    if (fs.existsSync(defaultDesktopPath)) {
+                        comfyPath = defaultDesktopPath;
+                    }
+                } catch(err) {
+                    console.error("Error auto-detecting ComfyUI path:", err);
+                }
+            }
+            
+            let model = 'ltx-video';
+            if (document.getElementById('video-model-select')) {
+                model = document.getElementById('video-model-select').value;
+            }
+            // Fallback to text-to-video if image-to-video is selected but we are generating from chat prompt
+            if (type === 'video' && (model === 'svd-img2vid' || model === 'svd-img2vid-heavy')) {
+                model = 'ltx-video';
+            }
+            
+            const resolution = (document.getElementById('video-resolution') ? document.getElementById('video-resolution').value : '') || '768x512';
+            const frames = (document.getElementById('video-frames') ? parseInt(document.getElementById('video-frames').value, 10) : 0) || 41;
+            const steps = (document.getElementById('video-steps') ? parseInt(document.getElementById('video-steps').value, 10) : 0) || 20;
+            const cfg = (document.getElementById('video-cfg') ? parseFloat(document.getElementById('video-cfg').value) : 0) || 3.0;
+            
+            const statusText = bubble.querySelector('.gen-status-text');
+            const percentText = bubble.querySelector('.gen-percent-text');
+            const bar = bubble.querySelector('.gen-progress-bar-fill');
+            
+            const updateProgress = (status, percent) => {
+                if (statusText) statusText.textContent = status;
+                if (percentText) percentText.textContent = percent + '%';
+                if (bar) bar.style.width = percent + '%';
+            };
+
+            updateProgress("Verificando servidor de ComfyUI...", 5);
+            
+            if (type === 'video') {
+                if (!comfyPath) {
+                    updateProgress("❌ Configura la ruta de ComfyUI en Configuración", 0);
+                    return;
+                }
+                try {
+                    const statusRes = await require('electron').ipcRenderer.invoke('check-comfy-model-status', { modelType: model, comfyPath });
+                    if (statusRes.status !== 'exists') {
+                        updateProgress("❌ Descarga los modelos de video primero en el Gestor", 0);
+                        return;
+                    }
+                } catch (e) {
+                    updateProgress("❌ Error de comunicación con Electron", 0);
+                    return;
+                }
+            }
+
+            const clientId = 'nexus_chat_gen_' + Math.random().toString(36).substr(2, 9);
+            const wsUrl = serverUrl.replace(/^http/, 'ws').replace(/\/$/, '') + '/ws?clientId=' + clientId;
+            
+            let ws;
+            try {
+                ws = new WebSocket(wsUrl);
+            } catch(e) {
+                updateProgress("❌ No se pudo conectar al WebSocket de ComfyUI.", 0);
+                return;
+            }
+            
+            ws.onopen = async () => {
+                updateProgress("Preparando workflow de generación...", 15);
+                
+                try {
+                    const seed = Math.floor(Math.random() * 9999999999);
+                    const [width, height] = resolution.split('x').map(Number);
+                    
+                    let workflow = {};
+                    if (type === 'video') {
+                        if (model === 'ltx-video') {
+                            workflow = {
+                                "3": { "inputs": { "seed": seed, "steps": steps, "cfg": cfg, "sampler_name": "euler", "scheduler": "normal", "denoise": 1, "model": ["10", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["5", 0] }, "class_type": "KSampler" },
+                                "5": { "inputs": { "width": width, "height": height, "length": frames, "batch_size": 1 }, "class_type": "EmptyLTXVLatentVideo" },
+                                "6": { "inputs": { "text": prompt, "clip": ["12", 0] }, "class_type": "CLIPTextEncode" },
+                                "7": { "inputs": { "text": "ugly, deformed, low quality, static, blurry", "clip": ["12", 0] }, "class_type": "CLIPTextEncode" },
+                                "8": { "inputs": { "samples": ["3", 0], "vae": ["13", 0] }, "class_type": "VAEDecode" },
+                                "10": { "inputs": { "unet_name": "ltx-video-2b-v0.9-Q8_0.gguf" }, "class_type": "UnetLoaderGGUF" },
+                                "11": { "inputs": { "images": ["8", 0], "fps": 16, "filename_prefix": "nexus_ltx", "format": "video/h264-mp4", "save_output": true, "frame_rate": 16, "pingpong": false, "loop_count": 0 }, "class_type": "VHS_VideoCombine" },
+                                "12": { "inputs": { "clip_name1": "gemma_2_2b_it_elm_fp8_scaled.safetensors", "clip_name2": "clip_l.safetensors", "type": "ltxv" }, "class_type": "DualCLIPLoader" },
+                                "13": { "inputs": { "vae_name": "LTX-Video-VAE-BF16.safetensors" }, "class_type": "VAELoader" }
+                            };
+                        } else if (model === 'ltx-video-heavy') {
+                            workflow = {
+                                "3": { "inputs": { "seed": seed, "steps": steps, "cfg": cfg, "sampler_name": "euler", "scheduler": "normal", "denoise": 1, "model": ["10", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["5", 0] }, "class_type": "KSampler" },
+                                "5": { "inputs": { "width": width, "height": height, "length": frames, "batch_size": 1 }, "class_type": "EmptyLTXVLatentVideo" },
+                                "6": { "inputs": { "text": prompt, "clip": ["10", 1] }, "class_type": "CLIPTextEncode" },
+                                "7": { "inputs": { "text": "ugly, deformed, low quality, static, blurry", "clip": ["10", 1] }, "class_type": "CLIPTextEncode" },
+                                "8": { "inputs": { "samples": ["3", 0], "vae": ["10", 2] }, "class_type": "VAEDecode" },
+                                "10": { "inputs": { "ckpt_name": "ltx-video-2b-v0.9.safetensors" }, "class_type": "CheckpointLoaderSimple" },
+                                "11": { "inputs": { "images": ["8", 0], "fps": 16, "filename_prefix": "nexus_ltx", "format": "video/h264-mp4", "save_output": true, "frame_rate": 16, "pingpong": false, "loop_count": 0 }, "class_type": "VHS_VideoCombine" }
+                            };
+                        } else if (model === 'hunyuan-video') {
+                            workflow = {
+                                "3": { "inputs": { "seed": seed, "steps": steps, "cfg": cfg, "sampler_name": "euler", "scheduler": "normal", "denoise": 1, "model": ["10", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["5", 0] }, "class_type": "KSampler" },
+                                "5": { "inputs": { "width": width, "height": height, "length": frames, "batch_size": 1 }, "class_type": "EmptyHunyuanLatentVideo" },
+                                "6": { "inputs": { "text": prompt, "clip": ["12", 0] }, "class_type": "CLIPTextEncode" },
+                                "7": { "inputs": { "text": "ugly, deformed, low quality, static, blurry", "clip": ["12", 0] }, "class_type": "CLIPTextEncode" },
+                                "8": { "inputs": { "samples": ["3", 0], "vae": ["13", 0] }, "class_type": "VAEDecode" },
+                                "10": { "inputs": { "unet_name": "hunyuan-video-t2v-720p-Q8_0.gguf" }, "class_type": "UnetLoaderGGUF" },
+                                "11": { "inputs": { "images": ["8", 0], "fps": 16, "filename_prefix": "nexus_hunyuan", "format": "video/h264-mp4", "save_output": true, "frame_rate": 16, "pingpong": false, "loop_count": 0 }, "class_type": "VHS_VideoCombine" },
+                                "12": { "inputs": { "clip_name1": "clip_l.safetensors", "clip_name2": "llava_llama3_fp8_scaled.safetensors", "type": "hunyuan_video" }, "class_type": "DualCLIPLoader" },
+                                "13": { "inputs": { "vae_name": "hunyuan_video_vae_bf16.safetensors" }, "class_type": "VAELoader" }
+                            };
+                        } else if (model === 'hunyuan-video-heavy') {
+                            workflow = {
+                                "1": { "inputs": { "model": "hunyuan_video_720_cfgdistill_fp8_e4m3fn.safetensors", "base_precision": "bf16", "quantization": "disabled", "load_device": "main_device" }, "class_type": "HyVideoModelLoader" },
+                                "2": { "inputs": { "llm_model": "Kijai/llava-llama-3-8b-text-encoder-tokenizer", "clip_model": "openai/clip-vit-large-patch14", "precision": "fp16" }, "class_type": "DownloadAndLoadHyVideoTextEncoder" },
+                                "3": { "inputs": { "model_name": "hunyuan_video_vae_bf16.safetensors" }, "class_type": "HyVideoVAELoader" },
+                                "4": { "inputs": { "text_encoders": ["2", 0], "prompt": prompt }, "class_type": "HyVideoTextEncode" },
+                                "5": { "inputs": { "model": ["1", 0], "hyvid_embeds": ["4", 0], "width": width, "height": height, "num_frames": frames, "steps": steps, "seed": seed, "embedded_guidance_scale": 6.0, "flow_shift": 7.0, "force_offload": true }, "class_type": "HyVideoSampler" },
+                                "6": { "inputs": { "vae": ["3", 0], "samples": ["5", 0], "enable_vae_tiling": true, "spatial_tile_sample_min_size": 256, "temporal_tiling_sample_size": 64, "auto_tile_size": true }, "class_type": "HyVideoDecode" },
+                                "7": { "inputs": { "images": ["6", 0], "filename_prefix": "nexus_hunyuan", "fps": 16, "format": "video/h264-mp4", "save_output": true, "frame_rate": 16, "pingpong": false, "loop_count": 0 }, "class_type": "VHS_VideoCombine" }
+                            };
+                            workflow["11"] = workflow["7"];
+                        } else {
+                            workflow = {
+                                "3": { "inputs": { "seed": seed, "steps": steps, "cfg": cfg, "sampler_name": "euler", "scheduler": "normal", "denoise": 1, "model": ["10", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["5", 0] }, "class_type": "KSampler" },
+                                "5": { "inputs": { "width": width, "height": height, "length": frames, "batch_size": 1 }, "class_type": "EmptyLTXVLatentVideo" },
+                                "6": { "inputs": { "text": prompt, "clip": ["12", 0] }, "class_type": "CLIPTextEncode" },
+                                "7": { "inputs": { "text": "ugly, deformed, low quality, static, blurry", "clip": ["12", 0] }, "class_type": "CLIPTextEncode" },
+                                "8": { "inputs": { "samples": ["3", 0], "vae": ["13", 0] }, "class_type": "VAEDecode" },
+                                "10": { "inputs": { "unet_name": "ltx-video-2b-v0.9-Q8_0.gguf" }, "class_type": "UnetLoaderGGUF" },
+                                "11": { "inputs": { "images": ["8", 0], "fps": 16, "filename_prefix": "nexus_ltx", "format": "video/h264-mp4", "save_output": true, "frame_rate": 16, "pingpong": false, "loop_count": 0 }, "class_type": "VHS_VideoCombine" },
+                                "12": { "inputs": { "clip_name1": "gemma_2_2b_it_elm_fp8_scaled.safetensors", "clip_name2": "clip_l.safetensors", "type": "ltxv" }, "class_type": "DualCLIPLoader" },
+                                "13": { "inputs": { "vae_name": "LTX-Video-VAE-BF16.safetensors" }, "class_type": "VAELoader" }
+                            };
+                        }
+                    } else {
+                        // Image generation workflow using v1-5-pruned-emaonly-fp16.safetensors
+                        workflow = {
+                          "3": {
+                            "inputs": { "seed": seed, "steps": 20, "cfg": 7, "sampler_name": "euler", "scheduler": "normal", "denoise": 1, "model": ["4", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["5", 0] },
+                            "class_type": "KSampler"
+                          },
+                          "4": {
+                            "inputs": { "ckpt_name": "v1-5-pruned-emaonly-fp16.safetensors" },
+                            "class_type": "CheckpointLoaderSimple"
+                          },
+                          "5": {
+                            "inputs": { "width": 512, "height": 512, "batch_size": 1 },
+                            "class_type": "EmptyLatentImage"
+                          },
+                          "6": {
+                            "inputs": { "text": prompt, "clip": ["4", 1] },
+                            "class_type": "CLIPTextEncode"
+                          },
+                          "7": {
+                            "inputs": { "text": "ugly, deformed, low quality, blurry, bad anatomy", "clip": ["4", 1] },
+                            "class_type": "CLIPTextEncode"
+                          },
+                          "8": {
+                            "inputs": { "samples": ["3", 0], "vae": ["4", 2] },
+                            "class_type": "VAEDecode"
+                          },
+                          "9": {
+                            "inputs": { "images": ["8", 0], "filename_prefix": "nexus_image" },
+                            "class_type": "SaveImage"
+                          }
+                        };
+                    }
+                    
+                    updateProgress("Enviando petición a ComfyUI...", 35);
+                    const promptRes = await fetch(serverUrl.replace(/\/$/, '') + '/prompt', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ prompt: workflow, client_id: clientId })
+                    });
+                    
+                    if (!promptRes.ok) {
+                        const errBody = await promptRes.text();
+                        throw new Error(errBody || "Error del servidor ComfyUI");
+                    }
+                    
+                    const promptData = await promptRes.json();
+                    updateProgress("En cola de ComfyUI...", 40);
+                    
+                    ws.onmessage = (event) => {
+                        const msg = JSON.parse(event.data);
+                        
+                        if (msg.type === 'status') {
+                            const queueRemaining = msg.data.status.queue_remaining;
+                            if (queueRemaining > 0) {
+                                updateProgress(`En cola (Pendientes: ${queueRemaining})...`, 40);
+                            }
+                        }
+                        else if (msg.type === 'executing') {
+                            const node = msg.data.node;
+                            if (node) {
+                                updateProgress(`Ejecutando Nodo: ${node}...`, 60);
+                            } else {
+                                updateProgress("Generación finalizada. Cargando archivo...", 95);
+                            }
+                        }
+                        else if (msg.type === 'progress') {
+                            const value = msg.data.value;
+                            const max = msg.data.max;
+                            const percent = 40 + Math.round((value / max) * 50);
+                            updateProgress(`Procesando sampler: ${value}/${max}`, percent);
+                        }
+                        else if (msg.type === 'executed') {
+                            updateProgress("¡Completado con éxito!", 100);
+                            const outputs = msg.data.output;
+                            
+                            let filename = '';
+                            let subfolder = '';
+                            
+                            function searchOutputObject(obj) {
+                                if (!obj || typeof obj !== 'object') return false;
+                                const keysToCheck = ['gifs', 'movies', 'images', 'videos', 'animated'];
+                                for (const key of keysToCheck) {
+                                    if (Array.isArray(obj[key]) && obj[key].length > 0) {
+                                        if (obj[key][0].filename) {
+                                            filename = obj[key][0].filename;
+                                            subfolder = obj[key][0].subfolder || '';
+                                            return true;
+                                        }
+                                    }
+                                }
+                                for (const k in obj) {
+                                    if (obj[k] && typeof obj[k] === 'object') {
+                                        if (searchOutputObject(obj[k])) return true;
+                                    }
+                                }
+                                return false;
+                            }
+                            
+                            searchOutputObject(outputs);
+                            
+                            if (filename) {
+                                const fileUrl = `${serverUrl.replace(/\/$/, '')}/view?filename=${encodeURIComponent(filename)}&subfolder=${encodeURIComponent(subfolder)}&type=output`;
+                                renderGeneratedMediaInBubble(bubbleId, type, fileUrl, prompt);
+                            } else {
+                                updateProgress("⚠️ No se encontró el archivo generado en ComfyUI.", 100);
+                            }
+                            ws.close();
+                        }
+                    };
+                    
+                } catch(err) {
+                    updateProgress(`❌ Error: ${err.message}`, 0);
+                    ws.close();
+                }
+            };
+            
+            ws.onerror = (err) => {
+                updateProgress("❌ Error en conexión WebSocket de ComfyUI", 0);
+            };
+        }
+
+        function renderGeneratedMediaInBubble(bubbleId, type, fileUrl, prompt) {
+            const bubble = document.getElementById(bubbleId);
+            if (!bubble) return;
+            
+            let mediaHtml = '';
+            if (type === 'video') {
+                mediaHtml = `
+                    <div style="font-weight:bold; font-size:12px; color:#3fb950; display:flex; align-items:center; gap:6px; margin-bottom: 8px;">
+                        🎬 Video generado con éxito:
+                    </div>
+                    <video src="${fileUrl}" controls style="width:100%; max-height: 280px; border-radius: 8px; background:#000; box-shadow: 0 4px 10px rgba(0,0,0,0.5); outline:none;"></video>
+                    <div style="font-size:11px; color:#8b949e; margin-top:6px; line-height: 1.4;">
+                        Prompt: <em style="color:#e6edf3;">"${prompt}"</em>
+                    </div>
+                    <div style="margin-top: 8px;">
+                        <a href="${fileUrl}" download="video.mp4" target="_blank" style="display:inline-flex; align-items:center; gap:4px; font-size:11px; color:#58a6ff; text-decoration:none; background:rgba(88, 166, 255, 0.1); border:1px solid rgba(88, 166, 255, 0.2); border-radius:4px; padding:4px 8px; font-weight:bold;">
+                            ⬇️ Descargar Video
+                        </a>
+                    </div>
+                `;
+            } else {
+                mediaHtml = `
+                    <div style="font-weight:bold; font-size:12px; color:#3fb950; display:flex; align-items:center; gap:6px; margin-bottom: 8px;">
+                        🖼️ Imagen generada con éxito:
+                    </div>
+                    <img src="${fileUrl}" style="width:100%; max-height: 280px; border-radius: 8px; object-fit: contain; background:#161b22; box-shadow: 0 4px 10px rgba(0,0,0,0.5);" />
+                    <div style="font-size:11px; color:#8b949e; margin-top:6px; line-height: 1.4;">
+                        Prompt: <em style="color:#e6edf3;">"${prompt}"</em>
+                    </div>
+                    <div style="margin-top: 8px;">
+                        <a href="${fileUrl}" download="imagen.png" target="_blank" style="display:inline-flex; align-items:center; gap:4px; font-size:11px; color:#58a6ff; text-decoration:none; background:rgba(88, 166, 255, 0.1); border:1px solid rgba(88, 166, 255, 0.2); border-radius:4px; padding:4px 8px; font-weight:bold;">
+                            ⬇️ Descargar Imagen
+                        </a>
+                    </div>
+                `;
+            }
+            
+            bubble.innerHTML = mediaHtml;
+            const chatMessages = document.getElementById('chat-messages');
+            if (chatMessages) chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
         window.showAiriNotification = function(text, type, onApprove, onDeny) {
             const bubble = document.getElementById('airi-notification-bubble');
             const txtEl = document.getElementById('airi-notification-text');
@@ -18833,6 +19184,47 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                     const input = document.getElementById('chat-input');
                     const text = input.value.trim();
                     if (!text) return;
+
+                    // Interceptar si es una petición de generación de video o imagen en chat
+                    const genRequest = parseGenerationRequest(text);
+                    if (genRequest) {
+                        input.value = '';
+                        chatAbortController = new AbortController();
+                        
+                        const chatMessages = document.getElementById('chat-messages');
+                        const userMsg = document.createElement('div');
+                        userMsg.style.cssText = `padding:10px; border-radius:6px; background:#2b3a42; border:1px solid #3c4f5a; align-self:flex-end; margin-left:20px; margin-bottom:10px; color:#fff; word-break: break-word;`;
+                        userMsg.textContent = text;
+                        chatMessages.appendChild(userMsg);
+                        chatMessages.scrollTop = chatMessages.scrollHeight;
+                        
+                        const bubbleId = 'gen-bubble-' + Date.now();
+                        const progressMsg = document.createElement('div');
+                        progressMsg.id = bubbleId;
+                        progressMsg.style.cssText = `padding:12px; border-radius:8px; background:#1e1e1e; border:1px solid #333; margin-right:20px; margin-bottom:10px; color:#fff; display:flex; flex-direction:column; gap:8px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); width: calc(100% - 20px);`;
+                        
+                        progressMsg.innerHTML = `
+                            <div style="font-weight:bold; font-size:12px; color:#a78bfa; display:flex; align-items:center; gap:6px;">
+                                <span class="pulse-dot" style="display:inline-block; width:8px; height:8px; background:#a78bfa; border-radius:50%; box-shadow: 0 0 8px #a78bfa;"></span>
+                                ${genRequest.type === 'video' ? '🎬 Generando Video' : '🖼️ Generando Imagen'}
+                            </div>
+                            <div style="font-size:10px; color:#8b949e; line-height: 1.4;">
+                                Prompt: <strong style="color:#e6edf3;">"${genRequest.prompt}"</strong>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; font-size:10px; color:#8b949e; margin-top: 4px;">
+                                <span class="gen-status-text">Conectando...</span>
+                                <span class="gen-percent-text">0%</span>
+                            </div>
+                            <div style="width:100%; height:4px; background:#161b22; border-radius:2px; overflow:hidden;">
+                                <div class="gen-progress-bar-fill" style="width:0%; height:100%; background:#7c3aed; transition:width 0.2s;"></div>
+                            </div>
+                        `;
+                        chatMessages.appendChild(progressMsg);
+                        chatMessages.scrollTop = chatMessages.scrollHeight;
+                        
+                        generateMediaFromChat(genRequest.type, genRequest.prompt, bubbleId);
+                        return;
+                    }
 
                     const isMultiAgent = (chatMode === 'agent') && document.getElementById('multi-agent-toggle').checked;
                     window.sessionOllamaModel = '';
