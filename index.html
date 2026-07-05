@@ -19336,7 +19336,7 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                                 { label: 'Asistente IA', shortcut: 'Ctrl+Alt+A', action: () => { document.getElementById('btnAiAssistant').click(); } },
                                 { label: 'Chat', shortcut: 'Ctrl+Alt+C', action: () => { document.getElementById('btnToggleChat').click(); } },
                                 { label: 'Manual de Usuario', shortcut: 'Ctrl+F1', action: openManualWindow },
-                                { label: 'Ajustes', shortcut: 'Ctrl+,', action: () => { document.getElementById('btnSettings').click(); } },
+                                { label: 'Ajustes', shortcut: 'Alt+Espacio', action: () => { document.getElementById('btnSettings').click(); } },
                                 { separator: true },
                                 // -- Zoom --
                                 { label: 'Acercar Zoom', shortcut: 'Ctrl++', action: () => {
@@ -20559,6 +20559,12 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                 setInterval(updateGitStatus, 10000);
 
                 document.addEventListener('keydown', (e) => {
+                  // Alt+Space to open settings
+                  if (e.altKey && (e.key === ' ' || e.code === 'Space')) {
+                      e.preventDefault();
+                      document.getElementById('btnSettings').click();
+                      return;
+                  }
                   const ctrl = e.ctrlKey || e.metaKey;
 
                   // Atajos de Zoom
