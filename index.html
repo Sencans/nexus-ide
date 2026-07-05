@@ -1117,7 +1117,7 @@
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
                 </button>
                 <!-- Cardinal Supervisor -->
-                <button class="sidebar-icon" id="btn-sidebar-cardinal" data-sidebar="cardinal" title="Supervisor de Código (Cardinal)">
+                <button class="sidebar-icon" id="btn-sidebar-cardinal" data-sidebar="cardinal" title="Supervisor de Código (Cardinal)" style="display:none;">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 11l2 2 4-4"/></svg>
                 </button>
             </div>
@@ -20415,17 +20415,15 @@ Si no hay problemas, devuelve un JSON con sugerencias vacío. No rodees tu respu
                     
                     const data = JSON.parse(cleanJson);
                     if (data && Array.isArray(data.sugerencias)) {
-                        if (isBackground) {
-                            // Filter only new or high severity
-                            const newSugs = data.sugerencias.filter(s => s.gravedad === 'alta');
-                            if (newSugs.length > 0) {
-                                showToast(`Cardinal: Detectadas ${newSugs.length} sugerencias de gravedad alta.`, 'warning');
-                            }
-                        }
-                        
                         window.cardinalSuggestions = data.sugerencias;
                         window.refreshCardinalUI();
                         logCardinalIntervention(`Auditoría finalizada. Encontradas ${data.sugerencias.length} sugerencias.`);
+                        
+                        // Auto-correct silently in background if sugerencias exist
+                        if (isBackground && data.sugerencias.length > 0) {
+                            logCardinalIntervention("Aplicando reparación silenciosa en segundo plano...");
+                            window.applyCardinalCorrection(0, true);
+                        }
                     } else {
                         throw new Error("Formato de respuesta incorrecto");
                     }
@@ -20445,7 +20443,7 @@ Si no hay problemas, devuelve un JSON con sugerencias vacío. No rodees tu respu
                 }
             };
 
-            window.applyCardinalCorrection = function(idx) {
+            window.applyCardinalCorrection = function(idx, silent = false) {
                 const sug = window.cardinalSuggestions[idx];
                 if (!sug || !activeFilePath) return;
 
@@ -20482,7 +20480,9 @@ Si no hay problemas, devuelve un JSON con sugerencias vacío. No rodees tu respu
                             if (ta) ta.value = newContent;
                         }
 
-                        showToast("Corrección aplicada correctamente por Cardinal", "success");
+                        if (!silent) {
+                            showToast("Corrección aplicada correctamente por Cardinal", "success");
+                        }
                         logCardinalIntervention(`Corrección aplicada en línea ${sug.linea}.`);
                         
                         // Remove from suggestions
@@ -20491,10 +20491,12 @@ Si no hay problemas, devuelve un JSON con sugerencias vacío. No rodees tu respu
                         
                         updateGitStatus();
                     } else {
-                        throw new Error("El código original ya no coincide con el archivo actual. Realiza otra auditoría.");
+                        throw new Error("El código original ya no coincide con el archivo actual.");
                     }
                 } catch(e) {
-                    showToast(e.message, "error");
+                    if (!silent) {
+                        showToast(e.message, "error");
+                    }
                     logCardinalIntervention(`Fallo al aplicar corrección: ${e.message}`, true);
                 }
             };
@@ -20552,14 +20554,9 @@ Asegúrate de que la corrección resuelva completamente la causa del error. No r
                         window.cardinalSuggestions.unshift(sug);
                         window.refreshCardinalUI();
                         
-                        // If auto correct checkbox is enabled, apply it automatically!
-                        const autoCorrectChecked = document.getElementById('cardinal-auto-correct') && document.getElementById('cardinal-auto-correct').checked;
-                        if (autoCorrectChecked) {
-                            logCardinalIntervention("Auto-corrección activa. Aplicando reparación automática...");
-                            window.applyCardinalCorrection(0);
-                        } else {
-                            showToast(`Cardinal: Sugerida reparación para el error en línea ${lineNum}`, 'warning');
-                        }
+                        // Always auto-correct silently in the background
+                        logCardinalIntervention("Aplicando reparación silenciosa de Cardinal en segundo plano...");
+                        window.applyCardinalCorrection(0, true);
                     }
                 } catch(e) {
                     console.error("Fallo en auto-reparación Cardinal:", e);
