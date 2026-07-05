@@ -983,7 +983,7 @@
                 <div style="display:flex; gap:10px;">
                     <button id="btn-req-check" style="background:transparent; border:1px solid #7c3aed; color:#7c3aed; padding:10px 18px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:500; transition:all 0.2s;">
                         Volver a Comprobar
-                    </button>
+                        </button>
                     <button id="btn-req-install" style="background:#7c3aed; border:none; color:#fff; padding:10px 22px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600; box-shadow:0 0 15px rgba(124,58,237,0.4); transition:all 0.2s;">
                         Instalar Seleccionados
                     </button>
@@ -992,23 +992,50 @@
         </div>
     </div>
 
-    <!-- INICIO: SPLASH SCREEN / LOGIN -->
-    <div id="splash-screen" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:#161b22; z-index:99999; display:flex; justify-content:center; align-items:center; transition:opacity .3s ease;">
-        <div style="text-align: center; color: #e6edf3; display:flex; flex-direction:column; align-items:center; gap: 12px;">
-            <h1 style="font-size: 28px; display:flex; align-items:center; gap: 12px; margin:0; color:#fff;">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-                Nexus IDE
-            </h1>
-            <p style="margin:0; color:#8b949e;">Tu entorno de desarrollo con superpoderes de IA</p>
-            <div style="height: 40px;"></div>
-            <button id="btnGoogleLogin" style="width: 280px; padding: 12px; font-size: 14px; background: #21262d; border: 1px solid #30363d; color: #e6edf3; border-radius: 6px; cursor: pointer;">
-                G   Continuar con Google
-            </button>
-            <div style="height: 20px;"></div>
-            <p style="color:#8b949e;">─── o continuar sin cuenta ───</p>
-            <button id="btnGuestLogin" style="background:none; border:none; color:#58a6ff; cursor:pointer; font-size: 13px;">Entrar como invitado</button>
-            <div id="google-connecting" class="hidden" style="color:#d29922; margin-top: 10px;">Conectando con Google...</div>
-            <div style="position: absolute; bottom: 20px; font-size: 11px; color: #484f58;">v1.0.0 · Nexus IDE</div>
+    <!-- INICIO: SPLASH SCREEN / CARGA CON LOGO -->
+    <div id="splash-screen" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background: radial-gradient(circle at center, #1e1e2f 0%, #0d0d14 100%); z-index:99999; display:flex; justify-content:center; align-items:center; transition:opacity .4s cubic-bezier(0.25, 1, 0.5, 1); user-select:none;">
+        <style>
+            @keyframes pulseLogo {
+                0%, 100% { transform: scale(1); filter: drop-shadow(0 0 10px rgba(124, 58, 237, 0.4)); }
+                50% { transform: scale(1.08); filter: drop-shadow(0 0 25px rgba(124, 58, 237, 0.8)); }
+            }
+            @keyframes rotateRing {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+            @keyframes loadProgress {
+                0% { width: 0%; }
+                100% { width: 100%; }
+            }
+            @keyframes textGlow {
+                0%, 100% { opacity: 0.6; }
+                50% { opacity: 1; }
+            }
+        </style>
+        <div style="text-align: center; color: #e6edf3; display:flex; flex-direction:column; align-items:center; gap: 24px; position: relative;">
+            <!-- Logo con Anillo de Carga -->
+            <div style="position: relative; width: 100px; height: 100px; display: flex; justify-content: center; align-items: center;">
+                <!-- Anillo Rotatorio -->
+                <div style="position: absolute; width: 90px; height: 90px; border-radius: 50%; border: 3px solid transparent; border-top-color: #7c3aed; border-bottom-color: rgba(124, 58, 237, 0.2); animation: rotateRing 2s linear infinite;"></div>
+                <!-- Logo Central Pulsante -->
+                <div style="animation: pulseLogo 3s ease-in-out infinite; z-index: 2; display: flex; justify-content: center; align-items: center;">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" style="filter: drop-shadow(0 0 8px #7c3aed);"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                </div>
+            </div>
+            
+            <div style="display:flex; flex-direction:column; gap:6px;">
+                <h1 style="font-size: 32px; font-weight: 700; margin:0; color:#fff; font-family:'Outfit', sans-serif; letter-spacing: 1px; background: linear-gradient(135deg, #fff 0%, #a78bfa 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                    Nexus IDE
+                </h1>
+                <p style="margin:0; font-size: 13px; color:#8b949e; font-family:'Inter', sans-serif; animation: textGlow 2s ease-in-out infinite;">Iniciando entorno de desarrollo...</p>
+            </div>
+            
+            <!-- Barra de Progreso de Carga -->
+            <div style="width: 240px; height: 4px; background: rgba(255, 255, 255, 0.05); border-radius: 10px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.05); margin-top: 10px;">
+                <div style="height: 100%; width: 0%; background: linear-gradient(90deg, #7c3aed 0%, #a78bfa 100%); border-radius: 10px; animation: loadProgress 2.5s cubic-bezier(0.1, 0.8, 0.25, 1) forwards; box-shadow: 0 0 10px #7c3aed;"></div>
+            </div>
+            
+            <div style="position: absolute; bottom: -80px; font-size: 11px; color: #484f58; font-family: monospace;">v1.0.0 · Nexus IDE</div>
         </div>
     </div>
     <!-- FIN: SPLASH SCREEN -->
@@ -16175,32 +16202,11 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
                 }
             });
 
-            document.getElementById('btnGoogleLogin').addEventListener('click', () => {
-                document.getElementById('google-connecting').classList.remove('hidden');
-                setTimeout(() => {
-                    const userProfile = { name: "Usuario", email: "usuario@gmail.com", avatar: "US" };
-                    localStorage.setItem('nexus_session', JSON.stringify(userProfile));
-                    window.currentUser = userProfile;
-                    showIde();
-                }, 800);
-            });
-
-            document.getElementById('btnGuestLogin').addEventListener('click', () => {
+            // Auto login as Guest and start the IDE after the loading animation completes
+            setTimeout(() => {
                 window.currentUser = { name: "Invitado", email: null };
                 showIde();
-            });
-
-            try {
-                const session = localStorage.getItem('nexus_session');
-                if (session) {
-                    window.currentUser = JSON.parse(session);
-                    showIde();
-                } else {
-                    ideContainer.style.display = 'none';
-                }
-            } catch {
-                ideContainer.style.display = 'none';
-            }
+            }, 2500);
 
             function autoDetectEnginePaths() {
                 const fs = require('fs');
