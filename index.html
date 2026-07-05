@@ -742,6 +742,9 @@
     </style>
 </head>
 <body>
+    <!-- BACKGROUND PERSONALIZADO -->
+    <div id="nexus-app-custom-background" style="position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:-1; pointer-events:none; background-size:cover; background-position:center; transition: opacity 0.5s ease, filter 0.5s ease; opacity:0;"></div>
+    <canvas id="nexus-app-custom-background-canvas" style="position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:-2; pointer-events:none; display:none; opacity:0; transition: opacity 0.5s ease;"></canvas>
 
     <!-- MODAL: ASISTENTE IA & CONEXIÓN REMOTA (STEAM LINK) -->
     <div id="nexus-ai-assistant-screen" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(7, 9, 14, 0.7); z-index:7600; display:none; flex-direction:column; justify-content:center; align-items:center; color:#fff; font-family:'Outfit', 'Inter', sans-serif; transition:opacity .3s ease; padding: 25px; box-sizing: border-box; backdrop-filter: blur(15px); opacity: 0;">
@@ -1045,9 +1048,9 @@
         
         <!-- TOPBAR -->
         <div class="topbar">
-            <div class="topbar-brand" onclick="openProjectDashboardModal()" title="Abrir Centro de Inicio (Home)">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-                Nexus IDE
+            <div class="topbar-brand" onclick="openProjectDashboardModal()" title="Abrir Centro de Inicio (Home)" id="nexus-topbar-brand-container">
+                <span id="nexus-brand-logo-svg"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></span>
+                <span id="nexus-brand-logo-text">Nexus IDE</span>
             </div>
             <button class="topbar-btn" data-menu="archivo">Archivo</button>
             <button class="topbar-btn" data-menu="editar">Editar</button>
@@ -4645,6 +4648,271 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
         }
 
         // =========================================================================
+        // CORE DE PERSONALIZACIÓN Y PERSONALIZAR ASPECTO
+        // =========================================================================
+        window.applyAppCustomization = () => {
+            const logoType = localStorage.getItem('nexus_custom_logo_type') || 'default';
+            const logoText = localStorage.getItem('nexus_custom_logo_text') || 'Nexus IDE';
+            const logoImg = localStorage.getItem('nexus_custom_logo_image') || '';
+            const logoColor = localStorage.getItem('nexus_custom_logo_color') || '#7c3aed';
+
+            const bgType = localStorage.getItem('nexus_custom_bg_type') || 'none';
+            const bgImage = localStorage.getItem('nexus_custom_bg_image') || '';
+            const bgOpacity = parseFloat(localStorage.getItem('nexus_custom_bg_opacity') || '0.5');
+            const bgBlur = parseInt(localStorage.getItem('nexus_custom_bg_blur') || '10', 10);
+
+            const colorMode = localStorage.getItem('nexus_custom_color_mode') || 'preset';
+            const accent = localStorage.getItem('nexus_custom_accent') || '#7c3aed';
+            const accentHover = localStorage.getItem('nexus_custom_accent_hover') || '#9061f3';
+            const bgMain = localStorage.getItem('nexus_custom_bg_main') || '#1e1e1e';
+            const bgSidebar = localStorage.getItem('nexus_custom_bg_sidebar') || '#333333';
+            const bgPanel = localStorage.getItem('nexus_custom_bg_panel') || '#252526';
+            const bgTabs = localStorage.getItem('nexus_custom_bg_tabs') || '#2d2d2d';
+            const text = localStorage.getItem('nexus_custom_text') || '#cccccc';
+            const border = localStorage.getItem('nexus_custom_border') || '#252526';
+
+            window.updateAppCustomizationLive({
+                logoType, logoText, logoImg, logoColor,
+                bgType, bgImage, bgOpacity, bgBlur,
+                colorMode, accent, accentHover, bgMain, bgSidebar, bgPanel, bgTabs, text, border
+            });
+        };
+
+        window.updateAppCustomizationLive = (cfg) => {
+            const root = document.documentElement;
+            let css = '';
+
+            // Apply custom colors if enabled
+            if (cfg.colorMode === 'custom') {
+                root.style.setProperty('--bg-main', cfg.bgMain);
+                root.style.setProperty('--bg-sidebar', cfg.bgSidebar);
+                root.style.setProperty('--bg-panel', cfg.bgPanel);
+                root.style.setProperty('--bg-tabs', cfg.bgTabs);
+                root.style.setProperty('--border-color', cfg.border);
+                root.style.setProperty('--text-color', cfg.text);
+                root.style.setProperty('--accent-color', cfg.accent);
+                root.style.setProperty('--accent-hover', cfg.accentHover);
+            } else {
+                // Restore preset theme CSS
+                const settings = getSavedSettings();
+                applyThemeCSS(settings.theme);
+            }
+
+            // Custom logo override
+            const svgSpan = document.getElementById('nexus-brand-logo-svg');
+            const textSpan = document.getElementById('nexus-brand-logo-text');
+            if (svgSpan && textSpan) {
+                if (cfg.logoType === 'default') {
+                    svgSpan.style.display = 'inline-block';
+                    svgSpan.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${cfg.logoColor}" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>`;
+                    textSpan.textContent = 'Nexus IDE';
+                } else if (cfg.logoType === 'text') {
+                    svgSpan.style.display = 'none';
+                    textSpan.textContent = cfg.logoText;
+                } else if (cfg.logoType === 'image') {
+                    svgSpan.style.display = 'inline-block';
+                    svgSpan.innerHTML = `<img src="${cfg.logoImg}" style="width:16px; height:16px; object-fit:contain;" onerror="this.src='data:image/svg+xml;utf8,<svg width=\\'16\\' height=\\'16\\' viewBox=\\'0 0 24 24\\' fill=\\'none\\' stroke=\\'%237c3aed\\' stroke-width=\\'2\\'><circle cx=\\'12\\' cy=\\'12\\' r=\\'10\\'/></svg>'">`;
+                    textSpan.textContent = 'Nexus IDE';
+                }
+            }
+
+            // Build dynamic style rules for transparency and animations
+            let styleEl = document.getElementById('nexus-customization-styles');
+            if (!styleEl) {
+                styleEl = document.createElement('style');
+                styleEl.id = 'nexus-customization-styles';
+                document.head.appendChild(styleEl);
+            }
+
+            if (cfg.bgType !== 'none') {
+                const alpha = Math.min(Math.max(cfg.bgOpacity, 0), 1);
+                css += `
+                .sidebar, .sidebar-panel, .editor-pane, .topbar, .bottom-panel, .chat-header, .chat-input-area, .breadcrumbs-container {
+                    background-color: var(--bg-panel-translucent, rgba(20, 20, 25, ${alpha})) !important;
+                    backdrop-filter: blur(${cfg.bgBlur}px) !important;
+                    -webkit-backdrop-filter: blur(${cfg.bgBlur}px) !important;
+                }
+                .app-container {
+                    background: transparent !important;
+                }
+                #editor-container-1, #editor-container-2, .monaco-editor, .monaco-editor .margin, .monaco-editor-background {
+                    background-color: rgba(30, 30, 30, ${alpha * 0.7}) !important;
+                }
+                `;
+            }
+
+            // Custom Background images
+            const bgDiv = document.getElementById('nexus-app-custom-background');
+            if (bgDiv) {
+                if (cfg.bgType === 'image' && cfg.bgImage) {
+                    bgDiv.style.backgroundImage = `url("${cfg.bgImage}")`;
+                    bgDiv.style.opacity = '1';
+                    bgDiv.style.animation = 'none';
+                } else if (cfg.bgType === 'grad_wave') {
+                    bgDiv.style.backgroundImage = 'linear-gradient(45deg, #1e0e22, #0d1117, #11111b, #1b0e22)';
+                    bgDiv.style.backgroundSize = '400% 400%';
+                    bgDiv.style.opacity = '1';
+                    bgDiv.style.animation = 'nexusGradWaveAnimation 15s ease infinite';
+                    css += `
+                    @keyframes nexusGradWaveAnimation {
+                        0%{background-position:0% 50%}
+                        50%{background-position:100% 50%}
+                        100%{background-position:0% 50%}
+                    }
+                    `;
+                } else {
+                    bgDiv.style.backgroundImage = 'none';
+                    bgDiv.style.opacity = '0';
+                    bgDiv.style.animation = 'none';
+                }
+            }
+
+            styleEl.textContent = css;
+
+            // Start Canvas animations if needed
+            window.startBackgroundAnimation(cfg.bgType);
+        };
+
+        window.startBackgroundAnimation = (type) => {
+            const canvas = document.getElementById('nexus-app-custom-background-canvas');
+            if (!canvas) return;
+
+            if (window.nexusActiveAnimFrame) {
+                cancelAnimationFrame(window.nexusActiveAnimFrame);
+                window.nexusActiveAnimFrame = null;
+            }
+
+            if (type === 'stars' || type === 'matrix' || type === 'particles') {
+                canvas.style.display = 'block';
+                canvas.style.opacity = '1';
+                
+                // Ensure dimensions fit window size
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+                const ctx = canvas.getContext('2d');
+
+                if (type === 'stars') {
+                    const stars = Array.from({length: 120}, () => ({
+                        x: Math.random() * canvas.width,
+                        y: Math.random() * canvas.height,
+                        z: Math.random() * canvas.width,
+                        s: 1.5 + Math.random() * 2
+                    }));
+                    function drawStars() {
+                        ctx.fillStyle = '#07090e';
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                        ctx.fillStyle = '#ffffff';
+                        stars.forEach(star => {
+                            star.z -= 1.5;
+                            if (star.z <= 0) {
+                                star.z = canvas.width;
+                                star.x = Math.random() * canvas.width;
+                                star.y = Math.random() * canvas.height;
+                            }
+                            const k = 128 / star.z;
+                            const px = (star.x - canvas.width / 2) * k + canvas.width / 2;
+                            const py = (star.y - canvas.height / 2) * k + canvas.height / 2;
+                            if (px >= 0 && px <= canvas.width && py >= 0 && py <= canvas.height) {
+                                const size = (1 - star.z / canvas.width) * star.s * 2;
+                                ctx.beginPath();
+                                ctx.arc(px, py, size < 0.5 ? 0.5 : size, 0, Math.PI * 2);
+                                ctx.fill();
+                            }
+                        });
+                        window.nexusActiveAnimFrame = requestAnimationFrame(drawStars);
+                    }
+                    drawStars();
+                } else if (type === 'matrix') {
+                    const cols = Math.floor(canvas.width / 20) + 1;
+                    const ypos = Array(cols).fill(0).map(() => Math.random() * -100);
+                    ctx.fillStyle = '#000000';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    function drawMatrix() {
+                        ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                        ctx.fillStyle = '#0f0';
+                        ctx.font = '15px monospace';
+                        ypos.forEach((y, idx) => {
+                            const text = String.fromCharCode(33 + Math.random() * 93);
+                            const x = idx * 20;
+                            ctx.fillText(text, x, y);
+                            if (y > 100 + Math.random() * 10000) {
+                                ypos[idx] = 0;
+                            } else {
+                                ypos[idx] = y + 20;
+                            }
+                        });
+                        setTimeout(() => {
+                            window.nexusActiveAnimFrame = requestAnimationFrame(drawMatrix);
+                        }, 33);
+                    }
+                    drawMatrix();
+                } else if (type === 'particles') {
+                    const particles = Array.from({length: 60}, () => ({
+                        x: Math.random() * canvas.width,
+                        y: Math.random() * canvas.height,
+                        vx: (Math.random() - 0.5) * 0.6,
+                        vy: (Math.random() - 0.5) * 0.6,
+                        r: 1 + Math.random() * 2
+                    }));
+                    function drawParticles() {
+                        ctx.fillStyle = '#0d1117';
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                        
+                        ctx.lineWidth = 0.5;
+                        for (let i = 0; i < particles.length; i++) {
+                            for (let j = i + 1; j < particles.length; j++) {
+                                const dist = Math.hypot(particles[i].x - particles[j].x, particles[i].y - particles[j].y);
+                                if (dist < 120) {
+                                    const alpha = (1 - dist / 120) * 0.15;
+                                    ctx.strokeStyle = `rgba(124, 58, 237, ${alpha})`;
+                                    ctx.beginPath();
+                                    ctx.moveTo(particles[i].x, particles[i].y);
+                                    ctx.lineTo(particles[j].x, particles[j].y);
+                                    ctx.stroke();
+                                }
+                            }
+                        }
+                        
+                        ctx.fillStyle = 'rgba(124, 58, 237, 0.5)';
+                        particles.forEach(p => {
+                            p.x += p.vx;
+                            p.y += p.vy;
+                            if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
+                            if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
+                            ctx.beginPath();
+                            ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+                            ctx.fill();
+                        });
+                        window.nexusActiveAnimFrame = requestAnimationFrame(drawParticles);
+                    }
+                    drawParticles();
+                }
+            } else {
+                canvas.style.display = 'none';
+                canvas.style.opacity = '0';
+            }
+        };
+
+        // Resize handler for customization canvas
+        window.addEventListener('resize', () => {
+            const canvas = document.getElementById('nexus-app-custom-background-canvas');
+            if (canvas && canvas.style.display === 'block') {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            }
+        });
+
+        // Initialize customizations when DOM content is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                if (typeof window.applyAppCustomization === 'function') {
+                    window.applyAppCustomization();
+                }
+            }, 100);
+        });
+
+        // =========================================================================
         // PRESETS RÁPIDOS, TOKEN SELECTOR Y PREVISUALIZADOR DE MARKDOWN
         // =========================================================================
         window.applyChatPreset = (type) => {
@@ -5300,6 +5568,7 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                 <button onclick="selectConfigTab('themes')" class="cfg-tab-btn" style="text-align:left;background:transparent;border:none;color:#c9d1d9;padding:8px 12px;font-size:12px;cursor:pointer;border-left:2px solid transparent;font-family:inherit;">🎨 ${NexusLocalization.t('tab_settings_themes')}</button>
                 <button onclick="selectConfigTab('language')" class="cfg-tab-btn" style="text-align:left;background:transparent;border:none;color:#c9d1d9;padding:8px 12px;font-size:12px;cursor:pointer;border-left:2px solid transparent;font-family:inherit;">🌍 ${NexusLocalization.t('tab_settings_language')}</button>
                 <button onclick="selectConfigTab('remote')" class="cfg-tab-btn" style="text-align:left;background:transparent;border:none;color:#c9d1d9;padding:8px 12px;font-size:12px;cursor:pointer;border-left:2px solid transparent;font-family:inherit;">📱 Control Remoto</button>
+                <button onclick="selectConfigTab('customization')" class="cfg-tab-btn" style="text-align:left;background:transparent;border:none;color:#c9d1d9;padding:8px 12px;font-size:12px;cursor:pointer;border-left:2px solid transparent;font-family:inherit;">✨ Personalización</button>
               </div>
               <!-- CONTENT DETAIL -->
               <div id="cfgTabContent" style="flex:1;padding:24px;overflow-y:auto;color:#e6edf3;background:#0d1117;">
@@ -5307,7 +5576,9 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
               </div>
             </div>`;
 
-          new NexusWindow({ id: 'nexus-win-config', title: NexusLocalization.t('settings_title'), icon: '⚙', width: 750, height: 550, content });
+          new NexusWindow({ id: 'nexus-win-config', title: NexusLocalization.t('settings_title'), icon: '⚙', width: 750, height: 550, content, onClose: () => {
+              window.applyAppCustomization();
+          } });
 
           window.selectConfigTab = (tabId) => {
               const btns = document.querySelectorAll('.cfg-tab-btn');
@@ -5316,7 +5587,6 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                   btn.style.background = 'transparent';
                   btn.style.color = '#c9d1d9';
               });
-              
               let activeBtn = null;
               if (tabId === 'apis') activeBtn = btns[0];
               else if (tabId === 'editor') activeBtn = btns[1];
@@ -5324,6 +5594,7 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
               else if (tabId === 'themes') activeBtn = btns[3];
               else if (tabId === 'language') activeBtn = btns[4];
               else if (tabId === 'remote') activeBtn = btns[5];
+              else if (tabId === 'customization') activeBtn = btns[6];
               
               if (activeBtn) {
                   activeBtn.style.borderLeft = '2px solid #7c3aed';
@@ -5476,6 +5747,411 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                         <button onclick="saveLanguageConfig()" style="background:#7c3aed;border:none;border-radius:4px;color:#fff;padding:8px 16px;cursor:pointer;font-size:13px;font-weight:bold;margin-top:10px;align-self:flex-start;font-family:inherit;">${NexusLocalization.t('btn_save_lang')}</button>
                     </div>
                   `;
+              } else if (tabId === 'customization') {
+                  const logoType = localStorage.getItem('nexus_custom_logo_type') || 'default';
+                  const logoText = localStorage.getItem('nexus_custom_logo_text') || 'Nexus IDE';
+                  const logoImg = localStorage.getItem('nexus_custom_logo_image') || '';
+                  const logoColor = localStorage.getItem('nexus_custom_logo_color') || '#7c3aed';
+
+                  const bgType = localStorage.getItem('nexus_custom_bg_type') || 'none';
+                  const bgImage = localStorage.getItem('nexus_custom_bg_image') || '';
+                  const bgOpacity = localStorage.getItem('nexus_custom_bg_opacity') || '0.5';
+                  const bgBlur = localStorage.getItem('nexus_custom_bg_blur') || '10';
+
+                  const colorMode = localStorage.getItem('nexus_custom_color_mode') || 'preset';
+                  const accent = localStorage.getItem('nexus_custom_accent') || '#7c3aed';
+                  const accentHover = localStorage.getItem('nexus_custom_accent_hover') || '#9061f3';
+                  const bgMain = localStorage.getItem('nexus_custom_bg_main') || '#1e1e1e';
+                  const bgSidebar = localStorage.getItem('nexus_custom_bg_sidebar') || '#333333';
+                  const bgPanel = localStorage.getItem('nexus_custom_bg_panel') || '#252526';
+                  const bgTabs = localStorage.getItem('nexus_custom_bg_tabs') || '#2d2d2d';
+                  const text = localStorage.getItem('nexus_custom_text') || '#cccccc';
+                  const border = localStorage.getItem('nexus_custom_border') || '#252526';
+
+                  detail.innerHTML = `
+                    <h3 style="margin-top:0;margin-bottom:16px;">Personalizar Aspecto de la App</h3>
+                    <div style="display:flex; gap:20px; height:calc(100% - 40px); overflow-y:auto; padding-right:4px;">
+                        
+                        <!-- Panel de Controles -->
+                        <div style="flex:1.2; display:flex; flex-direction:column; gap:16px; min-width:0;">
+                            
+                            <!-- 1. LOGO -->
+                            <div style="background:#161b22; border:1px solid #30363d; border-radius:8px; padding:16px; display:flex; flex-direction:column; gap:12px;">
+                                <h4 style="margin:0 0 4px 0; color:#fff; display:flex; align-items:center; gap:8px;">🏷️ Personalizar Logotipo</h4>
+                                <div style="display:flex; gap:10px;">
+                                    <div style="flex:1;">
+                                        <label style="font-size:11px; color:#8b949e; display:block; margin-bottom:4px;">Tipo de Logotipo</label>
+                                        <select id="cfg-custom-logo-type" onchange="window.triggerCustomizationLiveUpdate()" style="width:100%; box-sizing:border-box; background:#0d1117; border:1px solid #30363d; border-radius:4px; color:#fff; padding:6px 10px; font-size:12px; outline:none; cursor:pointer;">
+                                            <option value="default" ${logoType === 'default' ? 'selected' : ''}>Predeterminado (SVG)</option>
+                                            <option value="text" ${logoType === 'text' ? 'selected' : ''}>Texto Personalizado</option>
+                                            <option value="image" ${logoType === 'image' ? 'selected' : ''}>Imagen (Archivo / URL)</option>
+                                        </select>
+                                    </div>
+                                    <div id="cfg-custom-logo-color-wrapper" style="width:70px; display:${logoType === 'default' ? 'block' : 'none'};">
+                                        <label style="font-size:11px; color:#8b949e; display:block; margin-bottom:4px;">Color SVG</label>
+                                        <input type="color" id="cfg-custom-logo-color" value="${logoColor}" oninput="window.triggerCustomizationLiveUpdate()" style="width:100%; height:28px; border:1px solid #30363d; border-radius:4px; cursor:pointer; background:transparent; padding:0;">
+                                    </div>
+                                </div>
+                                
+                                <div id="cfg-custom-logo-text-wrapper" style="display:${logoType === 'text' ? 'block' : 'none'};">
+                                    <label style="font-size:11px; color:#8b949e; display:block; margin-bottom:4px;">Texto a Mostrar</label>
+                                    <input type="text" id="cfg-custom-logo-text" value="${logoText}" oninput="window.triggerCustomizationLiveUpdate()" style="width:100%; box-sizing:border-box; background:#0d1117; border:1px solid #30363d; border-radius:4px; color:#fff; padding:6px 10px; font-size:12px; outline:none;">
+                                </div>
+                                
+                                <div id="cfg-custom-logo-image-wrapper" style="display:${logoType === 'image' ? 'block' : 'none'}; display:flex; flex-direction:column; gap:6px;">
+                                    <label style="font-size:11px; color:#8b949e; display:block; margin-bottom:2px;">Ruta / URL de la Imagen</label>
+                                    <div style="display:flex; gap:8px;">
+                                        <input type="text" id="cfg-custom-logo-img" value="${logoImg}" oninput="window.triggerCustomizationLiveUpdate()" placeholder="Ej: file:///C:/path/logo.png" style="flex:1; background:#0d1117; border:1px solid #30363d; border-radius:4px; color:#fff; padding:6px 10px; font-size:12px; outline:none;">
+                                        <button onclick="document.getElementById('cfg-custom-logo-file').click()" class="dash-btn" style="padding:0 12px; font-size:11px; white-space:nowrap; background:#21262d; border:1px solid #30363d; color:#c9d1d9; border-radius:4px; cursor:pointer;">Examinar</button>
+                                        <input type="file" id="cfg-custom-logo-file" accept="image/*" style="display:none;" onchange="window.handleCustomLogoFileSelect(this)">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 2. BACKGROUND -->
+                            <div style="background:#161b22; border:1px solid #30363d; border-radius:8px; padding:16px; display:flex; flex-direction:column; gap:12px;">
+                                <h4 style="margin:0 0 4px 0; color:#fff; display:flex; align-items:center; gap:8px;">🖼️ Fondo de la Aplicación</h4>
+                                <div>
+                                    <label style="font-size:11px; color:#8b949e; display:block; margin-bottom:4px;">Tipo de Fondo</label>
+                                    <select id="cfg-custom-bg-type" onchange="window.triggerCustomizationLiveUpdate()" style="width:100%; box-sizing:border-box; background:#0d1117; border:1px solid #30363d; border-radius:4px; color:#fff; padding:6px 10px; font-size:12px; outline:none; cursor:pointer;">
+                                        <option value="none" ${bgType === 'none' ? 'selected' : ''}>Ninguno (Por defecto del tema)</option>
+                                        <option value="image" ${bgType === 'image' ? 'selected' : ''}>Imagen de Fondo</option>
+                                        <option value="grad_wave" ${bgType === 'grad_wave' ? 'selected' : ''}>Gradiente Animado (Auroras)</option>
+                                        <option value="stars" ${bgType === 'stars' ? 'selected' : ''}>Lluvia de Estrellas (Starfield Canvas)</option>
+                                        <option value="matrix" ${bgType === 'matrix' ? 'selected' : ''}>Lluvia Digital (Matrix Canvas)</option>
+                                        <option value="particles" ${bgType === 'particles' ? 'selected' : ''}>Ondas de Partículas (Constelación Canvas)</option>
+                                    </select>
+                                </div>
+                                
+                                <div id="cfg-custom-bg-image-wrapper" style="display:${bgType === 'image' ? 'block' : 'none'}; display:flex; flex-direction:column; gap:6px;">
+                                    <label style="font-size:11px; color:#8b949e; display:block; margin-bottom:2px;">Ruta / URL de la Imagen de Fondo</label>
+                                    <div style="display:flex; gap:8px;">
+                                        <input type="text" id="cfg-custom-bg-image" value="${bgImage}" oninput="window.triggerCustomizationLiveUpdate()" placeholder="Ej: file:///C:/path/wallpaper.jpg" style="flex:1; background:#0d1117; border:1px solid #30363d; border-radius:4px; color:#fff; padding:6px 10px; font-size:12px; outline:none;">
+                                        <button onclick="document.getElementById('cfg-custom-bg-file').click()" class="dash-btn" style="padding:0 12px; font-size:11px; white-space:nowrap; background:#21262d; border:1px solid #30363d; color:#c9d1d9; border-radius:4px; cursor:pointer;">Examinar</button>
+                                        <input type="file" id="cfg-custom-bg-file" accept="image/*" style="display:none;" onchange="window.handleCustomBgFileSelect(this)">
+                                    </div>
+                                </div>
+                                
+                                <div id="cfg-custom-bg-effects" style="display:${bgType !== 'none' ? 'block' : 'none'}; display:flex; flex-direction:column; gap:8px;">
+                                    <div style="display:flex; align-items:center; justify-content:space-between;">
+                                        <label style="font-size:11px; color:#8b949e;">Opacidad del Fondo: <b id="cfg-lbl-opacity">${Math.round(bgOpacity*100)}%</b></label>
+                                        <input type="range" id="cfg-custom-bg-opacity" min="0.05" max="0.95" step="0.05" value="${bgOpacity}" oninput="document.getElementById('cfg-lbl-opacity').textContent=Math.round(this.value*100)+'%'; window.triggerCustomizationLiveUpdate()" style="width:120px; cursor:pointer; accent-color:#7c3aed;">
+                                    </div>
+                                    <div style="display:flex; align-items:center; justify-content:space-between; margin-top:4px;">
+                                        <label style="font-size:11px; color:#8b949e;">Difuminado (Blur): <b id="cfg-lbl-blur">${bgBlur}px</b></label>
+                                        <input type="range" id="cfg-custom-bg-blur" min="0" max="30" step="1" value="${bgBlur}" oninput="document.getElementById('cfg-lbl-blur').textContent=this.value+'px'; window.triggerCustomizationLiveUpdate()" style="width:120px; cursor:pointer; accent-color:#7c3aed;">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 3. COLORS -->
+                            <div style="background:#161b22; border:1px solid #30363d; border-radius:8px; padding:16px; display:flex; flex-direction:column; gap:12px;">
+                                <h4 style="margin:0 0 4px 0; color:#fff; display:flex; align-items:center; gap:8px;">🎨 Colores de la Aplicación</h4>
+                                <div style="display:flex; gap:10px;">
+                                    <div style="flex:1;">
+                                        <label style="font-size:11px; color:#8b949e; display:block; margin-bottom:4px;">Modo de Color</label>
+                                        <select id="cfg-custom-color-mode" onchange="window.triggerCustomizationLiveUpdate()" style="width:100%; box-sizing:border-box; background:#0d1117; border:1px solid #30363d; border-radius:4px; color:#fff; padding:6px 10px; font-size:12px; outline:none; cursor:pointer;">
+                                            <option value="preset" ${colorMode === 'preset' ? 'selected' : ''}>Predefinido (Usa el tema seleccionado)</option>
+                                            <option value="custom" ${colorMode === 'custom' ? 'selected' : ''}>Color Personalizado</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <div id="cfg-custom-colors-wrapper" style="display:${colorMode === 'custom' ? 'block' : 'none'};">
+                                    <div style="font-size:10px; color:#8b949e; text-transform:uppercase; margin-bottom:8px; font-weight:bold;">Ajustar Paleta</div>
+                                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                                        <div style="display:flex; align-items:center; gap:6px;">
+                                            <input type="color" id="cfg-color-accent" value="${accent}" oninput="window.triggerCustomizationLiveUpdate()" style="width:28px; height:24px; border:1px solid #30363d; border-radius:4px; cursor:pointer; background:transparent; padding:0;">
+                                            <label style="font-size:11px; color:#c9d1d9;">Color Acento</label>
+                                        </div>
+                                        <div style="display:flex; align-items:center; gap:6px;">
+                                            <input type="color" id="cfg-color-accent-hover" value="${accentHover}" oninput="window.triggerCustomizationLiveUpdate()" style="width:28px; height:24px; border:1px solid #30363d; border-radius:4px; cursor:pointer; background:transparent; padding:0;">
+                                            <label style="font-size:11px; color:#c9d1d9;">Acento Hover</label>
+                                        </div>
+                                        <div style="display:flex; align-items:center; gap:6px;">
+                                            <input type="color" id="cfg-color-bg-main" value="${bgMain}" oninput="window.triggerCustomizationLiveUpdate()" style="width:28px; height:24px; border:1px solid #30363d; border-radius:4px; cursor:pointer; background:transparent; padding:0;">
+                                            <label style="font-size:11px; color:#c9d1d9;">Fondo Editor</label>
+                                        </div>
+                                        <div style="display:flex; align-items:center; gap:6px;">
+                                            <input type="color" id="cfg-color-bg-sidebar" value="${bgSidebar}" oninput="window.triggerCustomizationLiveUpdate()" style="width:28px; height:24px; border:1px solid #30363d; border-radius:4px; cursor:pointer; background:transparent; padding:0;">
+                                            <label style="font-size:11px; color:#c9d1d9;">Fondo Barra Lat.</label>
+                                        </div>
+                                        <div style="display:flex; align-items:center; gap:6px;">
+                                            <input type="color" id="cfg-color-bg-panel" value="${bgPanel}" oninput="window.triggerCustomizationLiveUpdate()" style="width:28px; height:24px; border:1px solid #30363d; border-radius:4px; cursor:pointer; background:transparent; padding:0;">
+                                            <label style="font-size:11px; color:#c9d1d9;">Fondo Paneles</label>
+                                        </div>
+                                        <div style="display:flex; align-items:center; gap:6px;">
+                                            <input type="color" id="cfg-color-bg-tabs" value="${bgTabs}" oninput="window.triggerCustomizationLiveUpdate()" style="width:28px; height:24px; border:1px solid #30363d; border-radius:4px; cursor:pointer; background:transparent; padding:0;">
+                                            <label style="font-size:11px; color:#c9d1d9;">Fondo Pestañas</label>
+                                        </div>
+                                        <div style="display:flex; align-items:center; gap:6px;">
+                                            <input type="color" id="cfg-color-text" value="${text}" oninput="window.triggerCustomizationLiveUpdate()" style="width:28px; height:24px; border:1px solid #30363d; border-radius:4px; cursor:pointer; background:transparent; padding:0;">
+                                            <label style="font-size:11px; color:#c9d1d9;">Color Texto</label>
+                                        </div>
+                                        <div style="display:flex; align-items:center; gap:6px;">
+                                            <input type="color" id="cfg-color-border" value="${border}" oninput="window.triggerCustomizationLiveUpdate()" style="width:28px; height:24px; border:1px solid #30363d; border-radius:4px; cursor:pointer; background:transparent; padding:0;">
+                                            <label style="font-size:11px; color:#c9d1d9;">Color Bordes</label>
+                                        </div>
+                                    </div>
+                                    
+                                    <div style="margin-top:12px; border-top:1px solid #30363d; padding-top:10px; display:flex; flex-direction:column; gap:6px;">
+                                        <label style="font-size:11px; color:#8b949e;">Cargar Paletas Rápidas</label>
+                                        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                                            <button onclick="window.loadCustomPalettePreset('cyberpunk')" class="dash-btn" style="padding:4px 8px; font-size:10px; background:#fcee0a; color:#000; border:none; font-weight:bold; cursor:pointer;">Cyberpunk</button>
+                                            <button onclick="window.loadCustomPalettePreset('matrix')" class="dash-btn" style="padding:4px 8px; font-size:10px; background:#00ff41; color:#000; border:none; font-weight:bold; cursor:pointer;">Matrix</button>
+                                            <button onclick="window.loadCustomPalettePreset('vaporwave')" class="dash-btn" style="padding:4px 8px; font-size:10px; background:#ff71ce; color:#fff; border:none; font-weight:bold; cursor:pointer;">Vaporwave</button>
+                                            <button onclick="window.loadCustomPalettePreset('reset')" class="dash-btn" style="padding:4px 8px; font-size:10px; background:#21262d; border:1px solid #30363d; color:#fff; cursor:pointer;">Por Defecto</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Botón Guardar -->
+                            <div style="display:flex; gap:10px; margin-top:4px; margin-bottom:12px;">
+                                <button onclick="window.saveAppCustomization()" style="background:#7c3aed; border:none; border-radius:4px; color:#fff; padding:10px 20px; cursor:pointer; font-size:13px; font-weight:bold; font-family:inherit; flex:1;">Guardar Personalización</button>
+                                <button onclick="window.resetAppCustomization()" style="background:transparent; border:1px solid #30363d; border-radius:4px; color:#c9d1d9; padding:10px 20px; cursor:pointer; font-size:13px; font-family:inherit;">Restablecer Todo</button>
+                            </div>
+                        </div>
+                        
+                        <!-- 4. VISTA PREVIA (LADO DERECHO) -->
+                        <div style="flex:0.8; display:flex; flex-direction:column; gap:12px; background:#161b22; border:1px solid #30363d; border-radius:8px; padding:16px; height:fit-content; position:sticky; top:0;">
+                            <h4 style="margin:0; color:#fff; display:flex; align-items:center; gap:8px;">👀 Vista Previa en Miniatura</h4>
+                            <p style="margin:0; font-size:11px; color:#8b949e; line-height:1.4;">Los cambios se aplican en tiempo real en toda la aplicación para una previsualización interactiva completa.</p>
+                            
+                            <!-- Maqueta de la IDE -->
+                            <div id="nexus-preview-mockup" style="width:100%; height:160px; border-radius:6px; border:1px solid var(--border-color); display:flex; flex-direction:column; overflow:hidden; position:relative; transition: all 0.3s;">
+                                
+                                <!-- Topbar de la maqueta -->
+                                <div style="height:20px; background:var(--bg-panel); border-bottom:1px solid var(--border-color); display:flex; align-items:center; padding:0 8px; font-size:8px; gap:8px; color:var(--text-color);">
+                                    <span style="font-weight:bold; color:var(--accent-color); display:flex; align-items:center; gap:3px;">
+                                        <span id="mock-logo-indicator">⭐</span> <span id="mock-logo-text-indicator">Nexus</span>
+                                    </span>
+                                    <span style="opacity:0.6;">Archivo</span>
+                                    <span style="opacity:0.6;">Ver</span>
+                                </div>
+                                
+                                <!-- Body de la maqueta -->
+                                <div style="flex:1; display:flex; overflow:hidden;">
+                                    <!-- Sidebar maqueta -->
+                                    <div style="width:18px; background:var(--bg-sidebar); border-right:1px solid var(--border-color); display:flex; flex-direction:column; align-items:center; padding-top:4px; gap:6px; font-size:8px; color:var(--text-color);">
+                                        <span style="color:var(--accent-color);">📁</span>
+                                        <span>🔍</span>
+                                        <span>🌳</span>
+                                    </div>
+                                    <!-- Panel maqueta -->
+                                    <div style="width:45px; background:var(--bg-panel); border-right:1px solid var(--border-color); display:flex; flex-direction:column; padding:4px; gap:4px; font-size:6px; color:#8b949e;">
+                                        <b style="color:var(--text-color);">Explorador</b>
+                                        <span>index.html</span>
+                                        <span>style.css</span>
+                                    </div>
+                                    <!-- Editor maqueta -->
+                                    <div style="flex:1; background:var(--bg-main); padding:6px; display:flex; flex-direction:column; gap:4px; font-size:6px; font-family:monospace; color:#8b949e;">
+                                        <span style="color:var(--accent-color);">&lt;!DOCTYPE html&gt;</span>
+                                        <span>&lt;<span style="color:#ff7b72;">html</span> lang="es"&gt;</span>
+                                        <span style="padding-left:6px;">&lt;<span style="color:#ff7b72;">body</span>&gt;</span>
+                                        <span style="padding-left:12px; color:var(--text-color); font-weight:bold;">// ¡Hola Mundo!</span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Bottom panel maqueta -->
+                                <div style="height:24px; background:var(--bg-panel); border-top:1px solid var(--border-color); padding:4px; font-size:6px; color:var(--text-color); font-family:monospace; display:flex; flex-direction:column; gap:2px;">
+                                    <div style="display:flex; gap:6px; border-bottom:1px solid var(--border-color); padding-bottom:1px;">
+                                        <span style="color:var(--accent-color); font-weight:bold;">Terminal</span>
+                                    </div>
+                                    <span style="color:#8fbcbb;">$ npm run dev</span>
+                                </div>
+                            </div>
+                            
+                            <div style="font-size:10px; color:#8b949e; text-align:center; margin-top:4px;">
+                                Maqueta interactiva auto-sincronizada
+                            </div>
+                        </div>
+                    </div>
+                  `;
+
+                  window.triggerCustomizationLiveUpdate = () => {
+                      const lType = document.getElementById('cfg-custom-logo-type').value;
+                      const lColor = document.getElementById('cfg-custom-logo-color').value;
+                      const lText = document.getElementById('cfg-custom-logo-text').value;
+                      const lImg = document.getElementById('cfg-custom-logo-img').value;
+
+                      const bType = document.getElementById('cfg-custom-bg-type').value;
+                      const bImage = document.getElementById('cfg-custom-bg-image').value;
+                      const bOpacity = parseFloat(document.getElementById('cfg-custom-bg-opacity').value);
+                      const bBlur = parseInt(document.getElementById('cfg-custom-bg-blur').value, 10);
+
+                      const cMode = document.getElementById('cfg-custom-color-mode').value;
+                      const acc = document.getElementById('cfg-color-accent').value;
+                      const accH = document.getElementById('cfg-color-accent-hover').value;
+                      const bgM = document.getElementById('cfg-color-bg-main').value;
+                      const bgS = document.getElementById('cfg-color-bg-sidebar').value;
+                      const bgP = document.getElementById('cfg-color-bg-panel').value;
+                      const bgT = document.getElementById('cfg-color-bg-tabs').value;
+                      const tx = document.getElementById('cfg-color-text').value;
+                      const bd = document.getElementById('cfg-color-border').value;
+
+                      document.getElementById('cfg-custom-logo-color-wrapper').style.display = (lType === 'default') ? 'block' : 'none';
+                      document.getElementById('cfg-custom-logo-text-wrapper').style.display = (lType === 'text') ? 'block' : 'none';
+                      document.getElementById('cfg-custom-logo-image-wrapper').style.display = (lType === 'image') ? 'block' : 'none';
+
+                      document.getElementById('cfg-custom-bg-image-wrapper').style.display = (bType === 'image') ? 'block' : 'none';
+                      document.getElementById('cfg-custom-bg-effects').style.display = (bType !== 'none') ? 'block' : 'none';
+
+                      document.getElementById('cfg-custom-colors-wrapper').style.display = (cMode === 'custom') ? 'block' : 'none';
+
+                      const mockLogo = document.getElementById('mock-logo-indicator');
+                      const mockLogoText = document.getElementById('mock-logo-text-indicator');
+                      if (mockLogo && mockLogoText) {
+                          if (lType === 'default') {
+                              mockLogo.style.display = 'inline';
+                              mockLogo.innerHTML = `<span style="color:${lColor}">⭐</span>`;
+                              mockLogoText.textContent = 'Nexus';
+                          } else if (lType === 'text') {
+                              mockLogo.style.display = 'none';
+                              mockLogoText.textContent = lText;
+                          } else if (lType === 'image') {
+                              mockLogo.style.display = 'inline';
+                              mockLogo.innerHTML = `<span style="font-size:9px;">🖼️</span>`;
+                              mockLogoText.textContent = 'Nexus';
+                          }
+                      }
+
+                      window.updateAppCustomizationLive({
+                          logoType: lType, logoText: lText, logoImg: lImg, logoColor: lColor,
+                          bgType: bType, bgImage: bImage, bgOpacity: bOpacity, bgBlur: bBlur,
+                          colorMode: cMode, accent: acc, accentHover: accH, bgMain: bgM, bgSidebar: bgS, bgPanel: bgP, bgTabs: bgT, text: tx, border: bd
+                      });
+                  };
+
+                  window.handleCustomLogoFileSelect = (input) => {
+                      const file = input.files[0];
+                      if (file && file.path) {
+                          const pathVal = 'file:///' + file.path.replace(/\\/g, '/');
+                          document.getElementById('cfg-custom-logo-img').value = pathVal;
+                          window.triggerCustomizationLiveUpdate();
+                      }
+                  };
+
+                  window.handleCustomBgFileSelect = (input) => {
+                      const file = input.files[0];
+                      if (file && file.path) {
+                          const pathVal = 'file:///' + file.path.replace(/\\/g, '/');
+                          document.getElementById('cfg-custom-bg-image').value = pathVal;
+                          window.triggerCustomizationLiveUpdate();
+                      }
+                  };
+
+                  window.loadCustomPalettePreset = (preset) => {
+                      if (preset === 'cyberpunk') {
+                          document.getElementById('cfg-color-accent').value = '#fcee0a';
+                          document.getElementById('cfg-color-accent-hover').value = '#00f0ff';
+                          document.getElementById('cfg-color-bg-main').value = '#1a1a1d';
+                          document.getElementById('cfg-color-bg-sidebar').value = '#0d0d0f';
+                          document.getElementById('cfg-color-bg-panel').value = '#111115';
+                          document.getElementById('cfg-color-bg-tabs').value = '#0d0d0f';
+                          document.getElementById('cfg-color-text').value = '#fcee0a';
+                          document.getElementById('cfg-color-border').value = '#333339';
+                      } else if (preset === 'matrix') {
+                          document.getElementById('cfg-color-accent').value = '#00ff41';
+                          document.getElementById('cfg-color-accent-hover').value = '#008f11';
+                          document.getElementById('cfg-color-bg-main').value = '#0d0d0d';
+                          document.getElementById('cfg-color-bg-sidebar').value = '#050505';
+                          document.getElementById('cfg-color-bg-panel').value = '#0a0a0a';
+                          document.getElementById('cfg-color-bg-tabs').value = '#050505';
+                          document.getElementById('cfg-color-text').value = '#00ff41';
+                          document.getElementById('cfg-color-border').value = '#151515';
+                      } else if (preset === 'vaporwave') {
+                          document.getElementById('cfg-color-accent').value = '#ff71ce';
+                          document.getElementById('cfg-color-accent-hover').value = '#01cdfe';
+                          document.getElementById('cfg-color-bg-main').value = '#1b0e22';
+                          document.getElementById('cfg-color-bg-sidebar').value = '#100516';
+                          document.getElementById('cfg-color-bg-panel').value = '#150a1e';
+                          document.getElementById('cfg-color-bg-tabs').value = '#100516';
+                          document.getElementById('cfg-color-text').value = '#b967ff';
+                          document.getElementById('cfg-color-border').value = '#ff71ce';
+                      } else if (preset === 'reset') {
+                          document.getElementById('cfg-color-accent').value = '#7c3aed';
+                          document.getElementById('cfg-color-accent-hover').value = '#9061f3';
+                          document.getElementById('cfg-color-bg-main').value = '#1e1e1e';
+                          document.getElementById('cfg-color-bg-sidebar').value = '#333333';
+                          document.getElementById('cfg-color-bg-panel').value = '#252526';
+                          document.getElementById('cfg-color-bg-tabs').value = '#2d2d2d';
+                          document.getElementById('cfg-color-text').value = '#cccccc';
+                          document.getElementById('cfg-color-border').value = '#252526';
+                      }
+                      window.triggerCustomizationLiveUpdate();
+                  };
+
+                  window.saveAppCustomization = () => {
+                      const lType = document.getElementById('cfg-custom-logo-type').value;
+                      const lColor = document.getElementById('cfg-custom-logo-color').value;
+                      const lText = document.getElementById('cfg-custom-logo-text').value;
+                      const lImg = document.getElementById('cfg-custom-logo-img').value;
+
+                      const bType = document.getElementById('cfg-custom-bg-type').value;
+                      const bImage = document.getElementById('cfg-custom-bg-image').value;
+                      const bOpacity = document.getElementById('cfg-custom-bg-opacity').value;
+                      const bBlur = document.getElementById('cfg-custom-bg-blur').value;
+
+                      const cMode = document.getElementById('cfg-custom-color-mode').value;
+                      const acc = document.getElementById('cfg-color-accent').value;
+                      const accH = document.getElementById('cfg-color-accent-hover').value;
+                      const bgM = document.getElementById('cfg-color-bg-main').value;
+                      const bgS = document.getElementById('cfg-color-bg-sidebar').value;
+                      const bgP = document.getElementById('cfg-color-bg-panel').value;
+                      const bgT = document.getElementById('cfg-color-bg-tabs').value;
+                      const tx = document.getElementById('cfg-color-text').value;
+                      const bd = document.getElementById('cfg-color-border').value;
+
+                      localStorage.setItem('nexus_custom_logo_type', lType);
+                      localStorage.setItem('nexus_custom_logo_color', lColor);
+                      localStorage.setItem('nexus_custom_logo_text', lText);
+                      localStorage.setItem('nexus_custom_logo_image', lImg);
+
+                      localStorage.setItem('nexus_custom_bg_type', bType);
+                      localStorage.setItem('nexus_custom_bg_image', bImage);
+                      localStorage.setItem('nexus_custom_bg_opacity', bOpacity);
+                      localStorage.setItem('nexus_custom_bg_blur', bBlur);
+
+                      localStorage.setItem('nexus_custom_color_mode', cMode);
+                      localStorage.setItem('nexus_custom_accent', acc);
+                      localStorage.setItem('nexus_custom_accent_hover', accH);
+                      localStorage.setItem('nexus_custom_bg_main', bgM);
+                      localStorage.setItem('nexus_custom_bg_sidebar', bgS);
+                      localStorage.setItem('nexus_custom_bg_panel', bgP);
+                      localStorage.setItem('nexus_custom_bg_tabs', bgT);
+                      localStorage.setItem('nexus_custom_text', tx);
+                      localStorage.setItem('nexus_custom_border', bd);
+
+                      showToast("Personalización guardada correctamente", "success");
+                  };
+
+                  window.resetAppCustomization = () => {
+                      localStorage.removeItem('nexus_custom_logo_type');
+                      localStorage.removeItem('nexus_custom_logo_color');
+                      localStorage.removeItem('nexus_custom_logo_text');
+                      localStorage.removeItem('nexus_custom_logo_image');
+
+                      localStorage.removeItem('nexus_custom_bg_type');
+                      localStorage.removeItem('nexus_custom_bg_image');
+                      localStorage.removeItem('nexus_custom_bg_opacity');
+                      localStorage.removeItem('nexus_custom_bg_blur');
+
+                      localStorage.removeItem('nexus_custom_color_mode');
+                      localStorage.removeItem('nexus_custom_accent');
+                      localStorage.removeItem('nexus_custom_accent_hover');
+                      localStorage.removeItem('nexus_custom_bg_main');
+                      localStorage.removeItem('nexus_custom_bg_sidebar');
+                      localStorage.removeItem('nexus_custom_bg_panel');
+                      localStorage.removeItem('nexus_custom_bg_tabs');
+                      localStorage.removeItem('nexus_custom_text');
+                      localStorage.removeItem('nexus_custom_border');
+
+                      window.applyAppCustomization();
+                      showToast("Restablecido a valores predeterminados", "info");
+
+                      selectConfigTab('customization');
+                  };
               } else if (tabId === 'remote') {
                   const botEnabled = localStorage.getItem('nexus_remote_enabled') === 'true';
                   const botToken = localStorage.getItem('nexus_remote_token') || '';
