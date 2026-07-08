@@ -743,8 +743,9 @@
 </head>
 <body>
     <!-- BACKGROUND PERSONALIZADO -->
-    <div id="nexus-app-custom-background" style="position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:-1; pointer-events:none; background-size:cover; background-position:center; transition: opacity 0.5s ease, filter 0.5s ease; opacity:0;"></div>
-    <canvas id="nexus-app-custom-background-canvas" style="position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:-2; pointer-events:none; display:none; opacity:0; transition: opacity 0.5s ease;"></canvas>
+    <div id="nexus-app-custom-background" style="position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:0; pointer-events:none; background-size:cover; background-position:center; transition: opacity 0.5s ease, filter 0.5s ease; opacity:0;"></div>
+    <canvas id="nexus-app-custom-background-canvas" style="position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:0; pointer-events:none; display:none; opacity:0; transition: opacity 0.5s ease;"></canvas>
+    <video id="nexus-app-custom-background-video" style="position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:0; object-fit:cover; pointer-events:none; display:none; opacity:0; transition: opacity 0.5s ease;" autoplay loop muted playsinline></video>
 
     <!-- MODAL: ASISTENTE IA & CONEXIÓN REMOTA (STEAM LINK) -->
     <div id="nexus-ai-assistant-screen" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(7, 9, 14, 0.7); z-index:7600; display:none; flex-direction:column; justify-content:center; align-items:center; color:#fff; font-family:'Outfit', 'Inter', sans-serif; transition:opacity .3s ease; padding: 25px; box-sizing: border-box; backdrop-filter: blur(15px); opacity: 0;">
@@ -1044,7 +1045,7 @@
     <!-- FIN: SPLASH SCREEN -->
 
     <!-- El IDE principal, inicialmente oculto -->
-    <div id="ide-container" class="hidden" style="display:none; flex-direction:column; height:100vh; opacity:0; transition: opacity .3s ease;">
+    <div id="ide-container" class="hidden" style="display:none; flex-direction:column; height:100vh; opacity:0; transition: opacity .3s ease; position:relative; z-index:1;">
         
         <!-- TOPBAR -->
         <div class="topbar">
@@ -1946,6 +1947,7 @@
                         <div style="display: flex; flex: 1;">
                             <button class="chat-mode-btn active" data-tab="chat">Chat</button>
                             <button class="chat-mode-btn" data-tab="agent">Agente ←</button>
+                            <button class="chat-mode-btn" data-tab="codex">Codex 💡</button>
                         </div>
                     </div>
                     
@@ -2021,6 +2023,25 @@
                     </div>
                 </div>
                 
+                <!-- PANEL: CODEX SUGGESTIONS -->
+                <div id="codex-recommendation-container" style="display: none; flex-direction: column; gap: 10px; padding: 16px; flex: 1; box-sizing: border-box; overflow-y: auto;">
+                    <div style="font-size: 11px; color: #8b949e; line-height: 1.4; display: flex; align-items: center; gap: 6px; background: rgba(124, 58, 237, 0.05); padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(124, 58, 237, 0.15);">
+                        <span>💡</span>
+                        <span>Autocompletado en tiempo real. Escribe en el editor de código y la IA te sugerirá mejoras en esta sección.</span>
+                    </div>
+                    <div style="flex: 1; display: flex; flex-direction: column; min-height: 250px; border: 1px solid var(--border-color); border-radius: 8px; background: rgba(0,0,0,0.2); overflow: hidden;">
+                        <div style="background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--border-color); padding: 8px 12px; display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-size: 10px; font-weight: bold; color: var(--accent-color); letter-spacing: 0.5px;">CÓDIGO RECOMENDADO</span>
+                            <span id="codex-status" style="font-size: 9px; color: #8b949e; font-family: monospace;">Listo</span>
+                        </div>
+                        <textarea id="codex-recommended-code" readonly style="flex: 1; width: 100%; border: none; background: transparent; color: #a78bfa; font-family: 'Consolas', 'Courier New', monospace; font-size: 12px; padding: 12px; resize: none; outline: none; box-sizing: border-box; line-height: 1.5;" placeholder="// Escribe en el editor para recibir sugerencias de autocompletado..."></textarea>
+                    </div>
+                    <div style="display: flex; gap: 8px; margin-top: 4px;">
+                        <button id="btn-codex-accept" class="dash-btn dash-primary-btn" style="flex: 1; justify-content: center; font-size: 11px; padding: 10px 14px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: all 0.2s;" onclick="window.acceptCodexSuggestion()">Aceptar e Insertar</button>
+                        <button id="btn-codex-refresh" class="dash-btn" style="justify-content: center; font-size: 11px; padding: 10px 14px; border-radius: 6px; cursor: pointer; transition: all 0.2s;" onclick="window.triggerCodexManual()" title="Generar sugerencia manualmente">🔄 Forzar</button>
+                    </div>
+                </div>
+
                 <div id="chat-messages" class="chat-messages">
                     <div style="background:#1e1e1e; border:1px solid #333; padding:12px; border-radius:8px; line-height: 1.5;">
                         <strong>Bienvenido a Nexus IDE.</strong><br><br>
@@ -4726,32 +4747,94 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
 
             if (cfg.bgType !== 'none') {
                 const alpha = Math.min(Math.max(cfg.bgOpacity, 0), 1);
+                const hexToRgba = (hex, a) => {
+                    if (!hex) return `rgba(20, 20, 25, ${a})`;
+                    hex = hex.replace('#', '');
+                    if (hex.length === 3) {
+                        hex = hex.split('').map(char => char + char).join('');
+                    }
+                    const r = parseInt(hex.substring(0, 2), 16) || 20;
+                    const g = parseInt(hex.substring(2, 4), 16) || 20;
+                    const b = parseInt(hex.substring(4, 6), 16) || 25;
+                    return `rgba(${r}, ${g}, ${b}, ${a})`;
+                };
+
+                const panelColor = hexToRgba(cfg.bgPanel || '#252526', alpha);
+                const sidebarColor = hexToRgba(cfg.bgSidebar || '#333333', alpha);
+                const tabsColor = hexToRgba(cfg.bgTabs || '#2d2d2d', alpha);
+                const mainColor = hexToRgba(cfg.bgMain || '#1e1e1e', alpha * 0.7);
+
                 css += `
-                .sidebar, .sidebar-panel, .editor-pane, .topbar, .bottom-panel, .chat-header, .chat-input-area, .breadcrumbs-container {
-                    background-color: var(--bg-panel-translucent, rgba(20, 20, 25, ${alpha})) !important;
+                .sidebar {
+                    background-color: ${sidebarColor} !important;
                     backdrop-filter: blur(${cfg.bgBlur}px) !important;
                     -webkit-backdrop-filter: blur(${cfg.bgBlur}px) !important;
+                }
+                .sidebar-panel, .right-panel, .topbar, .bottom-panel, .chat-header, .chat-input-area, .breadcrumbs-container, .project-tabs-bar {
+                    background-color: ${panelColor} !important;
+                    backdrop-filter: blur(${cfg.bgBlur}px) !important;
+                    -webkit-backdrop-filter: blur(${cfg.bgBlur}px) !important;
+                }
+                .tabs-container {
+                    background-color: ${tabsColor} !important;
+                    backdrop-filter: blur(${cfg.bgBlur}px) !important;
+                    -webkit-backdrop-filter: blur(${cfg.bgBlur}px) !important;
+                }
+                .editor-area {
+                    background-color: transparent !important;
+                }
+                .editor-pane {
+                    background-color: transparent !important;
+                }
+                .tab {
+                    background-color: transparent !important;
+                }
+                .tab.active {
+                    background-color: ${hexToRgba(cfg.bgMain || '#1e1e1e', alpha * 0.9)} !important;
                 }
                 .app-container {
                     background: transparent !important;
                 }
                 #editor-container-1, #editor-container-2, .monaco-editor, .monaco-editor .margin, .monaco-editor-background {
-                    background-color: rgba(30, 30, 30, ${alpha * 0.7}) !important;
+                    background-color: ${mainColor} !important;
+                }
+                body {
+                    background: #08080c !important;
                 }
                 `;
             }
 
-            // Custom Background images
+            // Custom Background images & videos
             const bgDiv = document.getElementById('nexus-app-custom-background');
-            if (bgDiv) {
-                if (cfg.bgType === 'image' && cfg.bgImage) {
-                    bgDiv.style.backgroundImage = `url("${cfg.bgImage}")`;
-                    bgDiv.style.opacity = '1';
+            const bgVideo = document.getElementById('nexus-app-custom-background-video');
+            if (bgDiv && bgVideo) {
+                if (cfg.bgType === 'video' && cfg.bgImage) {
+                    if (bgVideo.src !== cfg.bgImage) {
+                        bgVideo.src = cfg.bgImage;
+                        bgVideo.load();
+                        bgVideo.play().catch(e => console.log("Video autoplay failed:", e));
+                    }
+                    bgVideo.style.display = 'block';
+                    bgVideo.style.opacity = '1.0';
+                    
+                    bgDiv.style.backgroundImage = 'none';
+                    bgDiv.style.display = 'none';
+                    bgDiv.style.opacity = '0';
                     bgDiv.style.animation = 'none';
+                } else if (cfg.bgType === 'image' && cfg.bgImage) {
+                    bgDiv.style.backgroundImage = `url("${cfg.bgImage}")`;
+                    bgDiv.style.display = 'block';
+                    bgDiv.style.opacity = '1.0';
+                    bgDiv.style.animation = 'none';
+                    
+                    bgVideo.style.display = 'none';
+                    bgVideo.style.opacity = '0';
+                    bgVideo.pause();
                 } else if (cfg.bgType === 'grad_wave') {
                     bgDiv.style.backgroundImage = 'linear-gradient(45deg, #1e0e22, #0d1117, #11111b, #1b0e22)';
                     bgDiv.style.backgroundSize = '400% 400%';
-                    bgDiv.style.opacity = '1';
+                    bgDiv.style.display = 'block';
+                    bgDiv.style.opacity = '1.0';
                     bgDiv.style.animation = 'nexusGradWaveAnimation 15s ease infinite';
                     css += `
                     @keyframes nexusGradWaveAnimation {
@@ -4760,20 +4843,29 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                         100%{background-position:0% 50%}
                     }
                     `;
+                    
+                    bgVideo.style.display = 'none';
+                    bgVideo.style.opacity = '0';
+                    bgVideo.pause();
                 } else {
                     bgDiv.style.backgroundImage = 'none';
+                    bgDiv.style.display = 'none';
                     bgDiv.style.opacity = '0';
                     bgDiv.style.animation = 'none';
+                    
+                    bgVideo.style.display = 'none';
+                    bgVideo.style.opacity = '0';
+                    bgVideo.pause();
                 }
             }
 
             styleEl.textContent = css;
 
             // Start Canvas animations if needed
-            window.startBackgroundAnimation(cfg.bgType);
+            window.startBackgroundAnimation(cfg.bgType, 1.0);
         };
 
-        window.startBackgroundAnimation = (type) => {
+        window.startBackgroundAnimation = (type, opacity) => {
             const canvas = document.getElementById('nexus-app-custom-background-canvas');
             if (!canvas) return;
 
@@ -4784,7 +4876,7 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
 
             if (type === 'stars' || type === 'matrix' || type === 'particles') {
                 canvas.style.display = 'block';
-                canvas.style.opacity = '1';
+                canvas.style.opacity = opacity;
                 
                 // Ensure dimensions fit window size
                 canvas.width = window.innerWidth;
@@ -5816,6 +5908,7 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                                     <select id="cfg-custom-bg-type" onchange="window.triggerCustomizationLiveUpdate()" style="width:100%; box-sizing:border-box; background:#0d1117; border:1px solid #30363d; border-radius:4px; color:#fff; padding:6px 10px; font-size:12px; outline:none; cursor:pointer;">
                                         <option value="none" ${bgType === 'none' ? 'selected' : ''}>Ninguno (Por defecto del tema)</option>
                                         <option value="image" ${bgType === 'image' ? 'selected' : ''}>Imagen de Fondo</option>
+                                        <option value="video" ${bgType === 'video' ? 'selected' : ''}>Video Personalizado (MP4 / WebM)</option>
                                         <option value="grad_wave" ${bgType === 'grad_wave' ? 'selected' : ''}>Gradiente Animado (Auroras)</option>
                                         <option value="stars" ${bgType === 'stars' ? 'selected' : ''}>Lluvia de Estrellas (Starfield Canvas)</option>
                                         <option value="matrix" ${bgType === 'matrix' ? 'selected' : ''}>Lluvia Digital (Matrix Canvas)</option>
@@ -5823,18 +5916,18 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                                     </select>
                                 </div>
                                 
-                                <div id="cfg-custom-bg-image-wrapper" style="display:${bgType === 'image' ? 'block' : 'none'}; display:flex; flex-direction:column; gap:6px;">
-                                    <label style="font-size:11px; color:#8b949e; display:block; margin-bottom:2px;">Ruta / URL de la Imagen de Fondo</label>
+                                <div id="cfg-custom-bg-image-wrapper" style="display:${bgType === 'image' || bgType === 'video' ? 'block' : 'none'}; display:flex; flex-direction:column; gap:6px;">
+                                    <label style="font-size:11px; color:#8b949e; display:block; margin-bottom:2px;">Ruta / URL del Fondo (Imagen o Video)</label>
                                     <div style="display:flex; gap:8px;">
-                                        <input type="text" id="cfg-custom-bg-image" value="${bgImage}" oninput="window.triggerCustomizationLiveUpdate()" placeholder="Ej: file:///C:/path/wallpaper.jpg" style="flex:1; background:#0d1117; border:1px solid #30363d; border-radius:4px; color:#fff; padding:6px 10px; font-size:12px; outline:none;">
+                                        <input type="text" id="cfg-custom-bg-image" value="${bgImage}" oninput="window.triggerCustomizationLiveUpdate()" placeholder="Ej: file:///C:/path/wallpaper.mp4" style="flex:1; background:#0d1117; border:1px solid #30363d; border-radius:4px; color:#fff; padding:6px 10px; font-size:12px; outline:none;">
                                         <button onclick="document.getElementById('cfg-custom-bg-file').click()" class="dash-btn" style="padding:0 12px; font-size:11px; white-space:nowrap; background:#21262d; border:1px solid #30363d; color:#c9d1d9; border-radius:4px; cursor:pointer;">Examinar</button>
-                                        <input type="file" id="cfg-custom-bg-file" accept="image/*" style="display:none;" onchange="window.handleCustomBgFileSelect(this)">
+                                        <input type="file" id="cfg-custom-bg-file" accept="image/*,video/*" style="display:none;" onchange="window.handleCustomBgFileSelect(this)">
                                     </div>
                                 </div>
                                 
                                 <div id="cfg-custom-bg-effects" style="display:${bgType !== 'none' ? 'block' : 'none'}; display:flex; flex-direction:column; gap:8px;">
                                     <div style="display:flex; align-items:center; justify-content:space-between;">
-                                        <label style="font-size:11px; color:#8b949e;">Opacidad del Fondo: <b id="cfg-lbl-opacity">${Math.round(bgOpacity*100)}%</b></label>
+                                        <label style="font-size:11px; color:#8b949e;">Opacidad de Paneles (Velo): <b id="cfg-lbl-opacity">${Math.round(bgOpacity*100)}%</b></label>
                                         <input type="range" id="cfg-custom-bg-opacity" min="0.05" max="0.95" step="0.05" value="${bgOpacity}" oninput="document.getElementById('cfg-lbl-opacity').textContent=Math.round(this.value*100)+'%'; window.triggerCustomizationLiveUpdate()" style="width:120px; cursor:pointer; accent-color:#7c3aed;">
                                     </div>
                                     <div style="display:flex; align-items:center; justify-content:space-between; margin-top:4px;">
@@ -5994,7 +6087,7 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                       document.getElementById('cfg-custom-logo-text-wrapper').style.display = (lType === 'text') ? 'block' : 'none';
                       document.getElementById('cfg-custom-logo-image-wrapper').style.display = (lType === 'image') ? 'block' : 'none';
 
-                      document.getElementById('cfg-custom-bg-image-wrapper').style.display = (bType === 'image') ? 'block' : 'none';
+                      document.getElementById('cfg-custom-bg-image-wrapper').style.display = (bType === 'image' || bType === 'video') ? 'block' : 'none';
                       document.getElementById('cfg-custom-bg-effects').style.display = (bType !== 'none') ? 'block' : 'none';
 
                       document.getElementById('cfg-custom-colors-wrapper').style.display = (cMode === 'custom') ? 'block' : 'none';
@@ -11533,10 +11626,16 @@ if __name__ == "__main__":
                 monacoEditor.onDidFocusEditorWidget(() => { activePane = 1; });
                 monacoEditor.onDidChangeCursorPosition(e => {
                     document.getElementById('status-cursor').textContent = `Ln ${e.position.lineNumber}, Col ${e.position.column}`;
+                    if (typeof window.triggerCodexDebounced === 'function') {
+                        window.triggerCodexDebounced();
+                    }
                 });
                 monacoEditor.onDidChangeModelContent(() => {
                     if (activeFilePath && activeFilePath.endsWith('.md')) {
                         updateMarkdownPreview();
+                    }
+                    if (typeof window.triggerCodexDebounced === 'function') {
+                        window.triggerCodexDebounced();
                     }
                 });
                 
@@ -16719,6 +16818,18 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
                                 if (window.startUserTour) window.startUserTour();
                             }
                         }, 1200);
+
+                        // Auto-expand right panel and select Codex tab for verification
+                        setTimeout(() => {
+                            const rp = document.getElementById('right-panel');
+                            if (rp && rp.classList.contains('collapsed')) {
+                                rp.classList.remove('collapsed');
+                            }
+                            const codexBtn = document.querySelector('.chat-mode-btn[data-tab="codex"]');
+                            if (codexBtn) {
+                                codexBtn.click();
+                            }
+                        }, 2500);
                     }, 250);
                 }, 300);
             }
@@ -19445,9 +19556,17 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                                 tabSize: parseInt(settings.tabSize) || 4
                             });
                             monacoEditor2.onDidFocusEditorWidget(() => { activePane = 2; });
+                            monacoEditor2.onDidChangeCursorPosition(e => {
+                                if (typeof window.triggerCodexDebounced === 'function') {
+                                    window.triggerCodexDebounced();
+                                }
+                            });
                             monacoEditor2.onDidChangeModelContent(() => {
                                 if (activeFilePath && activeFilePath.endsWith('.md')) {
                                     updateMarkdownPreview();
+                                }
+                                if (typeof window.triggerCodexDebounced === 'function') {
+                                    window.triggerCodexDebounced();
                                 }
                             });
                         } else if (!isMonacoLoaded) {
@@ -19790,6 +19909,25 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                             window.saveActiveProjectContext();
                         }
                         const isAgent = chatMode === 'agent';
+                        const isCodex = chatMode === 'codex';
+                        
+                        const chatMessagesEl = document.getElementById('chat-messages');
+                        const chatInputAreaEl = document.querySelector('.chat-input-area');
+                        const codexContainerEl = document.getElementById('codex-recommendation-container');
+                        
+                        if (isCodex) {
+                            if (chatMessagesEl) chatMessagesEl.style.display = 'none';
+                            if (chatInputAreaEl) chatInputAreaEl.style.display = 'none';
+                            if (codexContainerEl) codexContainerEl.style.display = 'flex';
+                            if (typeof window.generateCodexSuggestion === 'function') {
+                                window.generateCodexSuggestion();
+                            }
+                        } else {
+                            if (chatMessagesEl) chatMessagesEl.style.display = 'block';
+                            if (chatInputAreaEl) chatInputAreaEl.style.display = 'block';
+                            if (codexContainerEl) codexContainerEl.style.display = 'none';
+                        }
+                        
                         document.getElementById('agent-badge').style.display = isAgent ? 'inline-block' : 'none';
                         document.getElementById('agent-border').style.display = isAgent ? 'block' : 'none';
                         if(isAgent) document.getElementById('agent-border').classList.add('blinking');
@@ -21190,6 +21328,154 @@ Si no hay problemas, devuelve un JSON con sugerencias vacío. No rodees tu respu
                     }
                     logCardinalIntervention(`Fallo al aplicar corrección: ${e.message}`, true);
                 }
+            };
+
+            // --- CODEX AUTOCOMPLETE FUNCTIONALITY ---
+            let codexDebounceTimeout = null;
+            let codexAbortController = null;
+
+            function getActiveEditor() {
+                if (typeof activePane !== 'undefined') {
+                    if (activePane === 2 && typeof monacoEditor2 !== 'undefined' && monacoEditor2) {
+                        return monacoEditor2;
+                    }
+                }
+                if (typeof monacoEditor !== 'undefined' && monacoEditor) {
+                    return monacoEditor;
+                }
+                return null;
+            }
+
+            window.triggerCodexManual = function() {
+                window.generateCodexSuggestion();
+            };
+
+            window.acceptCodexSuggestion = function() {
+                try {
+                    const activeEditor = getActiveEditor();
+                    if (!activeEditor) {
+                        showToast("No hay un editor activo", "error");
+                        return;
+                    }
+                    const selection = activeEditor.getSelection();
+                    const text = document.getElementById('codex-recommended-code').value;
+                    if (!text) {
+                        showToast("No hay sugerencias para insertar", "info");
+                        return;
+                    }
+                    const range = new monaco.Range(
+                        selection.startLineNumber,
+                        selection.startColumn,
+                        selection.endLineNumber,
+                        selection.endColumn
+                    );
+                    const id = { major: 1, minor: 1 };
+                    const textOp = { identifier: id, range: range, text: text, forceMoveMarkers: true };
+                    activeEditor.executeEdits("codex", [textOp]);
+                    document.getElementById('codex-recommended-code').value = '';
+                    showToast("Sugerencia insertada", "success");
+                } catch(e) {
+                    showToast("Error al insertar sugerencia: " + e.message, "error");
+                }
+            };
+
+            window.generateCodexSuggestion = async function() {
+                if (chatMode !== 'codex') return;
+
+                const statusEl = document.getElementById('codex-status');
+                const codeAreaEl = document.getElementById('codex-recommended-code');
+
+                if (codexAbortController) {
+                    codexAbortController.abort();
+                    codexAbortController = null;
+                }
+
+                try {
+                    const activeEditor = getActiveEditor();
+                    if (!activeEditor) {
+                        if (statusEl) statusEl.textContent = "Sin editor activo";
+                        return;
+                    }
+
+                    const model = activeEditor.getModel();
+                    if (!model) {
+                        if (statusEl) statusEl.textContent = "Sin modelo de archivo";
+                        return;
+                    }
+
+                    if (statusEl) statusEl.textContent = "Pensando...";
+                    
+                    const position = activeEditor.getPosition();
+                    const textBefore = model.getValueInRange({
+                        startLineNumber: Math.max(1, position.lineNumber - 50),
+                        startColumn: 1,
+                        endLineNumber: position.lineNumber,
+                        endColumn: position.column
+                    });
+                    const textAfter = model.getValueInRange({
+                        startLineNumber: position.lineNumber,
+                        startColumn: position.column,
+                        endLineNumber: Math.min(model.getLineCount(), position.lineNumber + 50),
+                        endColumn: model.getLineMaxColumn(Math.min(model.getLineCount(), position.lineNumber + 50))
+                    });
+
+                    let modelIdToUse = selectedModelId;
+                    if (!modelIdToUse && typeof AI_MODELS_FULL !== 'undefined' && AI_MODELS_FULL.length > 0) {
+                        modelIdToUse = AI_MODELS_FULL[0].id;
+                    }
+                    if (!modelIdToUse) {
+                        if (statusEl) statusEl.textContent = "Error: Configurar IA";
+                        return;
+                    }
+
+                    codexAbortController = new AbortController();
+
+                    const prompt = `Archivo: ${activeFilePath || 'untitled'}
+--- CÓDIGO ANTES DE LA POSICIÓN ACTUAL DEL CURSOR ---
+${textBefore}
+--- CÓDIGO DESPUÉS DE LA POSICIÓN ACTUAL DEL CURSOR ---
+${textAfter}`;
+
+                    const systemInstruction = `Eres un motor de autocompletado de código rápido. Tu objetivo es sugerir la continuación inmediata del código de forma natural y limpia.
+INSTRUCCIONES CRÍTICAS:
+- Devuelve EXCLUSIVAMENTE el fragmento de código que el usuario debería escribir a continuación de la posición actual del cursor.
+- NO rodees el código con bloques de markdown triple comilla (e.g. \`\`\` o \`\`\`javascript).
+- NO des explicaciones, ni introducciones, ni comentarios adicionales fuera del código.
+- Si no estás seguro o no hay suficiente contexto, devuelve una cadena vacía.`;
+
+                    const response = await sendRequestToAI(modelIdToUse, prompt, systemInstruction, [], codexAbortController.signal);
+                    
+                    let cleanCode = response || '';
+                    if (cleanCode.includes('```')) {
+                        cleanCode = cleanCode.replace(/```[a-zA-Z0-9]*\n?/g, '').replace(/```/g, '');
+                    }
+
+                    if (codeAreaEl) {
+                        codeAreaEl.value = cleanCode;
+                    }
+                    if (statusEl) statusEl.textContent = cleanCode ? "Listo" : "Sin sugerencia";
+
+                } catch(e) {
+                    if (e.name === 'AbortError') {
+                        return;
+                    }
+                    console.error("Error en Codex:", e);
+                    if (statusEl) statusEl.textContent = "Error";
+                }
+            };
+
+            window.triggerCodexDebounced = function() {
+                if (chatMode !== 'codex') return;
+                
+                const statusEl = document.getElementById('codex-status');
+                if (statusEl) statusEl.textContent = "Escribiendo...";
+
+                if (codexDebounceTimeout) {
+                    clearTimeout(codexDebounceTimeout);
+                }
+                codexDebounceTimeout = setTimeout(() => {
+                    window.generateCodexSuggestion();
+                }, 1500);
             };
 
             window.triggerCardinalIntervention = async function(filePath, lineNum, errorDetails, errorType) {

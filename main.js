@@ -54,6 +54,19 @@ function createWindow () {
   mainWindow.show();
   mainWindow.focus();
   startHardwareTelemetry();
+
+  // Auto-screenshot for debugging layout transparency
+  setInterval(async () => {
+    try {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        const img = await mainWindow.webContents.capturePage();
+        const buffer = img.toPNG();
+        const fs = require('fs');
+        const path = require('path');
+        fs.writeFileSync(path.join(__dirname, 'app_screenshot.png'), buffer);
+      }
+    } catch (e) {}
+  }, 2000);
   // mainWindow.webContents.openDevTools(); // Descomentar para ver la consola de errores
 
   // Configurar Menú de Aplicación con soporte nativo de Zoom y atajos
