@@ -20,21 +20,60 @@
             --bg-panel-translucent: rgba(37, 37, 38, 0.65);
         }
 
+        /* COMPANION MODE STYLES */
+        body.companion-mode {
+            background: transparent !important;
+            overflow: hidden !important;
+            -webkit-app-region: drag;
+        }
+        body.companion-mode #app-layout,
+        body.companion-mode #app-container,
+        body.companion-mode .topbar,
+        body.companion-mode .sidebar,
+        body.companion-mode .bottom-panel,
+        body.companion-mode .right-panel,
+        body.companion-mode .statusbar,
+        body.companion-mode .nexus-win-taskbar {
+            display: none !important;
+        }
+        body.companion-mode #nexus-vtuber-companion {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            margin: 0 !important;
+            bottom: auto !important;
+            right: auto !important;
+            display: flex !important;
+        }
+
         /* CUSTOM SCROLLBARS */
         ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
+            width: 6px;
+            height: 6px;
         }
         ::-webkit-scrollbar-track {
-            background: var(--bg-tabs);
+            background: transparent;
         }
         ::-webkit-scrollbar-thumb {
-            background: var(--border-color);
-            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.12);
+            border-radius: 3px;
             transition: background 0.2s ease;
         }
         ::-webkit-scrollbar-thumb:hover {
             background: var(--accent-color);
+        }
+
+        /* Ocultar barra de desplazamiento en pestañas de archivos y proyectos */
+        .tabs-container::-webkit-scrollbar,
+        .project-tabs-list::-webkit-scrollbar {
+            display: none !important;
+        }
+        .tabs-container,
+        .project-tabs-list {
+            -ms-overflow-style: none !important;
+            scrollbar-width: none !important;
         }
 
         /* Toggle Switch */
@@ -259,11 +298,11 @@
         .chat-btn:hover { background-color: var(--accent-hover); }
         
         /* Terminal Bottom Panel */
-        .bottom-panel { height: 200px; background-color: var(--bg-panel); border-top: 1px solid var(--border-color); display: flex; flex-direction: column; flex-shrink: 0; transition: all 0.2s ease; }
-        .bottom-tabs { height: 30px; display: flex; border-bottom: 1px solid var(--border-color); background: var(--bg-sidebar); }
+        .bottom-panel { height: 200px; background-color: rgba(20, 20, 25, 0.4); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border-top: 1px solid var(--border-color); display: flex; flex-direction: column; flex-shrink: 0; transition: all 0.2s ease; }
+        .bottom-tabs { height: 30px; display: flex; border-bottom: 1px solid var(--border-color); background: transparent; }
         .bottom-tab { padding: 0 15px; display: flex; align-items: center; color: #888; cursor: pointer; font-size: 11px; text-transform: uppercase; border-top: 2px solid transparent; transition: all 0.2s ease; }
-        .bottom-tab.active { color: white; border-top: 2px solid var(--accent-color); background: var(--bg-panel); }
-        .terminal-container { flex: 1; background-color: var(--bg-panel); color: #c9d1d9; font-family: 'JetBrains Mono', 'Consolas', monospace; font-size: 13px; padding: 10px; overflow-y: auto; white-space: pre-wrap; }
+        .bottom-tab.active { color: white; border-top: 2px solid var(--accent-color); background: rgba(0, 0, 0, 0.25); }
+        .terminal-container { flex: 1; background-color: transparent; color: #c9d1d9; font-family: 'JetBrains Mono', 'Consolas', monospace; font-size: 13px; padding: 10px; overflow-y: auto; white-space: pre-wrap; }
         
         /* Utilities */
         .hidden { display: none !important; }
@@ -495,13 +534,7 @@
             flex: 1;
             height: 100%;
         }
-        .project-tabs-list::-webkit-scrollbar {
-            height: 3px;
-        }
-        .project-tabs-list::-webkit-scrollbar-thumb {
-            background: #30363d;
-            border-radius: 2px;
-        }
+
         .project-tab {
             display: flex;
             align-items: center;
@@ -1066,7 +1099,7 @@
                 <button class="perspective-btn" id="perspective-game" onclick="setPerspective('game')" style="background: none; border: none; color: #8b949e; font-size: 11px; font-weight: 500; padding: 4px 10px; cursor: pointer; border-radius: 4px; display: flex; align-items: center; gap: 6px; font-family: inherit; transition: all 0.2s;" title="Enfocado en creación de juegos 3D, Godot, Unity, Unreal">
                     🎮 Juegos
                 </button>
-                <button class="perspective-btn" id="perspective-ai" onclick="setPerspective('ai')" style="background: none; border: none; color: #8b949e; font-size: 11px; font-weight: 500; padding: 4px 10px; cursor: pointer; border-radius: 4px; display: flex; align-items: center; gap: 6px; font-family: inherit; transition: all 0.2s;" title="Enfocado en interacción con asistente de IA y avatar 3D">
+                <button class="perspective-btn" id="perspective-ai" onclick="setPerspective('ai')" style="background: none; border: none; color: #8b949e; font-size: 11px; font-weight: 500; padding: 4px 10px; cursor: pointer; border-radius: 4px; display: none; align-items: center; gap: 6px; font-family: inherit; transition: all 0.2s;" title="Enfocado en interacción con asistente de IA y avatar 3D">
                     🤖 Asistente IA
                 </button>
             </div>
@@ -1947,7 +1980,6 @@
                         <div style="display: flex; flex: 1;">
                             <button class="chat-mode-btn active" data-tab="chat">Chat</button>
                             <button class="chat-mode-btn" data-tab="agent">Agente ←</button>
-                            <button class="chat-mode-btn" data-tab="codex">Codex 💡</button>
                         </div>
                     </div>
                     
@@ -2023,24 +2055,7 @@
                     </div>
                 </div>
                 
-                <!-- PANEL: CODEX SUGGESTIONS -->
-                <div id="codex-recommendation-container" style="display: none; flex-direction: column; gap: 10px; padding: 16px; flex: 1; box-sizing: border-box; overflow-y: auto;">
-                    <div style="font-size: 11px; color: #8b949e; line-height: 1.4; display: flex; align-items: center; gap: 6px; background: rgba(124, 58, 237, 0.05); padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(124, 58, 237, 0.15);">
-                        <span>💡</span>
-                        <span>Autocompletado en tiempo real. Escribe en el editor de código y la IA te sugerirá mejoras en esta sección.</span>
-                    </div>
-                    <div style="flex: 1; display: flex; flex-direction: column; min-height: 250px; border: 1px solid var(--border-color); border-radius: 8px; background: rgba(0,0,0,0.2); overflow: hidden;">
-                        <div style="background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--border-color); padding: 8px 12px; display: flex; justify-content: space-between; align-items: center;">
-                            <span style="font-size: 10px; font-weight: bold; color: var(--accent-color); letter-spacing: 0.5px;">CÓDIGO RECOMENDADO</span>
-                            <span id="codex-status" style="font-size: 9px; color: #8b949e; font-family: monospace;">Listo</span>
-                        </div>
-                        <textarea id="codex-recommended-code" readonly style="flex: 1; width: 100%; border: none; background: transparent; color: #a78bfa; font-family: 'Consolas', 'Courier New', monospace; font-size: 12px; padding: 12px; resize: none; outline: none; box-sizing: border-box; line-height: 1.5;" placeholder="// Escribe en el editor para recibir sugerencias de autocompletado..."></textarea>
-                    </div>
-                    <div style="display: flex; gap: 8px; margin-top: 4px;">
-                        <button id="btn-codex-accept" class="dash-btn dash-primary-btn" style="flex: 1; justify-content: center; font-size: 11px; padding: 10px 14px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: all 0.2s;" onclick="window.acceptCodexSuggestion()">Aceptar e Insertar</button>
-                        <button id="btn-codex-refresh" class="dash-btn" style="justify-content: center; font-size: 11px; padding: 10px 14px; border-radius: 6px; cursor: pointer; transition: all 0.2s;" onclick="window.triggerCodexManual()" title="Generar sugerencia manualmente">🔄 Forzar</button>
-                    </div>
-                </div>
+
 
                 <div id="chat-messages" class="chat-messages">
                     <div style="background:#1e1e1e; border:1px solid #333; padding:12px; border-radius:8px; line-height: 1.5;">
@@ -2087,7 +2102,7 @@
             <div class="terminal-container" id="terminal-output">
                 <!-- Salida de PowerShell -->
             </div>
-            <div style="height: 32px; min-height: 32px; background: #0d1117; border-top: 1px solid #252526; display: flex; align-items: center; padding-inline: 10px;">
+            <div style="height: 32px; min-height: 32px; background: rgba(13, 17, 23, 0.4); border-top: 1px solid #252526; display: flex; align-items: center; padding-inline: 10px;">
                 <span style="color: #3fb950; font-family: monospace; font-size: 13px; font-weight: bold; margin-right: 8px;">PS &gt;</span>
                 <input type="text" id="terminal-input" placeholder="Escribe un comando de terminal y presiona Enter..." style="flex:1; background:transparent; border:none; outline:none; color:#c9d1d9; font-family: 'Consolas', monospace; font-size:13px;">
             </div>
@@ -2129,6 +2144,28 @@
     </div>
 
     <script>
+        // Capturar todos los errores globales y volcarlos a un archivo para diagnóstico
+        window.onerror = function(message, source, lineno, colno, error) {
+            try {
+                const fs = require('fs');
+                const path = require('path');
+                const logMsg = `[ERROR] ${new Date().toISOString()} - ${message} at ${source}:${lineno}:${colno}\nStack: ${error ? error.stack : ''}\n\n`;
+                fs.appendFileSync(path.join(process.cwd(), 'renderer_errors.log'), logMsg);
+            } catch(e) {
+                console.error("Error logging global error:", e);
+            }
+        };
+        window.onunhandledrejection = function(event) {
+            try {
+                const fs = require('fs');
+                const path = require('path');
+                const logMsg = `[UNHANDLED REJECTION] ${new Date().toISOString()} - ${event.reason}\nStack: ${event.reason ? event.reason.stack : ''}\n\n`;
+                fs.appendFileSync(path.join(process.cwd(), 'renderer_errors.log'), logMsg);
+            } catch(e) {
+                console.error("Error logging unhandled rejection:", e);
+            }
+        };
+
         // =========================================================================
         // NODE.JS INTEGRACIÓN / NAVEGADOR MULTI-ENTORNO
         // =========================================================================
@@ -2427,20 +2464,32 @@ if (mesh) {
         window.nexusInput.init();
 
         let workspaceRoot;
+        let defaultWorkspace;
+
         if (typeof process !== 'undefined' && process.cwd) {
-            let defaultWorkspace = process.cwd();
-            if (typeof require !== 'undefined' && fs && path) {
-                try {
-                    const os = require('os');
-                    defaultWorkspace = path.join(os.homedir(), 'NexusProjects');
-                    if (!fs.existsSync(defaultWorkspace)) {
-                        fs.mkdirSync(defaultWorkspace, { recursive: true });
-                    }
-                } catch (e) {
-                    console.error("Error setting default workspace:", e);
+            try {
+                const os = require('os');
+                // Definir una ruta por defecto segura en la carpeta de usuario actual
+                defaultWorkspace = path.join(os.homedir(), 'NexusProjects');
+                
+                // Crear la carpeta por defecto si no existe para asegurar el arranque
+                if (!fs.existsSync(defaultWorkspace)) {
+                    fs.mkdirSync(defaultWorkspace, { recursive: true });
                 }
+            } catch (e) { 
+                defaultWorkspace = process.cwd();
             }
-            workspaceRoot = localStorage.getItem('nexus_workspace_root') || defaultWorkspace;
+
+            const savedWorkspace = localStorage.getItem('nexus_workspace_root');
+
+            // Validar rigurosamente si la ruta de localStorage existe en este sistema
+            if (savedWorkspace && typeof require !== 'undefined' && fs && fs.existsSync(savedWorkspace)) {
+                workspaceRoot = savedWorkspace;
+            } else {
+                // Si la ruta vieja no existe, limpiamos el localStorage para evitar futuros bucles
+                localStorage.removeItem('nexus_workspace_root');
+                workspaceRoot = defaultWorkspace;
+            }
         } else {
             workspaceRoot = localStorage.getItem('nexus_workspace_root') || '/workspace';
         }
@@ -4691,11 +4740,13 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
             const bgTabs = localStorage.getItem('nexus_custom_bg_tabs') || '#2d2d2d';
             const text = localStorage.getItem('nexus_custom_text') || '#cccccc';
             const border = localStorage.getItem('nexus_custom_border') || '#252526';
+            const appFont = localStorage.getItem('nexus_custom_font_family') || '';
 
             window.updateAppCustomizationLive({
                 logoType, logoText, logoImg, logoColor,
                 bgType, bgImage, bgOpacity, bgBlur,
-                colorMode, accent, accentHover, bgMain, bgSidebar, bgPanel, bgTabs, text, border
+                colorMode, accent, accentHover, bgMain, bgSidebar, bgPanel, bgTabs, text, border,
+                appFont
             });
         };
 
@@ -4770,7 +4821,7 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                     backdrop-filter: blur(${cfg.bgBlur}px) !important;
                     -webkit-backdrop-filter: blur(${cfg.bgBlur}px) !important;
                 }
-                .sidebar-panel, .right-panel, .topbar, .bottom-panel, .chat-header, .chat-input-area, .breadcrumbs-container, .project-tabs-bar {
+                .sidebar-panel, .topbar, .bottom-panel, .breadcrumbs-container, .project-tabs-bar {
                     background-color: ${panelColor} !important;
                     backdrop-filter: blur(${cfg.bgBlur}px) !important;
                     -webkit-backdrop-filter: blur(${cfg.bgBlur}px) !important;
@@ -4857,6 +4908,34 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                     bgVideo.style.opacity = '0';
                     bgVideo.pause();
                 }
+            }
+
+            // Always make right-panel, chat-header, chat-input-area, and ai-selector-container transparent
+            css += `
+            .right-panel, .chat-header, .chat-input-area, .ai-selector-container {
+                background-color: transparent !important;
+            }
+            `;
+
+            let textRules = '';
+            if (cfg.text) {
+                textRules += `color: ${cfg.text} !important;`;
+            }
+            let fontRules = '';
+            if (cfg.appFont) {
+                fontRules += `font-family: ${cfg.appFont} !important;`;
+            }
+
+            if (textRules || fontRules) {
+                css += `
+                body, button, input, select, textarea, .topbar, .sidebar, .bottom-panel, .right-panel, .statusbar, .chat-header, .chat-input-area, .breadcrumbs-container, .project-tabs-bar, .nw-titlebar, .sidebar-panel, h1, h2, h3, h4, h5, h6, span, label, p, div:not(.codicon):not(.material-icons):not([class*="codicon"]) {
+                    ${textRules}
+                    ${fontRules}
+                }
+                .sidebar-icon {
+                    ${textRules}
+                }
+                `;
             }
 
             styleEl.textContent = css;
@@ -4997,11 +5076,35 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
 
         // Initialize customizations when DOM content is loaded
         document.addEventListener('DOMContentLoaded', () => {
+            // Check if we are running in independent companion window mode
+            if (window.location.search.includes('mode=companion')) {
+                document.body.classList.add('companion-mode');
+                setTimeout(() => {
+                    if (typeof window.toggleAssistantVTuber === 'function') {
+                        window.toggleAssistantVTuber(true);
+                    }
+                }, 100);
+            }
+
             setTimeout(() => {
                 if (typeof window.applyAppCustomization === 'function') {
                     window.applyAppCustomization();
                 }
-            }, 100);
+                
+                // Initialize Assistant VTuber companion if configured (only if not in companion window already)
+                if (!window.location.search.includes('mode=companion')) {
+                    try {
+                        const cfg = JSON.parse(localStorage.getItem('nexus_assistant_config') || '{}');
+                        if (cfg.displayMode === 'vtuber') {
+                            if (typeof window.toggleAssistantVTuber === 'function') {
+                                window.toggleAssistantVTuber(true);
+                            }
+                        }
+                    } catch(e) {
+                        console.error("Failed to load assistant companion on startup:", e);
+                    }
+                }
+            }, 200);
         });
 
         // =========================================================================
@@ -5207,7 +5310,8 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                 manualPath = path.join(__dirname, 'MANUAL.md');
             }
             if (!fs.existsSync(manualPath)) {
-                manualPath = 'c:\\Users\\gwmki\\.openclaw\\workspace\\MANUAL.md';
+                const os = require('os');
+                manualPath = path.join(os.homedir(), '.openclaw', 'workspace', 'MANUAL.md');
             }
 
             let markdownText = '';
@@ -5859,6 +5963,7 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                   const bgTabs = localStorage.getItem('nexus_custom_bg_tabs') || '#2d2d2d';
                   const text = localStorage.getItem('nexus_custom_text') || '#cccccc';
                   const border = localStorage.getItem('nexus_custom_border') || '#252526';
+                  const appFont = localStorage.getItem('nexus_custom_font_family') || '';
 
                   detail.innerHTML = `
                     <h3 style="margin-top:0;margin-bottom:16px;">Personalizar Aspecto de la App</h3>
@@ -5978,10 +6083,6 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                                             <label style="font-size:11px; color:#c9d1d9;">Fondo Pestañas</label>
                                         </div>
                                         <div style="display:flex; align-items:center; gap:6px;">
-                                            <input type="color" id="cfg-color-text" value="${text}" oninput="window.triggerCustomizationLiveUpdate()" style="width:28px; height:24px; border:1px solid #30363d; border-radius:4px; cursor:pointer; background:transparent; padding:0;">
-                                            <label style="font-size:11px; color:#c9d1d9;">Color Texto</label>
-                                        </div>
-                                        <div style="display:flex; align-items:center; gap:6px;">
                                             <input type="color" id="cfg-color-border" value="${border}" oninput="window.triggerCustomizationLiveUpdate()" style="width:28px; height:24px; border:1px solid #30363d; border-radius:4px; cursor:pointer; background:transparent; padding:0;">
                                             <label style="font-size:11px; color:#c9d1d9;">Color Bordes</label>
                                         </div>
@@ -5996,6 +6097,19 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                                             <button onclick="window.loadCustomPalettePreset('reset')" class="dash-btn" style="padding:4px 8px; font-size:10px; background:#21262d; border:1px solid #30363d; color:#fff; cursor:pointer;">Por Defecto</button>
                                         </div>
                                     </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 4. TYPOGRAPHY & TEXT COLOR -->
+                            <div style="background:#161b22; border:1px solid #30363d; border-radius:8px; padding:16px; display:flex; flex-direction:column; gap:12px;">
+                                <h4 style="margin:0 0 4px 0; color:#fff; display:flex; align-items:center; gap:8px;">✍️ Aspecto del Texto (Tipografía y Color)</h4>
+                                <div>
+                                    <label style="font-size:11px; color:#8b949e; display:block; margin-bottom:4px;">Familia de Fuentes (Font Family)</label>
+                                    <input type="text" id="cfg-custom-font-family" value="${appFont}" placeholder="Ej: 'Segoe UI', sans-serif, 'JetBrains Mono'" oninput="window.triggerCustomizationLiveUpdate()" style="width:100%; box-sizing:border-box; background:#0d1117; border:1px solid #30363d; border-radius:4px; color:#fff; padding:6px 10px; font-size:12px; outline:none; font-family:inherit;">
+                                </div>
+                                <div style="display:flex; align-items:center; gap:10px; margin-top:4px;">
+                                    <input type="color" id="cfg-color-text" value="${text}" oninput="window.triggerCustomizationLiveUpdate()" style="width:28px; height:24px; border:1px solid #30363d; border-radius:4px; cursor:pointer; background:transparent; padding:0;">
+                                    <label style="font-size:11px; color:#c9d1d9;">Color General del Texto (Letras de la App)</label>
                                 </div>
                             </div>
                             
@@ -6082,6 +6196,7 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                       const bgT = document.getElementById('cfg-color-bg-tabs').value;
                       const tx = document.getElementById('cfg-color-text').value;
                       const bd = document.getElementById('cfg-color-border').value;
+                      const appFont = document.getElementById('cfg-custom-font-family').value;
 
                       document.getElementById('cfg-custom-logo-color-wrapper').style.display = (lType === 'default') ? 'block' : 'none';
                       document.getElementById('cfg-custom-logo-text-wrapper').style.display = (lType === 'text') ? 'block' : 'none';
@@ -6112,7 +6227,8 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                       window.updateAppCustomizationLive({
                           logoType: lType, logoText: lText, logoImg: lImg, logoColor: lColor,
                           bgType: bType, bgImage: bImage, bgOpacity: bOpacity, bgBlur: bBlur,
-                          colorMode: cMode, accent: acc, accentHover: accH, bgMain: bgM, bgSidebar: bgS, bgPanel: bgP, bgTabs: bgT, text: tx, border: bd
+                          colorMode: cMode, accent: acc, accentHover: accH, bgMain: bgM, bgSidebar: bgS, bgPanel: bgP, bgTabs: bgT, text: tx, border: bd,
+                          appFont
                       });
                   };
 
@@ -6195,6 +6311,7 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                       const bgT = document.getElementById('cfg-color-bg-tabs').value;
                       const tx = document.getElementById('cfg-color-text').value;
                       const bd = document.getElementById('cfg-color-border').value;
+                      const appFont = document.getElementById('cfg-custom-font-family').value;
 
                       localStorage.setItem('nexus_custom_logo_type', lType);
                       localStorage.setItem('nexus_custom_logo_color', lColor);
@@ -6215,6 +6332,7 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                       localStorage.setItem('nexus_custom_bg_tabs', bgT);
                       localStorage.setItem('nexus_custom_text', tx);
                       localStorage.setItem('nexus_custom_border', bd);
+                      localStorage.setItem('nexus_custom_font_family', appFont);
 
                       showToast("Personalización guardada correctamente", "success");
                   };
@@ -9134,6 +9252,7 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
         const MARKETPLACE_PLUGINS = [
             { id: 'git-graph', name: '📊 Visual Git Graph', description: 'Visualiza de forma hermosa el árbol de ramas y commits del repositorio Git actual de tu espacio de trabajo.', author: 'Nexus Dev Team', version: '1.2.0', type: 'core' },
             { id: 'db-client', name: '🗄️ Database Client (SQLite)', description: 'Una interfaz gráfica premium e interactiva para explorar tablas y ejecutar queries SQL sobre bases de datos locales.', author: 'Nexus Dev Team', version: '1.0.5', type: 'core' },
+            { id: 'asistente-personal', name: '🤖 Asistente Personal', description: 'Un compañero de IA personalizable para gestionar tus notas, tareas de desarrollo y comandos rápidos.', author: 'Nexus Dev Team', version: '1.0.0', type: 'core' },
             { id: 'excalidraw-board', name: '🎨 Excalidraw Sketchpad', description: 'Dibuja esquemas de arquitectura, diagramas de flujo y bocetos interactivos directamente en el IDE.', author: 'Community Labs', version: '2.1.0', type: 'iframe' },
             { id: 'regex-tester', name: '🔍 RegEx Sandbox & Tester', description: 'Prueba, valida y depura expresiones regulares en tiempo real con resaltado visual de coincidencias.', author: 'Regex Devs', version: '1.1.0', type: 'tool' },
             { id: 'spotify-mini', name: '🎵 Spotify Controller', description: 'Controla tu música favorita y reproduce/pausa pistas directamente desde la barra inferior de la aplicación.', author: 'Audio Integration', version: '1.0.0', type: 'widget' },
@@ -9395,6 +9514,23 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                     `;
                 });
 
+                // Agregar sección de Asistente Personal Core
+                html += `
+                    <div style="margin-top: 20px; border-top: 1px solid #30363d; padding-top: 15px;">
+                        <h3 style="margin: 0 0 10px 0; font-size: 13px; color: #a78bfa; display: flex; align-items: center; gap: 8px;">🤖 Asistente Personal Core</h3>
+                        <div style="background: rgba(167, 139, 250, 0.05); border: 1px solid rgba(167, 139, 250, 0.2); border-radius: 6px; padding: 12px; display: flex; align-items: center; justify-content: space-between; gap: 15px;">
+                            <div>
+                                <h4 style="margin: 0; font-size: 13px; color: #f0f6fc;">🤖 Asistente Personal (AIRI)</h4>
+                                <p style="margin: 4px 0 0 0; font-size: 11px; color: #8b949e;">Configura y abre tu copiloto personal de IA con voz, visión y auto-aprendizaje.</p>
+                            </div>
+                            <div style="display: flex; gap: 8px; flex-shrink: 0;">
+                                <button onclick="window.runPluginFromList('asistente-personal')" class="dash-btn dash-primary-btn" style="padding: 6px 12px; font-size: 11px;">Ejecutar</button>
+                                <button onclick="window.openAssistantConfigFromList()" class="dash-btn" style="padding: 6px 12px; font-size: 11px; border: 1px solid #30363d; background: #21262d; color: #c9d1d9;">Configurar</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
                 html += `</div>`;
                 content.innerHTML = html;
             }
@@ -9404,8 +9540,8 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                 title: 'Plugins Instalados',
                 icon: '🔌',
                 width: 500,
-                height: 400,
-                content: content
+                height: 520,
+                content: content.outerHTML
             });
 
             window.runPluginFromList = (pId) => {
@@ -9420,7 +9556,7 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
 
         function runPlugin(pluginId) {
             const installed = getInstalledPlugins();
-            if (!installed.includes(pluginId) && pluginId !== 'git-graph' && pluginId !== 'db-client' && pluginId !== 'excalidraw-board' && pluginId !== 'visual-blueprints') {
+            if (!installed.includes(pluginId) && pluginId !== 'git-graph' && pluginId !== 'db-client' && pluginId !== 'excalidraw-board' && pluginId !== 'visual-blueprints' && pluginId !== 'asistente-personal') {
                 showToast("Este plugin no está instalado.", "error");
                 return;
             }
@@ -9439,6 +9575,8 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                 openJsonPrettifierPlugin();
             } else if (pluginId === 'visual-blueprints') {
                 openVisualBlueprintsPlugin();
+            } else if (pluginId === 'asistente-personal') {
+                openPersonalAssistantPlugin();
             } else {
                 openGenericPluginWindow(pluginId);
             }
@@ -11137,6 +11275,1156 @@ if __name__ == "__main__":
                 delete window.formatJson;
                 delete window.minifyJson;
             };
+        }
+
+        // =========================================================================
+        // NÚCLEO DE ASISTENTE PERSONAL (AIRI) - VOZ, VISIÓN, APRENDIZAJE Y SKILLS
+        // =========================================================================
+        let assistantChatHistory = [];
+
+        function getAssistantConfig() {
+            try {
+                const defaults = {
+                    apiProviderChat: 'google',
+                    apiProviderComplex: 'anthropic',
+                    apiProviderTokens: 'google',
+                    voiceName: '',
+                    customVoicePath: '',
+                    interactionType: 'hybrid',
+                    displayMode: 'window',
+                    customAvatarPath: '',
+                    skillVision: true,
+                    skillSpotify: true,
+                    skillEnvControl: false,
+                    skillFiles: true,
+                    skillMemory: true,
+                    skillWebcam: false,
+                    skillRemote: false,
+                    skillAutoDev: true,
+                    telegramToken: '',
+                    discordToken: ''
+                };
+                const stored = JSON.parse(localStorage.getItem('nexus_assistant_config') || '{}');
+                let config = { ...defaults, ...stored };
+                if (stored.apiProvider && !stored.apiProviderChat) {
+                    config.apiProviderChat = stored.apiProvider;
+                }
+                return config;
+            } catch(e) {
+                return {};
+            }
+        }
+
+        function saveAssistantConfig(cfg) {
+            localStorage.setItem('nexus_assistant_config', JSON.stringify(cfg));
+        }
+
+        function getModelForProvider(provider) {
+            const found = AI_MODELS_FULL.find(m => m.provider === provider);
+            return found ? found.id : 'gemini-3.5-flash';
+        }
+
+        async function processAssistantInput(text) {
+            const cfg = getAssistantConfig();
+            
+            // Render user message in UI
+            appendAssistantMessage('user', text);
+
+            // Dynamically select model based on task complexity
+            let provider = cfg.apiProviderChat;
+            
+            const isComplex = cfg.skillVision && (text.toLowerCase().includes('pantalla') || text.toLowerCase().includes('ver') || text.toLowerCase().includes('captura') || text.toLowerCase().includes('screen') || text.toLowerCase().includes('mira') || text.toLowerCase().includes('cámara') || text.toLowerCase().includes('cam') || text.toLowerCase().includes('foto') || text.toLowerCase().includes('archivo') || text.toLowerCase().includes('carpeta') || text.toLowerCase().includes('plugin'));
+            const isTokenIntensive = text.toLowerCase().includes('indexar') || text.toLowerCase().includes('rag') || text.toLowerCase().includes('buscar en proyecto') || text.toLowerCase().includes('leer todo') || assistantChatHistory.length > 10;
+
+            if (isComplex) {
+                provider = cfg.apiProviderComplex;
+            } else if (isTokenIntensive) {
+                provider = cfg.apiProviderTokens;
+            }
+
+            const modelId = getModelForProvider(provider);
+            
+            // Build system prompt based on skills
+            let sysPrompt = "Eres AIRI, el Asistente Personal integrado de Nexus IDE. Eres atenta, profesional y de respuestas concisas. ";
+            if (cfg.skillVision) {
+                sysPrompt += "Tienes acceso a ver la pantalla del usuario si te pide revisar su pantalla (mediante capturas automáticas). ";
+            }
+            if (cfg.skillSpotify) {
+                sysPrompt += "Puedes controlar la reproducción de música de Spotify. Si el usuario te pide reproducir, pausar, ir a la siguiente canción o la anterior, puedes incluir en tu respuesta la acción en el formato exacto: `[SPOTIFY:play]`, `[SPOTIFY:pause]`, `[SPOTIFY:next]`, o `[SPOTIFY:prev]`. ";
+            }
+            if (cfg.skillEnvControl) {
+                sysPrompt += "Tienes control del entorno del PC. Si el usuario te pide APAGAR el PC, debes despedirte y agregar el comando en tu respuesta en el formato exacto: `[SYSTEM:shutdown]`. ";
+            }
+            if (cfg.skillFiles) {
+                sysPrompt += "Tienes permiso para organizar y manipular archivos locales. ";
+            }
+            if (cfg.skillMemory) {
+                sysPrompt += "Tienes un sistema de memoria y aprendizaje autónomo de errores. Si creas alarmas o recordatorios, contesta con `[REMINDER:minutes:text]`. ";
+            }
+            if (cfg.skillWebcam) {
+                sysPrompt += "Puedes ver por la cámara web si el usuario lo solicita explícitamente agregando en tu respuesta: `[WEBCAM:capture]`. ";
+            }
+            if (cfg.skillAutoDev) {
+                sysPrompt += "Puedes autoprogramarte nuevas habilidades solicitándolo internamente en el IDE. ";
+            }
+
+            // Capture screen if vision is active and prompt asks for it
+            let imgAttachments = [];
+            if (cfg.skillVision && (text.toLowerCase().includes('pantalla') || text.toLowerCase().includes('ver') || text.toLowerCase().includes('captura') || text.toLowerCase().includes('screen') || text.toLowerCase().includes('mira'))) {
+                showToast("Capturando pantalla para análisis visual...", "info");
+                const dataUrl = await captureScreen();
+                if (dataUrl) {
+                    const base64Data = dataUrl.split(',')[1];
+                    imgAttachments.push({
+                        name: 'screenshot.png',
+                        type: 'image/png',
+                        base64: base64Data
+                    });
+                }
+            }
+
+            // Show thinking status in assistant log/bubble
+            appendAssistantMessage('assistant', 'Pensando...', true);
+
+            try {
+                // Prepare history format
+                const apiHistory = assistantChatHistory.slice(0, -1)
+                    .filter(h => !h.isLoading)
+                    .map(h => ({
+                        role: h.role === 'user' ? 'user' : 'assistant',
+                        content: h.content
+                    }));
+
+                const response = await sendRequestToAI(modelId, text, sysPrompt, apiHistory, null, imgAttachments);
+                
+                // Remove loading message
+                removeAssistantLoadingMessage();
+
+                // Append and speak response
+                appendAssistantMessage('assistant', response);
+                speakText(response);
+
+                // Handle Spotify Commands
+                if (cfg.skillSpotify) {
+                    if (response.includes('[SPOTIFY:play]') || response.includes('[SPOTIFY:toggle]')) {
+                        controlSpotify('play');
+                    } else if (response.includes('[SPOTIFY:pause]')) {
+                        controlSpotify('pause');
+                    } else if (response.includes('[SPOTIFY:next]')) {
+                        controlSpotify('next');
+                    } else if (response.includes('[SPOTIFY:prev]')) {
+                        controlSpotify('prev');
+                    }
+                }
+
+                // Handle Shutdown Command
+                if (cfg.skillEnvControl && response.includes('[SYSTEM:shutdown]')) {
+                    showToast("⚠️ Apagando el sistema en 5 segundos...", "warning");
+                    setTimeout(() => {
+                        shutdownPC();
+                    }, 5000);
+                }
+
+                // Handle Reminder Command
+                if (cfg.skillMemory && response.includes('[REMINDER:')) {
+                    const match = response.match(/\[REMINDER:(\d+):([^\]]+)\]/);
+                    if (match) {
+                        const mins = parseInt(match[1], 10);
+                        const remText = match[2];
+                        addReminder(remText, mins);
+                    }
+                }
+
+                // Handle Webcam Command
+                if (cfg.skillWebcam && response.includes('[WEBCAM:capture]')) {
+                    showToast("Activando cámara web...", "info");
+                    const imgData = await captureWebcam();
+                    if (imgData) {
+                        appendAssistantMessage('user', '[Imagen de Cámara Web capturada]');
+                        // Re-query assistant with the webcam picture
+                        const webcamBase64 = imgData.split(',')[1];
+                        appendAssistantMessage('assistant', 'Analizando captura de cámara web...', true);
+                        const webcamResponse = await sendRequestToAI(modelId, "Aquí está la captura de mi cámara web. ¿Qué observas?", sysPrompt, [], null, [{
+                            name: 'webcam.jpg',
+                            type: 'image/jpeg',
+                            base64: webcamBase64
+                        }]);
+                        removeAssistantLoadingMessage();
+                        appendAssistantMessage('assistant', webcamResponse);
+                        speakText(webcamResponse);
+                    }
+                }
+
+            } catch (err) {
+                removeAssistantLoadingMessage();
+                appendAssistantMessage('assistant', 'Lo siento, ocurrió un error al procesar tu solicitud: ' + err.message);
+                showToast("Error del Asistente: " + err.message, "error");
+            }
+        }
+
+        function appendAssistantMessage(role, content, isLoading = false) {
+            assistantChatHistory.push({ role, content, isLoading });
+            if (assistantChatHistory.length > 20) {
+                assistantChatHistory = assistantChatHistory.slice(-20);
+            }
+            renderAssistantChatLog();
+        }
+
+        function removeAssistantLoadingMessage() {
+            assistantChatHistory = assistantChatHistory.filter(h => !h.isLoading);
+            renderAssistantChatLog();
+        }
+
+        function renderAssistantChatLog() {
+            // Update VTuber bubble if active
+            const bubble = document.getElementById('nexus-vtuber-bubble');
+            if (bubble) {
+                const lastMsg = assistantChatHistory[assistantChatHistory.length - 1];
+                if (lastMsg && lastMsg.role === 'assistant') {
+                    bubble.style.display = 'block';
+                    bubble.textContent = lastMsg.content;
+                }
+            }
+
+            // Update open personal assistant window log if it exists
+            const logEl = document.getElementById('assistant-chat-log');
+            if (!logEl) return;
+
+            logEl.innerHTML = assistantChatHistory.map(m => {
+                const isUser = m.role === 'user';
+                const bg = isUser ? 'rgba(124, 58, 237, 0.15)' : 'rgba(255, 255, 255, 0.05)';
+                const border = isUser ? 'rgba(124, 58, 237, 0.3)' : 'rgba(255, 255, 255, 0.1)';
+                const align = isUser ? 'flex-end' : 'flex-start';
+                const color = isUser ? '#fff' : '#e6edf3';
+                const label = isUser ? 'Tú' : 'AIRI';
+
+                return `
+                    <div style="align-self: ${align}; background: ${bg}; border: 1px solid ${border}; border-radius: 8px; padding: 8px 12px; max-width: 80%; font-size: 11px; color: ${color}; line-height: 1.4; display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px;">
+                        <span style="font-size: 9px; color: #8b949e; font-weight: bold;">${label}</span>
+                        <div>${m.content}</div>
+                    </div>
+                `;
+            }).join('');
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        function speakText(text) {
+            const cfg = getAssistantConfig();
+            if (cfg.interactionType === 'chat') return; // Chat only, no voice
+
+            if ('speechSynthesis' in window) {
+                // Cancel ongoing speech
+                window.speechSynthesis.cancel();
+
+                // Strip markdown format for TTS
+                const cleanText = text.replace(/\[[^\]]+\]/g, '').replace(/[\*\_]/g, '');
+                const utterance = new SpeechSynthesisUtterance(cleanText);
+                
+                // Select custom voice if configured
+                if (cfg.voiceName) {
+                    const voices = window.speechSynthesis.getVoices();
+                    const chosen = voices.find(v => v.name === cfg.voiceName);
+                    if (chosen) utterance.voice = chosen;
+                }
+
+                utterance.onstart = () => {
+                    window.nexusAssistantIsSpeaking = true;
+                    // Show bubble content on VTuber
+                    const bubble = document.getElementById('nexus-vtuber-bubble');
+                    if (bubble) {
+                        bubble.style.display = 'block';
+                        bubble.textContent = cleanText;
+                    }
+                };
+
+                utterance.onend = () => {
+                    window.nexusAssistantIsSpeaking = false;
+                    // Auto-hide bubble after a brief timeout
+                    setTimeout(() => {
+                        const bubble = document.getElementById('nexus-vtuber-bubble');
+                        if (bubble && !window.nexusAssistantIsSpeaking) {
+                            bubble.style.display = 'none';
+                        }
+                    }, 4000);
+                };
+
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        function startVtuberAnimation(canvas) {
+            const ctx = canvas.getContext('2d');
+            let angle1 = 0;
+            let angle2 = 0;
+            let pulse = 0;
+
+            let lastAvatarPath = null;
+            let img = null;
+
+            function draw() {
+                if (!document.getElementById('nexus-vtuber-companion')) return;
+
+                const cfg = getAssistantConfig();
+                const avatarPath = cfg.customAvatarPath;
+
+                if (avatarPath !== lastAvatarPath) {
+                    lastAvatarPath = avatarPath;
+                    if (avatarPath) {
+                        img = new Image();
+                        img.src = avatarPath;
+                        img.onerror = () => {
+                            console.error("Failed to load custom avatar image:", avatarPath);
+                            img = null;
+                        };
+                    } else {
+                        img = null;
+                    }
+                }
+
+                ctx.clearRect(0, 0, 100, 100);
+                
+                const speaking = window.nexusAssistantIsSpeaking;
+                const speedMult = speaking ? 3.0 : 1.0;
+                const scaleMult = speaking ? (1.0 + Math.sin(pulse) * 0.15) : (1.0 + Math.sin(pulse) * 0.05);
+
+                pulse += speaking ? 0.2 : 0.05;
+                angle1 += 0.02 * speedMult;
+                angle2 -= 0.03 * speedMult;
+
+                if (img && img.complete) {
+                    // Draw custom image centered with breathe scale animation
+                    const size = 75 * scaleMult;
+                    const offset = (100 - size) / 2;
+                    ctx.drawImage(img, offset, offset, size, size);
+                } else {
+                    // Center glowing sphere
+                    const grad = ctx.createRadialGradient(50, 50, 2, 50, 50, 25 * scaleMult);
+                    grad.addColorStop(0, '#ffffff');
+                    grad.addColorStop(0.2, '#a78bfa');
+                    grad.addColorStop(0.6, 'rgba(124, 58, 237, 0.3)');
+                    grad.addColorStop(1, 'rgba(124, 58, 237, 0)');
+                    
+                    ctx.fillStyle = grad;
+                    ctx.beginPath();
+                    ctx.arc(50, 50, 25 * scaleMult, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Ring 1
+                    ctx.strokeStyle = 'rgba(167, 139, 250, 0.6)';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.ellipse(50, 50, 35 * scaleMult, 12 * scaleMult, angle1, 0, Math.PI * 2);
+                    ctx.stroke();
+
+                    // Ring 2
+                    ctx.strokeStyle = 'rgba(56, 189, 248, 0.5)';
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.ellipse(50, 50, 42 * scaleMult, 15 * scaleMult, angle2, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+
+                requestAnimationFrame(draw);
+            }
+            draw();
+        }
+
+        async function captureScreen() {
+            try {
+                const { desktopCapturer } = require('electron');
+                const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 1280, height: 720 } });
+                if (sources.length > 0) {
+                    return sources[0].thumbnail.toDataURL();
+                }
+            } catch (e) {
+                console.error("Screen capture failed:", e);
+            }
+            return null;
+        }
+
+        async function captureWebcam() {
+            try {
+                const video = document.createElement('video');
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = stream;
+                await video.play();
+
+                const canvas = document.createElement('canvas');
+                canvas.width = 640;
+                canvas.height = 480;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0, 640, 480);
+                
+                stream.getTracks().forEach(track => track.stop());
+                return canvas.toDataURL('image/jpeg');
+            } catch(e) {
+                console.error("Webcam capture failed:", e);
+                showToast("No se pudo acceder a la cámara web: " + e.message, "error");
+            }
+            return null;
+        }
+
+        function controlSpotify(action) {
+            if (action === 'play' || action === 'pause' || action === 'toggle') {
+                if (typeof window.playPauseSpotify === 'function') window.playPauseSpotify();
+                else showToast("Spotify no iniciado. Abre el plugin Spotify primero.", "warning");
+            } else if (action === 'next') {
+                if (typeof window.nextSpotify === 'function') window.nextSpotify();
+                else showToast("Spotify no iniciado. Abre el plugin Spotify primero.", "warning");
+            } else if (action === 'prev') {
+                if (typeof window.prevSpotify === 'function') window.prevSpotify();
+                else showToast("Spotify no iniciado. Abre el plugin Spotify primero.", "warning");
+            }
+        }
+
+        function shutdownPC() {
+            const { exec } = require('child_process');
+            const platform = process.platform;
+            if (platform === 'win32') {
+                exec('shutdown /s /t 0');
+            } else {
+                exec('shutdown -h now');
+            }
+        }
+
+        const memoryFile = path.join(require('os').homedir(), '.nexus_assistant_memory.json');
+        function getAssistantMemory() {
+            try {
+                if (fs.existsSync(memoryFile)) {
+                    return JSON.parse(fs.readFileSync(memoryFile, 'utf8'));
+                }
+            } catch(e) {
+                console.error("Error reading memory file:", e);
+            }
+            return { errorsSolved: [], reminders: [], generalNotes: "" };
+        }
+
+        function saveAssistantMemory(memory) {
+            try {
+                fs.writeFileSync(memoryFile, JSON.stringify(memory, null, 4), 'utf8');
+            } catch(e) {
+                console.error("Error writing memory file:", e);
+            }
+        }
+
+        function addReminder(text, timeInMinutes) {
+            const timeMs = timeInMinutes * 60 * 1000;
+            setTimeout(() => {
+                try {
+                    new Notification("Asistente Personal: Recordatorio", {
+                        body: text
+                    });
+                } catch(e) {}
+                showToast("⏰ Recordatorio: " + text, "info");
+                speakText("Recordatorio: " + text);
+            }, timeMs);
+
+            const mem = getAssistantMemory();
+            mem.reminders = mem.reminders || [];
+            mem.reminders.push({ text, dueAt: new Date(Date.now() + timeMs).toISOString() });
+            saveAssistantMemory(mem);
+        }
+
+        function learnFromError(errorMsg, solution) {
+            const mem = getAssistantMemory();
+            mem.errorsSolved = mem.errorsSolved || [];
+            mem.errorsSolved.push({
+                error: errorMsg,
+                solution: solution,
+                timestamp: new Date().toISOString()
+            });
+            saveAssistantMemory(mem);
+            showToast("🧠 Asistente: He aprendido a solucionar un nuevo error.", "success");
+        }
+
+        window.openAssistantConfigFromList = () => {
+            openPersonalAssistantConfigModal();
+        };
+
+        window.toggleAssistantVTuber = (enable) => {
+            const existing = document.getElementById('nexus-vtuber-companion');
+            if (existing) {
+                existing.remove();
+            }
+            const existingMenu = document.getElementById('nexus-vtuber-context-menu');
+            if (existingMenu) {
+                existingMenu.remove();
+            }
+
+            if (!enable) return;
+
+            const isCompMode = window.location.search.includes('mode=companion');
+
+            const container = document.createElement('div');
+            container.id = 'nexus-vtuber-companion';
+            
+            container.style.cssText = `
+                position: fixed;
+                bottom: ${isCompMode ? '0' : '60px'};
+                right: ${isCompMode ? '0' : '30px'};
+                width: ${isCompMode ? '100vw' : '120px'};
+                height: ${isCompMode ? '100vh' : '120px'};
+                z-index: 99999;
+                cursor: grab;
+                user-select: none;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                background: transparent !important;
+                -webkit-app-region: ${isCompMode ? 'drag' : 'none'};
+            `;
+
+            if (!isCompMode) {
+                let isDragging = false;
+                let startX, startY;
+                container.addEventListener('mousedown', (e) => {
+                    if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON' || e.target.id === 'nexus-vtuber-canvas') return;
+                    isDragging = true;
+                    container.style.cursor = 'grabbing';
+                    startX = e.clientX - container.offsetLeft;
+                    startY = e.clientY - container.offsetTop;
+                });
+                document.addEventListener('mousemove', (e) => {
+                    if (!isDragging) return;
+                    container.style.left = (e.clientX - startX) + 'px';
+                    container.style.top = (e.clientY - startY) + 'px';
+                    container.style.right = 'auto';
+                    container.style.bottom = 'auto';
+                });
+                document.addEventListener('mouseup', () => {
+                    isDragging = false;
+                    container.style.cursor = 'grab';
+                });
+            }
+
+            const bubble = document.createElement('div');
+            bubble.id = 'nexus-vtuber-bubble';
+            bubble.style.cssText = `
+                position: absolute;
+                bottom: 125px;
+                background: rgba(20, 20, 25, 0.85);
+                border: 1px solid rgba(167, 139, 250, 0.5);
+                border-radius: 8px;
+                padding: 6px 10px;
+                font-size: 11px;
+                color: #e6edf3;
+                width: 160px;
+                max-height: 80px;
+                overflow-y: auto;
+                backdrop-filter: blur(8px);
+                display: none;
+                pointer-events: auto;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                font-family: 'Segoe UI', system-ui, sans-serif;
+                text-align: center;
+                -webkit-app-region: no-drag;
+            `;
+            container.appendChild(bubble);
+
+            const canvas = document.createElement('canvas');
+            canvas.id = 'nexus-vtuber-canvas';
+            canvas.width = 100;
+            canvas.height = 100;
+            canvas.style.cssText = `
+                -webkit-app-region: no-drag;
+                cursor: pointer;
+            `;
+            container.appendChild(canvas);
+
+            const inputContainer = document.createElement('div');
+            inputContainer.id = 'nexus-vtuber-input-container';
+            inputContainer.style.cssText = `
+                display: none;
+                position: absolute;
+                top: 115px;
+                background: rgba(20, 20, 25, 0.9);
+                border: 1px solid rgba(167, 139, 250, 0.4);
+                border-radius: 6px;
+                padding: 4px;
+                width: 180px;
+                gap: 4px;
+                backdrop-filter: blur(8px);
+                z-index: 100000;
+                -webkit-app-region: no-drag;
+            `;
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.placeholder = 'Habla con el Asistente...';
+            input.style.cssText = `
+                flex: 1;
+                background: #0d1117;
+                border: 1px solid #30363d;
+                border-radius: 4px;
+                color: #fff;
+                font-size: 11px;
+                padding: 4px 6px;
+                outline: none;
+                width: 100%;
+                box-sizing: border-box;
+            `;
+            inputContainer.appendChild(input);
+            container.appendChild(inputContainer);
+
+            const ctxMenu = document.createElement('div');
+            ctxMenu.id = 'nexus-vtuber-context-menu';
+            ctxMenu.style.cssText = `
+                display: none;
+                position: fixed;
+                background: rgba(20, 20, 25, 0.95);
+                border: 1px solid rgba(167, 139, 250, 0.5);
+                border-radius: 6px;
+                padding: 6px 0;
+                width: 170px;
+                z-index: 100001;
+                box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+                backdrop-filter: blur(8px);
+                font-family: 'Segoe UI', system-ui, sans-serif;
+                -webkit-app-region: no-drag;
+            `;
+            
+            ctxMenu.innerHTML = `
+                <div class="ctx-item" onclick="window.vtuberCtxAction('chat')" style="padding: 6px 12px; font-size: 11px; color: #fff; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: background 0.15s;">💬 Hablar por Chat</div>
+                <div class="ctx-item" onclick="window.vtuberCtxAction('window')" style="padding: 6px 12px; font-size: 11px; color: #fff; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: background 0.15s;">🤖 Abrir Ventana</div>
+                <div class="ctx-item" onclick="window.vtuberCtxAction('config')" style="padding: 6px 12px; font-size: 11px; color: #fff; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: background 0.15s;">⚙️ Configurar</div>
+                ${isCompMode ? 
+                    `<div class="ctx-item" onclick="window.vtuberCtxAction('ide')" style="padding: 6px 12px; font-size: 11px; color: #a78bfa; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: background 0.15s;">💻 Abrir Nexus IDE</div>` : 
+                    `<div class="ctx-item" onclick="window.vtuberCtxAction('popout')" style="padding: 6px 12px; font-size: 11px; color: #a78bfa; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: background 0.15s;">📌 Flotar en Windows</div>`
+                }
+                <div style="height: 1px; background: rgba(255,255,255,0.1); margin: 4px 0;"></div>
+                <div class="ctx-item" onclick="window.vtuberCtxAction('close')" style="padding: 6px 12px; font-size: 11px; color: #ff7b72; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: background 0.15s;">❌ Cerrar Asistente</div>
+            `;
+            
+            if (!document.getElementById('nexus-vtuber-ctx-styles')) {
+                const style = document.createElement('style');
+                style.id = 'nexus-vtuber-ctx-styles';
+                style.textContent = `
+                    .ctx-item:hover { background: rgba(167, 139, 250, 0.15) !important; }
+                `;
+                document.head.appendChild(style);
+            }
+            
+            document.body.appendChild(ctxMenu);
+
+            canvas.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                ctxMenu.style.left = e.clientX + 'px';
+                ctxMenu.style.top = e.clientY + 'px';
+                ctxMenu.style.display = 'block';
+            });
+
+            canvas.addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
+
+            window.vtuberCtxAction = (action) => {
+                ctxMenu.style.display = 'none';
+                if (action === 'chat') {
+                    if (inputContainer.style.display === 'none') {
+                        inputContainer.style.display = 'block';
+                        input.focus();
+                    } else {
+                        inputContainer.style.display = 'none';
+                    }
+                } else if (action === 'window') {
+                    openPersonalAssistantPlugin();
+                } else if (action === 'config') {
+                    openPersonalAssistantConfigModal();
+                } else if (action === 'popout') {
+                    window.toggleAssistantVTuber(false);
+                    try {
+                        const { ipcRenderer } = require('electron');
+                        ipcRenderer.send('open-assistant-companion');
+                    } catch(e) {
+                        console.error("IPC popout failed:", e);
+                    }
+                } else if (action === 'ide') {
+                    try {
+                        const { ipcRenderer } = require('electron');
+                        ipcRenderer.send('open-main-window');
+                    } catch(e) {
+                        console.error("IPC failed:", e);
+                    }
+                } else if (action === 'close') {
+                    if (window.location.search.includes('mode=companion')) {
+                        try {
+                            const { ipcRenderer } = require('electron');
+                            ipcRenderer.send('close-assistant-companion');
+                        } catch(e) {
+                            window.close();
+                        }
+                    } else {
+                        window.toggleAssistantVTuber(false);
+                    }
+                }
+            };
+
+            document.addEventListener('click', () => {
+                ctxMenu.style.display = 'none';
+            });
+
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    const val = input.value.trim();
+                    if (val) {
+                        input.value = '';
+                        inputContainer.style.display = 'none';
+                        processAssistantInput(val);
+                    }
+                }
+            });
+
+            input.addEventListener('mousedown', (e) => e.stopPropagation());
+
+            document.body.appendChild(container);
+            startVtuberAnimation(canvas);
+        };
+
+        function openPersonalAssistantConfigModal() {
+            const cfg = getAssistantConfig();
+            const voices = 'speechSynthesis' in window ? window.speechSynthesis.getVoices() : [];
+            const voiceOptions = voices.map(v => `<option value="${v.name}" ${cfg.voiceName === v.name ? 'selected' : ''}>${v.name} (${v.lang})</option>`).join('');
+            
+            const htmlContent = `
+                <div style="padding: 20px; color: #c9d1d9; background: #0d1117; font-family: 'Segoe UI', system-ui, sans-serif; display: flex; flex-direction: column; gap: 15px; height: calc(100% - 40px); overflow-y: auto;">
+                    
+                    <div style="border-bottom: 1px solid #30363d; padding-bottom: 10px; display:flex; align-items:center; gap:8px;">
+                        <span style="font-size: 24px;">⚙️</span>
+                        <div>
+                            <h3 style="margin: 0; color: #e6edf3;">Configurar Asistente Personal</h3>
+                            <p style="margin: 2px 0 0 0; font-size: 11px; color: #8b949e;">Ajusta los modelos, la voz, el aspecto visual y las habilidades de tu asistente.</p>
+                        </div>
+                    </div>
+
+                    <!-- Botón de Lanzamiento Independiente -->
+                    <div style="background: rgba(124, 58, 237, 0.08); border: 1px solid rgba(124, 58, 237, 0.25); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+                        <span style="font-size: 11px; color: #a78bfa; font-weight: bold;">🔮 Ejecución Independiente</span>
+                        <p style="margin: 0; font-size: 10px; color: #8b949e; line-height: 1.4;">Puedes lanzar a AIRI en su propio proceso de escritorio totalmente transparente, permitiendo interactuar con ella sin necesidad de tener el editor Nexus IDE visible.</p>
+                        <button onclick="window.launchIndependentCompanionWidget()" class="dash-btn dash-primary-btn" style="padding: 6px 12px; font-size: 11px; font-weight: bold; width: 100%;">Lanzar Widget de Escritorio</button>
+                    </div>
+
+                    <!-- Configuración General y API -->
+                    <div style="background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 15px; display: flex; flex-direction: column; gap: 10px;">
+                        <h4 style="margin: 0; font-size: 12px; color: #58a6ff;">🤖 Proveedores de IA (Modelos)</h4>
+                        
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <div>
+                                <label style="font-size: 10px; color: #8b949e; display: block; margin-bottom: 2px;">1. Chat Normal (Conversación Diaria)</label>
+                                <select id="assistant-api-provider-chat" style="width: 100%; background: #0d1117; color: #fff; border: 1px solid #30363d; border-radius: 4px; padding: 5px; font-size: 11px; outline: none; cursor: pointer;">
+                                    <option value="google" ${cfg.apiProviderChat === 'google' ? 'selected' : ''}>Google AI (Gemini)</option>
+                                    <option value="anthropic" ${cfg.apiProviderChat === 'anthropic' ? 'selected' : ''}>Anthropic (Claude)</option>
+                                    <option value="openai" ${cfg.apiProviderChat === 'openai' ? 'selected' : ''}>OpenAI (GPT-4o)</option>
+                                    <option value="groq" ${cfg.apiProviderChat === 'groq' ? 'selected' : ''}>Groq (Rendimiento Ultra)</option>
+                                    <option value="deepseek" ${cfg.apiProviderChat === 'deepseek' ? 'selected' : ''}>DeepSeek (V3/R1)</option>
+                                    <option value="ollama" ${cfg.apiProviderChat === 'ollama' ? 'selected' : ''}>Ollama (Local LLM)</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label style="font-size: 10px; color: #8b949e; display: block; margin-bottom: 2px;">2. Tareas Complejas (Visión y Archivos)</label>
+                                <select id="assistant-api-provider-complex" style="width: 100%; background: #0d1117; color: #fff; border: 1px solid #30363d; border-radius: 4px; padding: 5px; font-size: 11px; outline: none; cursor: pointer;">
+                                    <option value="google" ${cfg.apiProviderComplex === 'google' ? 'selected' : ''}>Google AI (Gemini)</option>
+                                    <option value="anthropic" ${cfg.apiProviderComplex === 'anthropic' ? 'selected' : ''}>Anthropic (Claude)</option>
+                                    <option value="openai" ${cfg.apiProviderComplex === 'openai' ? 'selected' : ''}>OpenAI (GPT-4o)</option>
+                                    <option value="groq" ${cfg.apiProviderComplex === 'groq' ? 'selected' : ''}>Groq (Rendimiento Ultra)</option>
+                                    <option value="deepseek" ${cfg.apiProviderComplex === 'deepseek' ? 'selected' : ''}>DeepSeek (V3/R1)</option>
+                                    <option value="ollama" ${cfg.apiProviderComplex === 'ollama' ? 'selected' : ''}>Ollama (Local LLM)</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label style="font-size: 10px; color: #8b949e; display: block; margin-bottom: 2px;">3. Alto Consumo (Mucha Ventana de Contexto)</label>
+                                <select id="assistant-api-provider-tokens" style="width: 100%; background: #0d1117; color: #fff; border: 1px solid #30363d; border-radius: 4px; padding: 5px; font-size: 11px; outline: none; cursor: pointer;">
+                                    <option value="google" ${cfg.apiProviderTokens === 'google' ? 'selected' : ''}>Google AI (Gemini)</option>
+                                    <option value="anthropic" ${cfg.apiProviderTokens === 'anthropic' ? 'selected' : ''}>Anthropic (Claude)</option>
+                                    <option value="openai" ${cfg.apiProviderTokens === 'openai' ? 'selected' : ''}>OpenAI (GPT-4o)</option>
+                                    <option value="groq" ${cfg.apiProviderTokens === 'groq' ? 'selected' : ''}>Groq (Rendimiento Ultra)</option>
+                                    <option value="deepseek" ${cfg.apiProviderTokens === 'deepseek' ? 'selected' : ''}>DeepSeek (V3/R1)</option>
+                                    <option value="ollama" ${cfg.apiProviderTokens === 'ollama' ? 'selected' : ''}>Ollama (Local LLM)</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label style="font-size: 10px; color: #8b949e; display: block; margin-bottom: 2px;">Tipo de Interacción</label>
+                                <select id="assistant-interaction" style="width: 100%; background: #0d1117; color: #fff; border: 1px solid #30363d; border-radius: 4px; padding: 5px; font-size: 11px; outline: none; cursor: pointer;">
+                                    <option value="hybrid" ${cfg.interactionType === 'hybrid' ? 'selected' : ''}>Híbrido (Chat + Voz)</option>
+                                    <option value="chat" ${cfg.interactionType === 'chat' ? 'selected' : ''}>Solo Chat (Silencioso)</option>
+                                    <option value="voice" ${cfg.interactionType === 'voice' ? 'selected' : ''}>Solo Voz</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Configuración de Voz -->
+                    <div style="background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 15px; display: flex; flex-direction: column; gap: 10px;">
+                        <h4 style="margin: 0; font-size: 12px; color: #56d364;">🗣️ Ajustes de Voz</h4>
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <div>
+                                <label style="font-size: 11px; color: #8b949e; display: block; margin-bottom: 4px;">Voz del Sistema (TTS)</label>
+                                <select id="assistant-voice-name" style="width: 100%; background: #0d1117; color: #fff; border: 1px solid #30363d; border-radius: 4px; padding: 6px; font-size: 12px; outline: none; cursor: pointer;">
+                                    <option value="">(Por defecto del sistema)</option>
+                                    ${voiceOptions}
+                                </select>
+                            </div>
+                            <div>
+                                <label style="font-size: 11px; color: #8b949e; display: block; margin-bottom: 4px;">Voz Personalizada (Ruta de clonación o archivo audio de muestra)</label>
+                                <input type="text" id="assistant-custom-voice" value="${cfg.customVoicePath || ''}" placeholder="Ej: C:\\Voces\\airi_clone.wav" style="width: 100%; box-sizing: border-box; background: #0d1117; color: #fff; border: 1px solid #30363d; border-radius: 4px; padding: 6px 10px; font-size: 12px; outline: none;">
+                            </div>
+                            <div style="background: rgba(86, 211, 100, 0.04); border: 1px solid rgba(86, 211, 100, 0.15); border-radius: 6px; padding: 10px; font-size: 10px; color: #8b949e; line-height: 1.4;">
+                                💡 <b>¿Cómo usar una voz clonada / personalizada?</b><br>
+                                Escribe la ruta completa a un archivo de audio <code>.wav</code> (de 5 a 15 segundos) en tu ordenador. Si tienes instalado un backend TTS de clonación (como XTTS o Coqui) vinculado con Nexus, el sistema procesará la ruta para clonar esa voz en las respuestas.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Configuración Visual -->
+                    <div style="background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 15px; display: flex; flex-direction: column; gap: 10px;">
+                        <h4 style="margin: 0; font-size: 12px; color: #a78bfa;">🖼️ Aspecto del Asistente</h4>
+                        <div>
+                            <label style="font-size: 11px; color: #8b949e; display: block; margin-bottom: 4px;">Formato Visual</label>
+                            <select id="assistant-display-mode" style="width: 100%; background: #0d1117; color: #fff; border: 1px solid #30363d; border-radius: 4px; padding: 6px; font-size: 12px; outline: none; cursor: pointer;">
+                                <option value="window" ${cfg.displayMode === 'window' ? 'selected' : ''}>Ventana Estándar en IDE</option>
+                                <option value="vtuber" ${cfg.displayMode === 'vtuber' ? 'selected' : ''}>Holograma VTuber Flotante y Transparente</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Imagen de Avatar / VTuber Personalizado -->
+                    <div style="background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 15px; display: flex; flex-direction: column; gap: 10px;">
+                        <h4 style="margin: 0; font-size: 12px; color: #facc15;">🎭 Avatar / VTuber Personalizado</h4>
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <p style="margin: 0; font-size: 10px; color: #8b949e; line-height: 1.4;">
+                                Sube tu propia imagen (PNG, JPG, GIF, SVG) para sustituir el holograma circular por defecto. La imagen respirará y reaccionará de forma fluida cuando el asistente te hable.
+                            </p>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <input type="text" id="assistant-custom-avatar" value="${cfg.customAvatarPath || ''}" placeholder="Ej: C:\\MisImágenes\\avatar.gif" style="flex: 1; background: #0d1117; color: #fff; border: 1px solid #30363d; border-radius: 4px; padding: 6px 10px; font-size: 11px; outline: none;">
+                                <button onclick="window.browseCustomAvatar()" class="dash-btn" style="padding: 6px 12px; font-size: 11px; border: 1px solid #30363d; background: #21262d; color: #c9d1d9; cursor: pointer;">Examinar...</button>
+                            </div>
+                            <input type="file" id="assistant-custom-avatar-file" accept="image/*" style="display: none;" onchange="window.handleCustomAvatarSelected(this)">
+                        </div>
+                    </div>
+
+                    <!-- Habilidades (Skills) -->
+                    <div style="background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 15px; display: flex; flex-direction: column; gap: 10px;">
+                        <h4 style="margin: 0; font-size: 12px; color: #facc15;">⚡ Habilidades Disponibles (Skills)</h4>
+                        <div style="display: flex; flex-direction: column; gap: 8px; font-size: 11px;">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" id="skill-vision" ${cfg.skillVision ? 'checked' : ''} style="accent-color: #7c3aed;">
+                                <span><b>Visión en Tiempo Real</b>: Analizar capturas de pantalla periódicas o a petición.</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" id="skill-spotify" ${cfg.skillSpotify ? 'checked' : ''} style="accent-color: #7c3aed;">
+                                <span><b>DJ Spotify</b>: Buscar y reproducir canciones, controlar pausa/skip.</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;" onchange="window.handleEnvControlChange(this)">
+                                <input type="checkbox" id="skill-env-control" ${cfg.skillEnvControl ? 'checked' : ''} style="accent-color: #7c3aed;">
+                                <span style="color: #ff7b72;"><b>⚠️ Control Total de Entorno</b>: Ejecutar comandos de sistema y APAGAR el PC.</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" id="skill-files" ${cfg.skillFiles ? 'checked' : ''} style="accent-color: #7c3aed;">
+                                <span><b>Organizar Archivos</b>: Crear, mover y ordenar ficheros de tu ordenador.</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" id="skill-memory" ${cfg.skillMemory ? 'checked' : ''} style="accent-color: #7c3aed;">
+                                <span><b>Memoria y Aprendizaje</b>: Recordar notas, aprender de errores y crear alarmas.</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" id="skill-webcam" ${cfg.skillWebcam ? 'checked' : ''} style="accent-color: #7c3aed;">
+                                <span><b>Acceso a Cámara Web</b>: Utilizar la webcam cuando el usuario lo pida.</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" id="skill-autodev" ${cfg.skillAutoDev ? 'checked' : ''} style="accent-color: #7c3aed;">
+                                <span><b>Conexión Total con Nexus IDE</b>: Crear código y programar nuevas habilidades solo.</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Control Remoto (Telegram y Discord) -->
+                    <div style="background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 15px; display: flex; flex-direction: column; gap: 10px;">
+                        <h4 style="margin: 0; font-size: 12px; color: #a855f7;">🌐 Configuración de Control Remoto</h4>
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                            <input type="checkbox" id="skill-remote" ${cfg.skillRemote ? 'checked' : ''} onchange="document.getElementById('remote-detail-panel').style.display=this.checked?'flex':'none'" style="cursor:pointer; accent-color: #7c3aed;">
+                            <label for="skill-remote" style="font-size: 11px; cursor:pointer;">Activar Enlace Externo (Telegram / Discord)</label>
+                        </div>
+                        <div id="remote-detail-panel" style="display: ${cfg.skillRemote ? 'flex' : 'none'}; flex-direction: column; gap: 8px; border-top: 1px dashed #30363d; padding-top: 8px;">
+                            <div>
+                                <label style="font-size: 10px; color: #8b949e; display: block; margin-bottom: 2px;">Token de Telegram</label>
+                                <input type="password" id="assistant-telegram-token" value="${cfg.telegramToken || ''}" placeholder="Ej: 123456:ABC..." style="width: 100%; box-sizing: border-box; background: #0d1117; color: #fff; border: 1px solid #30363d; border-radius: 4px; padding: 6px; font-size: 11px; outline: none; font-family: monospace;">
+                            </div>
+                            <div>
+                                <label style="font-size: 10px; color: #8b949e; display: block; margin-bottom: 2px;">Token de Discord</label>
+                                <input type="password" id="assistant-discord-token" value="${cfg.discordToken || ''}" placeholder="Ej: MTIzNDU2..." style="width: 100%; box-sizing: border-box; background: #0d1117; color: #fff; border: 1px solid #30363d; border-radius: 4px; padding: 6px; font-size: 11px; outline: none; font-family: monospace;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Advertencia de Anticheats -->
+                    <div style="background: rgba(248, 81, 73, 0.08); border: 1px solid rgba(248, 81, 73, 0.25); border-radius: 6px; padding: 12px; font-size: 11px; color: #ff7b72; line-height: 1.5;">
+                        ⚠️ <b>ADVERTENCIA DE SEGURIDAD (ANTIPLAGIO Y JUEGOS)</b><br>
+                        Las funciones avanzadas de este asistente (como la visión de pantalla, cámara web y control total de entorno) realizan capturas y llamadas a APIs de bajo nivel del sistema.
+                        <b>Ciertos software anti-trampas (Anticheats como Riot Vanguard, Easy Anti-Cheat, BattlEye, etc.) pueden detectarlo como sospechoso a nivel de kernel.</b>
+                        Se recomienda cerrar por completo Nexus IDE y el Asistente antes de iniciar juegos competitivos con protección anticheat activa para evitar bloqueos preventivos.
+                    </div>
+
+                    <!-- Acciones -->
+                    <div style="display: flex; gap: 10px; margin-top: 5px;">
+                        <button onclick="window.saveAssistantConfiguration()" class="dash-btn dash-primary-btn" style="flex: 1; padding: 10px; font-weight: bold; font-size: 12px;">Guardar Configuración</button>
+                        <button onclick="window.closeAssistantConfigModal()" class="dash-btn" style="padding: 10px 15px; font-size: 12px; border: 1px solid #30363d; background: transparent; color: #c9d1d9;">Cancelar</button>
+                    </div>
+
+                </div>
+            `;
+
+            const win = new NexusWindow({
+                id: 'nexus-win-assistant-config',
+                title: 'Ajustes del Asistente Personal',
+                icon: '🤖',
+                width: 500,
+                height: 680,
+                content: htmlContent
+            });
+
+            window.browseCustomAvatar = () => {
+                document.getElementById('assistant-custom-avatar-file').click();
+            };
+
+            window.handleCustomAvatarSelected = (input) => {
+                if (input.files && input.files[0]) {
+                    const filePath = input.files[0].path || URL.createObjectURL(input.files[0]);
+                    document.getElementById('assistant-custom-avatar').value = filePath;
+                }
+            };
+
+            window.launchIndependentCompanionWidget = () => {
+                try {
+                    const { ipcRenderer } = require('electron');
+                    ipcRenderer.send('open-assistant-companion');
+                    showToast("Lanzando compañero de escritorio independiente...", "success");
+                    win.close();
+                } catch(e) {
+                    console.error("IPC Launch failed:", e);
+                    showToast("No se pudo iniciar el compañero independiente: " + e.message, "error");
+                }
+            };
+
+            window.handleEnvControlChange = (cb) => {
+                const el = document.getElementById('skill-env-control');
+                if (el && el.checked) {
+                    showToast("⚠️ ADVERTENCIA: Has activado el Control Total de Entorno. La IA podrá apagar tu PC y ejecutar comandos terminales directos.", "warning");
+                }
+            };
+
+            window.saveAssistantConfiguration = () => {
+                const apiProviderChat = document.getElementById('assistant-api-provider-chat').value;
+                const apiProviderComplex = document.getElementById('assistant-api-provider-complex').value;
+                const apiProviderTokens = document.getElementById('assistant-api-provider-tokens').value;
+                
+                const interactionType = document.getElementById('assistant-interaction').value;
+                const voiceName = document.getElementById('assistant-voice-name').value;
+                const customVoicePath = document.getElementById('assistant-custom-voice').value.trim();
+                const displayMode = document.getElementById('assistant-display-mode').value;
+                const customAvatarPath = document.getElementById('assistant-custom-avatar').value.trim();
+
+                const skillVision = document.getElementById('skill-vision').checked;
+                const skillSpotify = document.getElementById('skill-spotify').checked;
+                const skillEnvControl = document.getElementById('skill-env-control').checked;
+                const skillFiles = document.getElementById('skill-files').checked;
+                const skillMemory = document.getElementById('skill-memory').checked;
+                const skillWebcam = document.getElementById('skill-webcam').checked;
+                const skillAutoDev = document.getElementById('skill-autodev').checked;
+                const skillRemote = document.getElementById('skill-remote').checked;
+
+                const telegramToken = document.getElementById('assistant-telegram-token').value.trim();
+                const discordToken = document.getElementById('assistant-discord-token').value.trim();
+
+                const newCfg = {
+                    apiProviderChat, apiProviderComplex, apiProviderTokens,
+                    voiceName, customVoicePath, interactionType, displayMode, customAvatarPath,
+                    skillVision, skillSpotify, skillEnvControl, skillFiles, skillMemory, skillWebcam, skillAutoDev, skillRemote,
+                    telegramToken, discordToken
+                };
+
+                saveAssistantConfig(newCfg);
+                showToast("Configuración del Asistente guardada con éxito", "success");
+
+                if (displayMode === 'vtuber') {
+                    window.toggleAssistantVTuber(true);
+                } else {
+                    window.toggleAssistantVTuber(false);
+                }
+
+                win.close();
+            };
+
+            window.closeAssistantConfigModal = () => {
+                win.close();
+            };
+
+            win.onClose = () => {
+                delete window.browseCustomAvatar;
+                delete window.handleCustomAvatarSelected;
+                delete window.launchIndependentCompanionWidget;
+                delete window.handleEnvControlChange;
+                delete window.saveAssistantConfiguration;
+                delete window.closeAssistantConfigModal;
+            };
+        }
+
+        function openPersonalAssistantPlugin() {
+            const cfg = getAssistantConfig();
+            const mem = getAssistantMemory();
+            const errorsCount = mem.errorsSolved ? mem.errorsSolved.length : 0;
+            const remindersCount = mem.reminders ? mem.reminders.length : 0;
+
+            const htmlContent = `
+                <div style="padding: 16px; color: #c9d1d9; background: #0d1117; font-family: 'Segoe UI', system-ui, sans-serif; height: calc(100% - 32px); display: flex; flex-direction: column; gap: 12px; overflow: hidden; box-sizing: border-box;">
+                    
+                    <!-- Header -->
+                    <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #30363d; padding-bottom:8px;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="font-size: 20px;">🤖</span>
+                            <div>
+                                <h3 style="margin:0; color:#fff; font-size:13px;">Asistente Personal (AIRI)</h3>
+                                <p style="margin:2px 0 0 0; font-size:10px; color:#8b949e;">Copiloto de IA y control local</p>
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:6px;">
+                            <button onclick="window.openAssistantConfigFromList()" class="dash-btn" style="padding: 4px 8px; font-size: 10px; border: 1px solid #30363d; background: #21262d; color:#c9d1d9;">Ajustes</button>
+                            <button onclick="window.clearAssistantChatHistory()" class="dash-btn" style="padding: 4px 8px; font-size: 10px; border: 1px solid #30363d; background: transparent; color:#8b949e;">Limpiar Chat</button>
+                        </div>
+                    </div>
+
+                    <!-- Panel Split -->
+                    <div style="flex:1; display:flex; gap:12px; overflow:hidden;">
+                        
+                        <!-- Left Pane: Chat -->
+                        <div style="flex:1.4; display:flex; flex-direction:column; background:#161b22; border:1px solid #30363d; border-radius:8px; overflow:hidden;">
+                            
+                            <!-- Chat messages -->
+                            <div id="assistant-chat-log" style="flex:1; padding:12px; overflow-y:auto; display:flex; flex-direction:column; gap:10px;">
+                                <div style="align-self: flex-start; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 8px 12px; max-width: 80%; font-size: 11px; color: #e6edf3; line-height: 1.4;">
+                                    <span style="font-size: 9px; color: #8b949e; font-weight: bold;">AIRI</span>
+                                    <div>¡Hola! Soy tu Asistente Personal. ¿En qué te puedo ayudar hoy?</div>
+                                </div>
+                            </div>
+                            
+                            <!-- Chat Input -->
+                            <div style="padding: 8px; background: rgba(0,0,0,0.2); border-top:1px solid #30363d; display:flex; gap:6px;">
+                                <input type="text" id="assistant-prompt-input" placeholder="Haz una pregunta o dale un comando..." style="flex:1; background:#0d1117; border:1px solid #30363d; border-radius:4px; color:#fff; padding:6px 10px; font-size:11px; outline:none;">
+                                <button onclick="window.sendAssistantPromptFromUI()" class="dash-btn dash-primary-btn" style="padding: 6px 12px; font-size: 11px;">Enviar</button>
+                            </div>
+                        </div>
+
+                        <!-- Right Pane: Status & Memory -->
+                        <div style="flex:1; display:flex; flex-direction:column; gap:10px; overflow-y:auto; padding-right:2px;">
+                            
+                            <!-- Tasks Planner -->
+                            <div style="background:#161b22; border:1px solid #30363d; border-radius:8px; padding:10px; display:flex; flex-direction:column; gap:6px;">
+                                <h4 style="margin:0; font-size:11px; color:#a78bfa; display:flex; align-items:center; gap:4px;">📋 Planificador</h4>
+                                <div style="display:flex; flex-direction:column; gap:5px; font-size:10px;">
+                                    <label style="display:flex; align-items:center; gap:6px;">
+                                        <input type="checkbox" checked style="accent-color:#7c3aed;"> Codificar módulo del asistente
+                                    </label>
+                                    <label style="display:flex; align-items:center; gap:6px;">
+                                        <input type="checkbox" style="accent-color:#7c3aed;"> Probar comandos de Spotify
+                                    </label>
+                                    <label style="display:flex; align-items:center; gap:6px;">
+                                        <input type="checkbox" style="accent-color:#7c3aed;"> Auditar archivos locales
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Assistant Stats -->
+                            <div style="background:#161b22; border:1px solid #30363d; border-radius:8px; padding:10px; display:flex; flex-direction:column; gap:6px;">
+                                <h4 style="margin:0; font-size:11px; color:#58a6ff; display:flex; align-items:center; gap:4px;">🧠 Memoria y Aprendizaje</h4>
+                                <div style="font-size:10px; display:flex; flex-direction:column; gap:4px;">
+                                    <div style="display:flex; justify-content:space-between;">
+                                        <span style="color:#8b949e;">Errores aprendidos:</span>
+                                        <span style="color:#e6edf3; font-weight:bold;">${errorsCount}</span>
+                                    </div>
+                                    <div style="display:flex; justify-content:space-between;">
+                                        <span style="color:#8b949e;">Recordatorios activos:</span>
+                                        <span style="color:#e6edf3; font-weight:bold;">${remindersCount}</span>
+                                    </div>
+                                    <div style="display:flex; justify-content:space-between;">
+                                        <span style="color:#8b949e;">Voz Activa:</span>
+                                        <span style="color:#56d364; font-weight:bold;">${cfg.voiceName ? 'Personalizada' : 'Predeterminada'}</span>
+                                    </div>
+                                    <div style="display:flex; justify-content:space-between;">
+                                        <span style="color:#8b949e;">Modelo IA:</span>
+                                        <span style="color:#a855f7; font-weight:bold;">${(cfg.apiProviderChat || 'google').toUpperCase()}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Actions -->
+                            <div style="background:#161b22; border:1px solid #30363d; border-radius:8px; padding:10px; display:flex; flex-direction:column; gap:6px; margin-top:auto;">
+                                <h4 style="margin:0; font-size:11px; color:#e6edf3;">Acciones Rápidas</h4>
+                                <div style="display:grid; grid-template-columns:1fr; gap:6px;">
+                                    <button onclick="window.triggerAssistantAction('screenshot')" class="dash-btn" style="padding: 4px; font-size:10px; justify-content:center;">📸 Analizar Pantalla</button>
+                                    <button onclick="window.triggerAssistantAction('webcam')" class="dash-btn" style="padding: 4px; font-size:10px; justify-content:center;">📷 Tomar Foto Cámara</button>
+                                    <button onclick="window.triggerAssistantAction('spotify-play')" class="dash-btn" style="padding: 4px; font-size:10px; justify-content:center;">🎵 Reproducir/Pausa Spotify</button>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            const win = new NexusWindow({
+                id: 'nexus-win-personal-assistant-plugin',
+                title: 'Asistente Personal',
+                icon: '🤖',
+                width: 600,
+                height: 440,
+                content: htmlContent
+            });
+
+            window.sendAssistantPromptFromUI = () => {
+                const input = document.getElementById('assistant-prompt-input');
+                const val = input.value.trim();
+                if (val) {
+                    processAssistantInput(val);
+                    input.value = '';
+                }
+            };
+
+            window.clearAssistantChatHistory = () => {
+                assistantChatHistory = [];
+                renderAssistantChatLog();
+                showToast("Historial de chat borrado", "info");
+            };
+
+            window.triggerAssistantAction = (action) => {
+                if (action === 'screenshot') {
+                    processAssistantInput("Por favor, mira mi pantalla actual y describe lo que ves.");
+                } else if (action === 'webcam') {
+                    processAssistantInput("Por favor, captura una foto con mi cámara web.");
+                } else if (action === 'spotify-play') {
+                    controlSpotify('play');
+                }
+            };
+
+            setTimeout(() => {
+                const el = document.getElementById('assistant-prompt-input');
+                if (el) {
+                    el.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter') {
+                            window.sendAssistantPromptFromUI();
+                        }
+                    });
+                }
+            }, 100);
+
+            win.onClose = () => {
+                delete window.sendAssistantPromptFromUI;
+                delete window.clearAssistantChatHistory;
+                delete window.triggerAssistantAction;
+            };
+
+            renderAssistantChatLog();
         }
 
         // 7. GENERIC EXECUTION FOR CUSTOM GIT PLUGINS
@@ -16458,7 +17746,8 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
             req.foundPath = '';
 
             if (req.id === 'comfyui') {
-                const homeDir = process.env.USERPROFILE || process.env.HOME || 'C:\\Users\\gwmki';
+                const os = require('os');
+                const homeDir = os.homedir();
                 const comfyPath = path.join(homeDir, 'AppData', 'Local', 'Comfy-Desktop');
                 if (fs.existsSync(comfyPath)) {
                     req.foundPath = comfyPath;
@@ -16470,7 +17759,7 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
                     return true;
                 }
                 // También comprobar en la carpeta ComfyUI-Installs/ComfyUI/ComfyUI
-                const comfyInstallsPath = 'C:\\Users\\gwmki\\AppData\\Local\\Comfy-Desktop\\ComfyUI-Installs\\ComfyUI\\ComfyUI';
+                const comfyInstallsPath = path.join(homeDir, 'AppData', 'Local', 'Comfy-Desktop', 'ComfyUI-Installs', 'ComfyUI', 'ComfyUI');
                 if (fs.existsSync(comfyInstallsPath)) {
                     req.foundPath = comfyInstallsPath;
                     return true;
@@ -16481,7 +17770,7 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
             // 1. Level 1: Check with 'where' to get the absolute path
             let pathFromWhere = await new Promise((resolve) => {
                 const exeName = req.id === 'git' ? 'git' : req.id;
-                exec(`where ${exeName}`, (err, stdout) => {
+                exec(`where ${exeName}`, { timeout: 3000 }, (err, stdout) => {
                     if (!err && stdout.trim()) {
                         const lines = stdout.split('\n').map(l => l.trim()).filter(Boolean);
                         if (lines.length > 0 && fs.existsSync(lines[0])) {
@@ -16502,7 +17791,7 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
             
             // Standard check just in case 'where' failed but it's in PATH
             let standardSuccess = await new Promise((resolve) => {
-                exec(req.checkCmd, (err) => {
+                exec(req.checkCmd, { timeout: 3000 }, (err) => {
                     resolve(!err);
                 });
             });
@@ -16548,7 +17837,7 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
             if (req.id === 'python') {
                 // Try 'py' launcher
                 let pySuccess = await new Promise((resolve) => {
-                    exec('py --version', (err) => {
+                    exec('py --version', { timeout: 3000 }, (err) => {
                         resolve(!err);
                     });
                 });
@@ -16694,7 +17983,7 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
             // 3. Level 3: Winget check
             if (req.wingetId) {
                 let wingetSuccess = await new Promise((resolve) => {
-                    exec(`winget list --id ${req.wingetId}`, (err, stdout) => {
+                    exec(`winget list --id ${req.wingetId} --accept-source-agreements`, { timeout: 5000 }, (err, stdout) => {
                         if (err) {
                             resolve(false);
                         } else {
@@ -16819,17 +18108,7 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
                             }
                         }, 1200);
 
-                        // Auto-expand right panel and select Codex tab for verification
-                        setTimeout(() => {
-                            const rp = document.getElementById('right-panel');
-                            if (rp && rp.classList.contains('collapsed')) {
-                                rp.classList.remove('collapsed');
-                            }
-                            const codexBtn = document.querySelector('.chat-mode-btn[data-tab="codex"]');
-                            if (codexBtn) {
-                                codexBtn.click();
-                            }
-                        }, 2500);
+
                     }, 250);
                 }, 300);
             }
@@ -16884,7 +18163,8 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
                 for (const req of toInstall) {
                     if (req.customInstall && req.id === 'comfyui') {
                         logEl.textContent += `\nInstalando ComfyUI de forma personalizada...\n`;
-                        const homeDir = process.env.USERPROFILE || process.env.HOME || 'C:\\Users\\gwmki';
+                        const os = require('os');
+                        const homeDir = os.homedir();
                         const targetDir = require('path').join(homeDir, 'AppData', 'Local', 'Comfy-Desktop');
                         
                         logEl.textContent += `Directorio destino: ${targetDir}\n`;
@@ -17181,7 +18461,8 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
                 const airiContainer = document.getElementById('airi-avatar-container');
 
                 if (mode === 'code') {
-                    if (rp) rp.classList.add('collapsed');
+                    // Mantener el chat abierto por defecto
+                    // if (rp) rp.classList.add('collapsed');
                     if (airiContainer) airiContainer.style.display = 'none';
                     
                     // Mostrar explorador
@@ -17194,7 +18475,8 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
                     const win3d = document.getElementById('nexus-win-3d');
                     if (win3d) win3d.style.display = 'none';
                 } else if (mode === 'game') {
-                    if (rp) rp.classList.add('collapsed');
+                    // Mantener el chat abierto por defecto
+                    // if (rp) rp.classList.add('collapsed');
                     if (airiContainer) airiContainer.style.display = 'none';
                     
                     // Mostrar panel de motores
@@ -21006,7 +22288,10 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                     };
 
                     const scanDir = async (dir) => {
-                        if (!fs.existsSync(dir)) return;
+                        if (!fs.existsSync(dir)) {
+                            console.warn(`Advertencia: El directorio de trabajo no existe: ${dir}`);
+                            return;
+                        }
                         const entries = fs.readdirSync(dir, { withFileTypes: true });
                         for (const entry of entries) {
                             const fullPath = path.join(dir, entry.name);
@@ -21330,153 +22615,11 @@ Si no hay problemas, devuelve un JSON con sugerencias vacío. No rodees tu respu
                 }
             };
 
-            // --- CODEX AUTOCOMPLETE FUNCTIONALITY ---
-            let codexDebounceTimeout = null;
-            let codexAbortController = null;
-
-            function getActiveEditor() {
-                if (typeof activePane !== 'undefined') {
-                    if (activePane === 2 && typeof monacoEditor2 !== 'undefined' && monacoEditor2) {
-                        return monacoEditor2;
-                    }
-                }
-                if (typeof monacoEditor !== 'undefined' && monacoEditor) {
-                    return monacoEditor;
-                }
-                return null;
-            }
-
-            window.triggerCodexManual = function() {
-                window.generateCodexSuggestion();
-            };
-
-            window.acceptCodexSuggestion = function() {
-                try {
-                    const activeEditor = getActiveEditor();
-                    if (!activeEditor) {
-                        showToast("No hay un editor activo", "error");
-                        return;
-                    }
-                    const selection = activeEditor.getSelection();
-                    const text = document.getElementById('codex-recommended-code').value;
-                    if (!text) {
-                        showToast("No hay sugerencias para insertar", "info");
-                        return;
-                    }
-                    const range = new monaco.Range(
-                        selection.startLineNumber,
-                        selection.startColumn,
-                        selection.endLineNumber,
-                        selection.endColumn
-                    );
-                    const id = { major: 1, minor: 1 };
-                    const textOp = { identifier: id, range: range, text: text, forceMoveMarkers: true };
-                    activeEditor.executeEdits("codex", [textOp]);
-                    document.getElementById('codex-recommended-code').value = '';
-                    showToast("Sugerencia insertada", "success");
-                } catch(e) {
-                    showToast("Error al insertar sugerencia: " + e.message, "error");
-                }
-            };
-
-            window.generateCodexSuggestion = async function() {
-                if (chatMode !== 'codex') return;
-
-                const statusEl = document.getElementById('codex-status');
-                const codeAreaEl = document.getElementById('codex-recommended-code');
-
-                if (codexAbortController) {
-                    codexAbortController.abort();
-                    codexAbortController = null;
-                }
-
-                try {
-                    const activeEditor = getActiveEditor();
-                    if (!activeEditor) {
-                        if (statusEl) statusEl.textContent = "Sin editor activo";
-                        return;
-                    }
-
-                    const model = activeEditor.getModel();
-                    if (!model) {
-                        if (statusEl) statusEl.textContent = "Sin modelo de archivo";
-                        return;
-                    }
-
-                    if (statusEl) statusEl.textContent = "Pensando...";
-                    
-                    const position = activeEditor.getPosition();
-                    const textBefore = model.getValueInRange({
-                        startLineNumber: Math.max(1, position.lineNumber - 50),
-                        startColumn: 1,
-                        endLineNumber: position.lineNumber,
-                        endColumn: position.column
-                    });
-                    const textAfter = model.getValueInRange({
-                        startLineNumber: position.lineNumber,
-                        startColumn: position.column,
-                        endLineNumber: Math.min(model.getLineCount(), position.lineNumber + 50),
-                        endColumn: model.getLineMaxColumn(Math.min(model.getLineCount(), position.lineNumber + 50))
-                    });
-
-                    let modelIdToUse = selectedModelId;
-                    if (!modelIdToUse && typeof AI_MODELS_FULL !== 'undefined' && AI_MODELS_FULL.length > 0) {
-                        modelIdToUse = AI_MODELS_FULL[0].id;
-                    }
-                    if (!modelIdToUse) {
-                        if (statusEl) statusEl.textContent = "Error: Configurar IA";
-                        return;
-                    }
-
-                    codexAbortController = new AbortController();
-
-                    const prompt = `Archivo: ${activeFilePath || 'untitled'}
---- CÓDIGO ANTES DE LA POSICIÓN ACTUAL DEL CURSOR ---
-${textBefore}
---- CÓDIGO DESPUÉS DE LA POSICIÓN ACTUAL DEL CURSOR ---
-${textAfter}`;
-
-                    const systemInstruction = `Eres un motor de autocompletado de código rápido. Tu objetivo es sugerir la continuación inmediata del código de forma natural y limpia.
-INSTRUCCIONES CRÍTICAS:
-- Devuelve EXCLUSIVAMENTE el fragmento de código que el usuario debería escribir a continuación de la posición actual del cursor.
-- NO rodees el código con bloques de markdown triple comilla (e.g. \`\`\` o \`\`\`javascript).
-- NO des explicaciones, ni introducciones, ni comentarios adicionales fuera del código.
-- Si no estás seguro o no hay suficiente contexto, devuelve una cadena vacía.`;
-
-                    const response = await sendRequestToAI(modelIdToUse, prompt, systemInstruction, [], codexAbortController.signal);
-                    
-                    let cleanCode = response || '';
-                    if (cleanCode.includes('```')) {
-                        cleanCode = cleanCode.replace(/```[a-zA-Z0-9]*\n?/g, '').replace(/```/g, '');
-                    }
-
-                    if (codeAreaEl) {
-                        codeAreaEl.value = cleanCode;
-                    }
-                    if (statusEl) statusEl.textContent = cleanCode ? "Listo" : "Sin sugerencia";
-
-                } catch(e) {
-                    if (e.name === 'AbortError') {
-                        return;
-                    }
-                    console.error("Error en Codex:", e);
-                    if (statusEl) statusEl.textContent = "Error";
-                }
-            };
-
-            window.triggerCodexDebounced = function() {
-                if (chatMode !== 'codex') return;
-                
-                const statusEl = document.getElementById('codex-status');
-                if (statusEl) statusEl.textContent = "Escribiendo...";
-
-                if (codexDebounceTimeout) {
-                    clearTimeout(codexDebounceTimeout);
-                }
-                codexDebounceTimeout = setTimeout(() => {
-                    window.generateCodexSuggestion();
-                }, 1500);
-            };
+            // --- CODEX AUTOCOMPLETE FUNCTIONALITY (DEACTIVATED) ---
+            window.triggerCodexManual = function() {};
+            window.acceptCodexSuggestion = function() {};
+            window.generateCodexSuggestion = async function() {};
+            window.triggerCodexDebounced = function() {};
 
             window.triggerCardinalIntervention = async function(filePath, lineNum, errorDetails, errorType) {
                 logCardinalIntervention(`Intervención: Detectado ${errorType} en ${path.basename(filePath)}:${lineNum}`, true);

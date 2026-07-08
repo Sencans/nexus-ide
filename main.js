@@ -67,7 +67,7 @@ function createWindow () {
       }
     } catch (e) {}
   }, 2000);
-  // mainWindow.webContents.openDevTools(); // Descomentar para ver la consola de errores
+  mainWindow.webContents.openDevTools(); // Descomentar para ver la consola de errores
 
   // Configurar Menú de Aplicación con soporte nativo de Zoom y atajos
   const menuTemplate = [
@@ -1143,10 +1143,12 @@ ipcMain.handle('launch-comfy-desktop', async () => {
     const fs = require('fs');
     const path = require('path');
     
-    let exePath = "C:\\Users\\gwmki\\AppData\\Local\\Programs\\Comfy Desktop\\Comfy Desktop.exe";
+    const os = require('os');
+    const homeDir = os.homedir();
+    let exePath = path.join(homeDir, 'AppData', 'Local', 'Programs', 'Comfy Desktop', 'Comfy Desktop.exe');
     
     if (!fs.existsSync(exePath)) {
-        const desktopShortcut = "C:\\Users\\gwmki\\Desktop\\Comfy Desktop.lnk";
+        const desktopShortcut = path.join(homeDir, 'Desktop', 'Comfy Desktop.lnk');
         if (fs.existsSync(desktopShortcut)) {
             try {
                 const { shell } = require('electron');
@@ -1266,6 +1268,55 @@ function startHardwareTelemetry() {
         }
     }, 2000);
 }
+
+let companionWindow = null;
+
+function createCompanionWindow() {
+  if (companionWindow) {
+    companionWindow.focus();
+    return;
+  }
+
+  companionWindow = new BrowserWindow({
+    width: 250,
+    height: 350,
+    transparent: true,
+    frame: false,
+    alwaysOnTop: true,
+    resizable: true,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+      sandbox: false,
+      webSecurity: false
+    }
+  });
+
+  companionWindow.loadURL(`file://${__dirname}/index.html?mode=companion`);
+
+  companionWindow.on('closed', () => {
+    companionWindow = null;
+  });
+}
+
+ipcMain.on('open-assistant-companion', () => {
+  createCompanionWindow();
+});
+
+ipcMain.on('close-assistant-companion', () => {
+  if (companionWindow) {
+    companionWindow.close();
+  }
+});
+
+ipcMain.on('open-main-window', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.show();
+    mainWindow.focus();
+  } else {
+    createWindow();
+  }
+});
 
 app.on('window-all-closed', function () {
   if (telegramBotInterval) clearInterval(telegramBotInterval);
