@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, Tray, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Tray, Menu, screen } = require('electron');
 const path = require('path');
 
 let mainWindow = null;
@@ -1272,25 +1272,51 @@ function startHardwareTelemetry() {
 let companionWindow = null;
 
 function createCompanionWindow() {
-  if (companionWindow) {
+  if (companionWindow && !companionWindow.isDestroyed()) {
+    companionWindow.show();
     companionWindow.focus();
     return;
   }
 
+  // El overlay cubre todo el display primario para que el avatar pueda "flotar"
+  // por cualquier punto de la pantalla, incluso fuera de la ventana de Nexus IDE.
+  const primary = screen.getPrimaryDisplay();
+  const b = primary.bounds;
+
   companionWindow = new BrowserWindow({
-    width: 250,
-    height: 350,
+    x: b.x,
+    y: b.y,
+    width: b.width,
+    height: b.height,
     transparent: true,
     frame: false,
     alwaysOnTop: true,
-    resizable: true,
+    resizable: false,
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    skipTaskbar: true,
+    hasShadow: false,
+    fullscreenable: false,
+    focusable: true,
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
       sandbox: false,
-      webSecurity: false
+      webSecurity: false,
+      backgroundThrottling: false // mantener la animación fluida aunque no tenga foco
     }
   });
+
+  // Flotar por encima de cualquier otra aplicación de escritorio.
+  companionWindow.setAlwaysOnTop(true, 'screen-saver');
+  try {
+    companionWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  } catch (e) { /* algunas plataformas no lo soportan */ }
+
+  // Por defecto la ventana deja pasar los clics al escritorio (click-through).
+  // El renderer la vuelve interactiva sólo cuando el ratón está sobre el avatar.
+  companionWindow.setIgnoreMouseEvents(true, { forward: true });
 
   companionWindow.loadURL(`file://${__dirname}/index.html?mode=companion`);
 
@@ -1304,9 +1330,31 @@ ipcMain.on('open-assistant-companion', () => {
 });
 
 ipcMain.on('close-assistant-companion', () => {
-  if (companionWindow) {
+  if (companionWindow && !companionWindow.isDestroyed()) {
     companionWindow.close();
   }
+});
+
+// Alterna el modo click-through del overlay del companion. El renderer lo pide
+// según si el cursor está sobre el avatar (interactivo) o fuera (pasa los clics).
+ipcMain.on('companion-set-ignore-mouse', (event, ignore) => {
+  if (companionWindow && !companionWindow.isDestroyed()) {
+    if (ignore) {
+      companionWindow.setIgnoreMouseEvents(true, { forward: true });
+    } else {
+      companionWindow.setIgnoreMouseEvents(false);
+    }
+  }
+});
+
+// Refresco en caliente del avatar: al guardar la config en una ventana, avisa a las
+// demás (p. ej. el widget flotante) para que re-rendericen el avatar sin relanzarse.
+ipcMain.on('assistant-config-updated', (event) => {
+  BrowserWindow.getAllWindows().forEach((w) => {
+    if (!w.isDestroyed() && w.webContents !== event.sender) {
+      w.webContents.send('assistant-config-updated');
+    }
+  });
 });
 
 ipcMain.on('open-main-window', () => {
