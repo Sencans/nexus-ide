@@ -1,85 +1,136 @@
+<div align="center">
+
 # 🌌 Nexus IDE
 
-Nexus IDE es un entorno de desarrollo integrado (IDE) de escritorio de última generación, construido sobre **Electron**, **HTML5/CSS3 (Glassmorphism)** y **Node.js**. Combina un rendimiento fuera de línea ultrarrápido con herramientas avanzadas para desarrollo de software, modelado y renderizado 3D, y asistencia interactiva mediante Inteligencia Artificial multi-proveedor.
+**Entorno de desarrollo de escritorio de última generación: código, IA multi-proveedor, motores 3D y control remoto en una sola ventana.**
 
-![Electron](https://img.shields.io/badge/Electron-28.0.0-blueviolet?style=flat-safe)
-![Monaco](https://img.shields.io/badge/Monaco_Editor-0.43.0-blue?style=flat-safe)
+[![Electron](https://img.shields.io/badge/Electron-31-47848F?style=flat-square&logo=electron&logoColor=white)](https://www.electronjs.org/)
+[![Monaco Editor](https://img.shields.io/badge/Monaco_Editor-0.43-0078D4?style=flat-square&logo=visualstudiocode&logoColor=white)](https://microsoft.github.io/monaco-editor/)
+[![Babylon.js](https://img.shields.io/badge/Babylon.js-6.x-BB464B?style=flat-square&logo=babylondotjs&logoColor=white)](https://www.babylonjs.com/)
+[![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?style=flat-square&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
+[![Platform](https://img.shields.io/badge/Plataforma-Windows_10%2F11-0078D6?style=flat-square&logo=windows&logoColor=white)](#)
+[![License: MIT](https://img.shields.io/badge/Licencia-MIT-yellow.svg?style=flat-square)](LICENSE)
+
+<img src="docs/screenshot.png" alt="Captura de Nexus IDE" width="90%">
+
+</div>
+
+---
+
+Nexus IDE es un **entorno de desarrollo integrado (IDE) de escritorio** construido sobre **Electron**, **HTML5/CSS3 (Glassmorphism)** y **Node.js**. Combina un rendimiento fuera de línea ultrarrápido con herramientas avanzadas para desarrollo de software, modelado y renderizado 3D, y asistencia interactiva mediante inteligencia artificial multi-proveedor.
+
+## 📑 Tabla de Contenidos
+
+- [Características principales](#-características-principales)
+- [Requisitos e instalación](#️-requisitos-e-instalación)
+- [Compilación y distribución](#-compilación-y-distribución)
+- [Estructura del proyecto](#-estructura-del-proyecto)
+- [Privacidad y API Keys](#-privacidad-y-api-keys)
+- [Contribuir](#-contribuir)
+- [Licencia](#-licencia)
 
 ---
 
 ## ✨ Características Principales
 
 ### 💻 Editor de Código de Alto Rendimiento
-* **Monaco Editor Integrado**: Soporte completo fuera de línea (offline) para resaltado de sintaxis y búsqueda inteligente con atajo visual de 🔍 Buscar.
-* **Autocompletado Local**: Autocompletado local nativo sin consumo de IA para **GDScript (Godot)** y **C++ (Unreal Engine 5)** con palabras clave, macros y APIs estándar.
-* **40+ Lenguajes**: Detección inteligente de extensiones y visualización dinámica en la barra de estado con paletas dedicadas.
-* **Snippets Inteligentes**: Plantillas y snippets integrados listos para agilizar la escritura en múltiples lenguajes (JS, Python, Rust, C++, etc.).
-* **Gestor de Plantillas**: Crea estructuras de proyectos desde cero (Node, Python, HTML5, etc.) en segundos.
+* **Monaco Editor integrado**: soporte completo fuera de línea (offline) para resaltado de sintaxis y búsqueda inteligente.
+* **Autocompletado local**: nativo y sin consumo de IA para **GDScript (Godot)** y **C++ (Unreal Engine 5)** con palabras clave, macros y APIs estándar.
+* **40+ lenguajes**: detección inteligente de extensiones y visualización dinámica en la barra de estado con paletas dedicadas.
+* **Snippets inteligentes** y **gestor de plantillas** para crear estructuras de proyecto (Node, Python, HTML5, etc.) en segundos.
 
-### 🤖 Asistencia de Inteligencia Artificial & AIRI
-* **Proveedores Compatibles**: Soporte nativo para APIs de **Google Gemini** (incluyendo los últimos modelos Thinking, Pro y Flash), **OpenAI**, **Anthropic Claude**, **Groq**, **Mistral**, **DeepSeek**, **Moonshot (Kimi)**, **xAI (Grok)** y **Ollama** (para ejecución 100% local).
-* **Agentes Colaborativos**: Genera dinámicas de equipo donde múltiples modelos de IA discuten y colaboran simultáneamente para solucionar problemas de código.
-* **Seguridad de Datos**: Tus claves API y configuraciones se guardan localmente en el almacenamiento aislado de tu máquina (`localStorage`).
-* **Burbuja de Notificaciones**: Notificaciones de estado de tareas y solicitud interactiva de permisos directo sobre el avatar 3D de AIRI.
+### 🤖 Asistencia de IA & Compañero AIRI
+* **Proveedores compatibles**: **Google Gemini**, **OpenAI**, **Anthropic Claude**, **Groq**, **Mistral**, **DeepSeek**, **Moonshot (Kimi)**, **xAI (Grok)** y **Ollama** (ejecución 100% local).
+* **Agentes colaborativos**: múltiples modelos discuten y colaboran simultáneamente para resolver problemas de código.
+* **Avatar/compañero flotante (AIRI)**: overlay de escritorio transparente que flota sobre cualquier aplicación (fuera de la ventana del IDE), con soporte para **imágenes/GIF**, **modelos 3D/VTuber (GLB, GLTF, VRM)** y un holograma por defecto. Arrastrable por toda la pantalla, con rotación y zoom del modelo 3D.
+* **Seguridad de datos**: tus claves API se guardan localmente en el almacenamiento aislado de tu máquina (`localStorage`).
 
 ### 🎮 Integración de Motores 3D (Godot y Unreal Engine 5)
-* **Godot & Unreal Engine IPC Bridge**: Ejecuta proyectos y abre editores desde el IDE con flujos de trabajo e hilos asíncronos y sockets portables.
-* **Conversor Imagen-a-3D (Blender)**: Displaza mallas 3D usando imágenes y un control de relieve.
-* **Visor 3D Interactivo**: Ventana flotante de vista previa 3D interactiva (BabylonJS) para inspeccionar y rotar los modelos GLB generados antes de importarlos a tu motor.
+* **Godot & Unreal Engine IPC Bridge**: ejecuta proyectos y abre editores desde el IDE mediante hilos asíncronos y sockets portables.
+* **Conversor imagen-a-3D (Blender)**: desplaza mallas 3D usando imágenes y un control de relieve.
+* **Visor 3D interactivo** (Babylon.js) para inspeccionar y rotar los modelos GLB generados antes de importarlos.
 
 ### 📱 Control Remoto de AIRI
-* **Bot de Telegram Integrado**: Chatea con la IA de AIRI y dale órdenes a tu terminal remotamente mediante un Bot de Telegram con niveles de seguridad configurables (Restringido, Con Confirmación de terminal, o Acceso Total).
+* **Bot de Telegram integrado**: chatea con la IA y da órdenes a tu terminal remotamente, con niveles de seguridad configurables (restringido, con confirmación o acceso total).
 
-### 🐳 Gestor de Docker Integrado (Ctrl+Alt+D)
-* **Control de Ciclo de Vida**: Gestiona tus contenedores locales (Iniciar, Pausar, Reiniciar, Eliminar) desde un panel dedicado.
-* **Visor de Logs en Vivo**: Lee la salida de consola de tus servicios de base de datos o APIs en ejecución en tiempo real.
-* **Creación de Contenedores**: Despliega imágenes directamente configurando puertos y variables de entorno.
+### 🐳 Gestor de Docker Integrado (`Ctrl+Alt+D`)
+* Control de ciclo de vida de contenedores (iniciar, pausar, reiniciar, eliminar), **visor de logs en vivo** y creación de contenedores configurando puertos y variables de entorno.
 
-### 🔌 Galería de Plugins y Marketplace (Ctrl+Alt+M)
-* **Instalador Git Directo**: Instala cualquier extensión externa clonando repositorios de Git directamente a la carpeta de plugins del IDE.
-* **Biblioteca Curada Incluida**:
-  * **📊 Visual Git Graph**: Grafo interactivo del historial de commits local.
-  * **🗄️ Database Client (SQLite)**: Consulta bases de datos SQLite integradas con visor de tablas.
-  * **🎨 Excalidraw Sketchpad**: Dibuja diagramas de flujo y esquemas directamente.
-  * **🔍 RegEx Sandbox**: Valida expresiones regulares en caliente.
-  * **📦 JSON Formatter**: Formatea, valida y minifica estructuras JSON.
-  * **🎵 Spotify Controller**: Medidor y reproductor multimedia integrado.
+### 🔌 Galería de Plugins y Marketplace (`Ctrl+Alt+M`)
+* **Instalador Git directo** y una biblioteca curada: Visual Git Graph, Database Client (SQLite), Excalidraw Sketchpad, RegEx Sandbox, JSON Formatter y Spotify Controller.
 
 ---
 
 ## 🛠️ Requisitos e Instalación
 
-Para ejecutar este proyecto en modo desarrollo, necesitas tener instalado **Node.js** (versión 18 o superior).
+> Requiere **Node.js 18 o superior**.
 
-1. **Clona el repositorio:**
-   ```bash
-   git clone https://github.com/Sencans/nexus-ide.git
-   cd nexus-ide
-   ```
+```bash
+# 1. Clona el repositorio
+git clone https://github.com/Sencans/nexus-ide.git
+cd nexus-ide
 
-2. **Instala las dependencias:**
-   ```bash
-   npm install
-   ```
+# 2. Instala las dependencias
+npm install
 
-3. **Inicia el IDE localmente:**
-   ```bash
-   npm start
-   ```
+# 3. Inicia el IDE
+npm start
+```
 
 ---
 
 ## 📦 Compilación y Distribución
 
-Para empaquetar Nexus IDE en un ejecutable portátil autónomo (`.exe`) para Windows sin necesidad de instalar dependencias externas en el equipo destino:
+Para empaquetar Nexus IDE en un ejecutable portátil autónomo (`.exe`) para Windows:
 
 ```bash
 npm run dist
 ```
 
-El resultado se generará en la carpeta `./nexus-ide-win32-x64/nexus-ide.exe`. Compila la carpeta completa en un archivo ZIP para compartirla.
+El resultado se genera en `./nexus-ide-win32-x64/nexus-ide.exe`. Comprime la carpeta completa en un ZIP para compartirla.
+
+---
+
+## 📂 Estructura del Proyecto
+
+```
+nexus-ide/
+├── main.js                 # Proceso principal de Electron (ventanas, IPC, companion)
+├── index.html              # Interfaz completa del IDE (editor, IA, 3D, plugins)
+├── image_to_3d.py          # Conversor imagen-a-3D (Blender)
+├── blender_godot_bridge/   # Puente IPC entre Blender y Godot (C++/GDExtension)
+├── package.json            # Metadatos y scripts (start, dist)
+└── docs/                   # Recursos de documentación (capturas)
+```
 
 ---
 
 ## 🔒 Privacidad y API Keys
-Toda la configuración del usuario, las rutas de directorios abiertas y las claves de API se persisten de manera aislada en el `localStorage` del cliente. **Ninguna clave de API ni archivo personal se envía a servidores externos ni se empaqueta en la distribución ejecutable.**
+
+Toda la configuración del usuario, las rutas de directorios abiertas y las claves de API se persisten de forma **aislada en el `localStorage`** del cliente. **Ninguna clave de API ni archivo personal se envía a servidores externos ni se empaqueta en la distribución ejecutable.**
+
+---
+
+## 🤝 Contribuir
+
+Las contribuciones son bienvenidas. Para cambios importantes, abre primero un *issue* para discutir qué te gustaría cambiar.
+
+1. Haz un *fork* del proyecto.
+2. Crea tu rama (`git checkout -b feat/mi-mejora`).
+3. Haz *commit* de tus cambios (`git commit -m 'feat: añade mi mejora'`).
+4. Haz *push* a la rama (`git push origin feat/mi-mejora`).
+5. Abre un *Pull Request*.
+
+---
+
+## 📄 Licencia
+
+Distribuido bajo la licencia **MIT**. Consulta el archivo [`LICENSE`](LICENSE) para más información.
+
+---
+
+<div align="center">
+
+Hecho con 💜 por [**Sencanxg**](https://github.com/Sencans) · Colombia 🇨🇴
+
+</div>

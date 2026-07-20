@@ -27,9 +27,18 @@ out/
 *.zip
 *.dll
 *.a
+*.o
+*.obj
 *.bin
 *.cache
 .sconsign.dblite
 blender_godot_bridge/godot/.godot/
 blender_godot_bridge/godot_engine/
 uploads/
+
+# App debug output / screenshots
+electron_output.log
+electron_run.log
+electron_err.log
+renderer_errors.log
+app_screenshot.png
