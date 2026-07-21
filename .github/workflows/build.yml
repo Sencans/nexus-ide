@@ -71,3 +71,34 @@ jobs:
             dist/*.deb
             dist/*.rpm
             dist/*.exe
+
+  # Build del paquete pacman (Arch) dentro de un contenedor Arch Linux real,
+  # que es donde electron-builder produce el .pacman de forma más fiable.
+  build-arch:
+    name: Build (Arch / pacman)
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - name: Install toolchain
+        run: pacman -Syu --noconfirm nodejs npm git python fakeroot base-devel
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build pacman package
+        shell: bash
+        run: |
+          PUB=$([[ "$GITHUB_REF" == refs/tags/* ]] && echo always || echo never)
+          npx electron-builder --linux pacman --publish "$PUB"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload pacman artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nexus-ide-arch
+          if-no-files-found: ignore
+          path: dist/*.pacman
