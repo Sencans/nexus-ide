@@ -19179,7 +19179,10 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                             }
 
                             let response = await sendRequestToAI(selectedModelId, textWithContextAndAttachments, sysPrompt, chatHistory.slice(0, -1), chatAbortController.signal, imgAttachments);
-                            
+                            // FIX #8: normalizar (fences markdown -> [WRITE_FILE]) ANTES del pre-flight,
+                            // si no, una respuesta con fences se salta la validación.
+                            response = normalizeAgentResponse(response);
+
                             // Bucle silencioso de pre-flight check de Cardinal
                             let attempts = 0;
                             const maxAttempts = 3;
@@ -19767,7 +19770,8 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                 const writeRegex = /\[WRITE_FILE:([^\]]+)\]([\s\S]*?)\[END_WRITE_FILE\]/g;
                 let match;
                 const errors = [];
-                
+                const warnings = []; // referencias no resueltas: informativas, NO bloquean
+
                 while ((match = writeRegex.exec(response)) !== null) {
                     const filePath = match[1].trim();
                     const content = match[2];
@@ -19790,16 +19794,19 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                         }
                     }
                     
-                    // 2. Verificación de referencias contra la VFS DB
+                    // 2. Verificación de referencias contra la VFS DB (solo ADVIERTE, no bloquea).
                     if (ext === '.js' || ext === '.py') {
-                        // Buscar llamadas a funciones en el contenido
-                        const callRegex = /\b([a-zA-Z0-9_$]+)\s*\(/g;
+                        // FIX #4: excluir métodos/namespace (precedidos por '.') y palabras reservadas.
+                        const RESERVED = new Set(['if','for','while','switch','catch','do','return','typeof','new','delete','void','else','function','class','def','elif','with','try','in','of','await','yield','throw','case','instanceof','super','import','from','as','lambda','and','or','not','constructor','print']);
+                        const callRegex = /(?<![.\w$])([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/g;
                         let callMatch;
                         const seenCalls = new Set();
                         while ((callMatch = callRegex.exec(content)) !== null) {
-                            seenCalls.add(callMatch[1]);
+                            const name = callMatch[1];
+                            if (RESERVED.has(name)) continue;
+                            seenCalls.add(name);
                         }
-                        
+
                         const commonFuncs = new Set([
                             'require', 'console', 'log', 'error', 'warn', 'info', 'setInterval', 'setTimeout', 'clearInterval', 'clearTimeout',
                             'print', 'len', 'range', 'str', 'int', 'float', 'list', 'dict', 'set', 'tuple', 'type', 'open', 'abs', 'round',
@@ -19820,7 +19827,8 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                             if (!isDefinedInContent) {
                                 const symbolInfo = window.CardinalDB.symbols[funcName];
                                 if (!symbolInfo) {
-                                    errors.push(`Llamada a función no declarada '${funcName}' en ${path.basename(filePath)}. Asegúrate de definirla o importarla.`);
+                                    // Solo advertencia: la heurística no conoce los globales del app, evita falsos positivos que bloquean.
+                                    warnings.push(`Posible función no declarada '${funcName}' en ${path.basename(filePath)}.`);
                                 }
                             }
                         });
@@ -19945,7 +19953,7 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                 try {
                     const content = fs.readFileSync(activeFilePath, 'utf8');
                     const sel = document.getElementById('cardinal-model-select').value;
-                    let targetModel = activeModel;
+                    let targetModel = selectedModelId; // FIX: activeModel era function-scoped (ReferenceError)
                     if (sel === 'gemini') targetModel = 'gemini-2.5-pro';
                     else if (sel === 'openai') targetModel = 'gpt-4o';
 
@@ -19979,10 +19987,15 @@ Si no hay problemas, devuelve un JSON con sugerencias vacío. No rodees tu respu
                         window.refreshCardinalUI();
                         logCardinalIntervention(`Auditoría finalizada. Encontradas ${data.sugerencias.length} sugerencias.`);
                         
-                        // Auto-correct silently in background if sugerencias exist
-                        if (isBackground && data.sugerencias.length > 0) {
-                            logCardinalIntervention("Aplicando reparación silenciosa en segundo plano...");
-                            window.applyCardinalCorrection(0, true);
+                        // Auto-corrección silenciosa en segundo plano (respetando el checkbox).
+                        const autoCorrect = document.getElementById('cardinal-auto-correct');
+                        if (isBackground && data.sugerencias.length > 0 && (!autoCorrect || autoCorrect.checked)) {
+                            logCardinalIntervention(`Aplicando ${data.sugerencias.length} corrección(es) en segundo plano...`);
+                            // FIX #3: aplicar TODAS. De mayor a menor índice para que los splice
+                            // no desplacen las pendientes; cada aplicación re-lee el contenido actual.
+                            for (let i = window.cardinalSuggestions.length - 1; i >= 0; i--) {
+                                window.applyCardinalCorrection(i, true);
+                            }
                         }
                     } else {
                         throw new Error("Formato de respuesta incorrecto");
@@ -20003,52 +20016,54 @@ Si no hay problemas, devuelve un JSON con sugerencias vacío. No rodees tu respu
                 }
             };
 
-            window.applyCardinalCorrection = function(idx, silent = false) {
+            window.applyCardinalCorrection = function(idx, silent = false, targetPath = null) {
                 const sug = window.cardinalSuggestions[idx];
-                if (!sug || !activeFilePath) return;
+                // FIX: el archivo objetivo puede ser el del error de terminal, no el activo.
+                const filePath = targetPath || activeFilePath;
+                if (!sug || !filePath) return;
 
                 try {
+                    const isActive = (filePath === activeFilePath);
                     let content = '';
-                    if (isMonacoLoaded) {
-                        const model = fileModels[activeFilePath];
+                    if (isActive && isMonacoLoaded) {
+                        const model = fileModels[filePath];
                         if (model) content = model.getValue();
-                    } else {
+                    } else if (isActive) {
                         const ta = document.getElementById('fallback-textarea-1') || document.getElementById('fallback-textarea-2');
                         if (ta) content = ta.value;
                     }
 
                     if (!content) {
-                        content = fs.readFileSync(activeFilePath, 'utf8');
+                        content = fs.readFileSync(filePath, 'utf8');
                     }
 
-                    // Replace original code with corrected code
                     const targetText = sug.codigo_original;
                     const replacementText = sug.codigo_corregido;
 
-                    if (content.includes(targetText)) {
-                        const newContent = content.replace(targetText, replacementText);
-                        
-                        // Write to disk
-                        fs.writeFileSync(activeFilePath, newContent, 'utf8');
-                        
-                        // Update Monaco view
-                        if (isMonacoLoaded) {
-                            const model = fileModels[activeFilePath];
-                            if (model) model.setValue(newContent);
-                        } else {
-                            const ta = document.getElementById('fallback-textarea-1') || document.getElementById('fallback-textarea-2');
-                            if (ta) ta.value = newContent;
+                    if (targetText && content.includes(targetText)) {
+                        // FIX: reemplazo $-safe (la función evita que $&,$1,$$... se interpreten).
+                        const newContent = content.replace(targetText, () => replacementText);
+
+                        fs.writeFileSync(filePath, newContent, 'utf8');
+
+                        // Refrescar la vista solo si el archivo corregido es el que está abierto.
+                        if (isActive) {
+                            if (isMonacoLoaded) {
+                                const model = fileModels[filePath];
+                                if (model) model.setValue(newContent);
+                            } else {
+                                const ta = document.getElementById('fallback-textarea-1') || document.getElementById('fallback-textarea-2');
+                                if (ta) ta.value = newContent;
+                            }
                         }
 
                         if (!silent) {
                             showToast("Corrección aplicada correctamente por Cardinal", "success");
                         }
-                        logCardinalIntervention(`Corrección aplicada en línea ${sug.linea}.`);
-                        
-                        // Remove from suggestions
+                        logCardinalIntervention(`Corrección aplicada en ${path.basename(filePath)}:${sug.linea}.`);
+
                         window.cardinalSuggestions.splice(idx, 1);
                         window.refreshCardinalUI();
-                        
                         updateGitStatus();
                     } else {
                         throw new Error("El código original ya no coincide con el archivo actual.");
@@ -20081,7 +20096,7 @@ Si no hay problemas, devuelve un JSON con sugerencias vacío. No rodees tu respu
                 try {
                     const content = fs.readFileSync(filePath, 'utf8');
                     const sel = document.getElementById('cardinal-model-select').value;
-                    let targetModel = activeModel;
+                    let targetModel = selectedModelId; // FIX: activeModel era function-scoped (ReferenceError)
                     if (sel === 'gemini') targetModel = 'gemini-2.5-pro';
                     else if (sel === 'openai') targetModel = 'gpt-4o';
 
@@ -20119,10 +20134,13 @@ Asegúrate de que la corrección resuelva completamente la causa del error. No r
                         // Add to suggestions feed
                         window.cardinalSuggestions.unshift(sug);
                         window.refreshCardinalUI();
-                        
-                        // Always auto-correct silently in the background
-                        logCardinalIntervention("Aplicando reparación silenciosa de Cardinal en segundo plano...");
-                        window.applyCardinalCorrection(0, true);
+
+                        // FIX #5: respetar el checkbox; FIX #2: corregir el ARCHIVO DEL ERROR (filePath).
+                        const autoCorrect = document.getElementById('cardinal-auto-correct');
+                        if (!autoCorrect || autoCorrect.checked) {
+                            logCardinalIntervention("Aplicando reparación silenciosa de Cardinal en segundo plano...");
+                            window.applyCardinalCorrection(0, true, filePath);
+                        }
                     }
                 } catch(e) {
                     console.error("Fallo en auto-reparación Cardinal:", e);
