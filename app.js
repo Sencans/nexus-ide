@@ -12818,10 +12818,17 @@ WICHTIG! Wenn der Entwickler Sie auffordert, eine Datei zu erstellen, zu schreib
                     
                     const promptData = await promptRes.json();
                     updateProgress("En cola de ComfyUI...", 40);
-                    
+
+                    // FIX: guarda de tiempo — si ComfyUI no responde en 5 min, aborta e informa
+                    // (antes: cualquier fallo de runtime dejaba la barra colgada para siempre).
+                    let __comfyGuard = setTimeout(() => {
+                        updateProgress("⚠️ Tiempo de espera agotado: ComfyUI no respondió.", 0);
+                        try { ws.close(); } catch(e){}
+                    }, 300000);
+
                     ws.onmessage = (event) => {
                         const msg = JSON.parse(event.data);
-                        
+
                         if (msg.type === 'status') {
                             const queueRemaining = msg.data.status.queue_remaining;
                             if (queueRemaining > 0) {
@@ -12842,10 +12849,17 @@ WICHTIG! Wenn der Entwickler Sie auffordert, eine Datei zu erstellen, zu schreib
                             const percent = 40 + Math.round((value / max) * 50);
                             updateProgress(`Procesando sampler: ${value}/${max}`, percent);
                         }
+                        else if (msg.type === 'execution_error' || msg.type === 'execution_interrupted') {
+                            clearTimeout(__comfyGuard);
+                            const emsg = (msg.data && (msg.data.exception_message || msg.data.exception_type)) || 'desconocido';
+                            updateProgress(`❌ Error de ejecución en ComfyUI: ${emsg}`, 0);
+                            try { ws.close(); } catch(e){}
+                        }
                         else if (msg.type === 'executed') {
+                            clearTimeout(__comfyGuard);
                             updateProgress("¡Completado con éxito!", 100);
                             const outputs = msg.data.output;
-                            
+
                             let filename = '';
                             let subfolder = '';
                             
@@ -13398,12 +13412,14 @@ WICHTIG! Wenn der Entwickler Sie auffordert, eine Datei zu erstellen, zu schreib
                 if (res.ok) {
                     const data = await res.json();
                     if (data.models && data.models.length > 0) {
+                        window.__ollamaAvailable = true; // FIX: cache para getModelsForCollaboration
                         return data.models.map(m => m.name);
                     }
                 }
             } catch(e) {
                 // Ignore connectivity errors
             }
+            window.__ollamaAvailable = false;
             return null;
         }
 
@@ -13506,7 +13522,11 @@ WICHTIG! Wenn der Entwickler Sie auffordert, eine Datei zu erstellen, zu schreib
                 else if (group.group === 'OpenRouter') provId = 'openrouter';
                 else if (group.group === 'Ollama (Local)') provId = 'ollama';
                 
-                const isConfigured = provId === 'ollama' || (apiKeysState[provId] && apiKeysState[provId].key);
+                // FIX: solo contar Ollama si está REALMENTE disponible (evita fijar el rol Coder
+                // a un Ollama local inexistente y romper la colaboración para usuarios solo-nube).
+                const isConfigured = provId === 'ollama'
+                    ? (window.__ollamaAvailable === true)
+                    : (apiKeysState[provId] && apiKeysState[provId].key);
                 if (isConfigured) {
                     group.models.forEach(([id, name]) => {
                         activeModels.push(id);
@@ -16726,14 +16746,29 @@ void AMyActor::Tick(float DeltaTime)
                     }
                 };
                 
+                // FIX: guarda de tiempo — evita cuelgue infinito si ComfyUI no responde.
+                let __videoGuard = setTimeout(() => {
+                    addLog("⚠️ Tiempo de espera agotado: ComfyUI no respondió.");
+                    progressLabel.textContent = "⚠️ Sin respuesta de ComfyUI";
+                    try { videoWs.close(); } catch(e){}
+                }, 300000);
+
                 videoWs.onmessage = (event) => {
                     const msg = JSON.parse(event.data);
-                    
+
                     if (msg.type === 'status') {
                         const queueRemaining = msg.data.status.queue_remaining;
                         if (queueRemaining > 0) {
                             progressLabel.textContent = `En cola (Pendientes: ${queueRemaining})`;
                         }
+                    }
+                    else if (msg.type === 'execution_error' || msg.type === 'execution_interrupted') {
+                        clearTimeout(__videoGuard);
+                        const emsg = (msg.data && (msg.data.exception_message || msg.data.exception_type)) || 'desconocido';
+                        addLog(`❌ Error de ejecución en ComfyUI: ${emsg}`);
+                        progressLabel.textContent = "❌ Error de ejecución";
+                        showToast(`ComfyUI: ${emsg}`, "error");
+                        try { videoWs.close(); } catch(e){}
                     }
                     else if (msg.type === 'executing') {
                         const node = msg.data.node;
@@ -16755,6 +16790,7 @@ void AMyActor::Tick(float DeltaTime)
                         progressLabel.textContent = `Paso KSampler: ${value}/${max}`;
                     }
                     else if (msg.type === 'executed') {
+                        clearTimeout(__videoGuard);
                         addLog("✅ Video generado con éxito.");
                         const outputs = msg.data.output;
                         

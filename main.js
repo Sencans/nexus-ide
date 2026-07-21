@@ -562,10 +562,13 @@ function sendTelegramMessage(text) {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'Content-Length': payload.length
+            // FIX: byteLength (UTF-8), no String.length (UTF-16): emojis/acentos rompían el envío.
+            'Content-Length': Buffer.byteLength(payload)
         }
     }, (res) => {
-        // ok
+        if (res.statusCode && res.statusCode >= 400) {
+            console.error(`[Telegram Bot] sendMessage HTTP ${res.statusCode}`);
+        }
     });
     req.on('error', (err) => {
         console.error("[Telegram Bot] Error enviando mensaje:", err);
