@@ -8,7 +8,8 @@
 [![Monaco Editor](https://img.shields.io/badge/Monaco_Editor-0.43-0078D4?style=flat-square&logo=visualstudiocode&logoColor=white)](https://microsoft.github.io/monaco-editor/)
 [![Babylon.js](https://img.shields.io/badge/Babylon.js-6.x-BB464B?style=flat-square&logo=babylondotjs&logoColor=white)](https://www.babylonjs.com/)
 [![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?style=flat-square&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
-[![Platform](https://img.shields.io/badge/Plataforma-Windows_10%2F11-0078D6?style=flat-square&logo=windows&logoColor=white)](#)
+[![Platform](https://img.shields.io/badge/Plataforma-Windows_%7C_Linux_%7C_macOS-2d333b?style=flat-square)](#)
+[![Linux](https://img.shields.io/badge/Linux-Fedora_·_Arch_·_Debian-FCC624?style=flat-square&logo=linux&logoColor=black)](INSTALL-LINUX.md)
 [![License: MIT](https://img.shields.io/badge/Licencia-MIT-yellow.svg?style=flat-square)](LICENSE)
 
 <img src="docs/screenshot.png" alt="Captura de Nexus IDE" width="90%">
@@ -79,15 +80,37 @@ npm start
 
 ---
 
-## 📦 Compilación y Distribución
+## 🐧 Linux (Fedora, Arch, Debian y más)
 
-Para empaquetar Nexus IDE en un ejecutable portátil autónomo (`.exe`) para Windows:
+Nexus IDE funciona de forma nativa en Linux. Instalación rápida en modo desarrollo:
 
 ```bash
-npm run dist
+git clone https://github.com/Sencans/nexus-ide.git
+cd nexus-ide && npm install && npm start
 ```
 
-El resultado se genera en `./nexus-ide-win32-x64/nexus-ide.exe`. Comprime la carpeta completa en un ZIP para compartirla.
+Para generar paquetes instalables por distribución:
+
+```bash
+npm run dist:fedora     # .rpm  (Fedora / RHEL)
+npm run dist:arch       # .pacman (Arch / Manjaro)
+npm run dist:appimage   # .AppImage (universal, portable)
+npm run dist:linux      # todos: AppImage + deb + rpm + pacman + tar.gz
+```
+
+📖 Guía completa por distro (dependencias, instalación y solución de problemas): **[INSTALL-LINUX.md](INSTALL-LINUX.md)**
+
+---
+
+## 📦 Compilación y Distribución (Windows / macOS)
+
+Ejecutable portátil autónomo para Windows:
+
+```bash
+npm run dist        # electron-packager → ./nexus-ide-win32-x64/nexus-ide.exe
+npm run dist:win    # electron-builder → instalador NSIS + portable en ./dist
+npm run dist:mac    # electron-builder → .dmg (macOS)
+```
 
 ---
 

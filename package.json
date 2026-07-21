@@ -2,10 +2,19 @@
   "name": "nexus-ide",
   "version": "1.0.0",
   "description": "Nexus IDE - Entorno de desarrollo de escritorio de última generación con soporte para IA, conectores de motores 3D y control remoto",
+  "author": "Sencanxg",
+  "license": "MIT",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "dist": "electron-packager . nexus-ide --platform=win32 --arch=x64 --overwrite"
+    "dist": "electron-packager . nexus-ide --platform=win32 --arch=x64 --overwrite",
+    "dist:win": "electron-builder --win",
+    "dist:linux": "electron-builder --linux AppImage deb rpm pacman",
+    "dist:fedora": "electron-builder --linux rpm",
+    "dist:arch": "electron-builder --linux pacman",
+    "dist:appimage": "electron-builder --linux AppImage",
+    "dist:mac": "electron-builder --mac",
+    "dist:all": "electron-builder -mwl"
   },
   "dependencies": {
     "babylonjs": "^6.33.1",
@@ -14,5 +23,68 @@
     "electron-packager": "^17.1.2",
     "monaco-editor": "^0.43.0",
     "ssh2": "^1.17.0"
+  },
+  "devDependencies": {
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.sencanxg.nexuside",
+    "productName": "Nexus IDE",
+    "copyright": "Copyright © 2026 Sencanxg",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*",
+      "!**/*.md",
+      "!.git/**",
+      "!dist/**",
+      "!*.log",
+      "!app_screenshot.png",
+      "!nexus-ide-win32-x64/**"
+    ],
+    "win": {
+      "target": [
+        "portable",
+        "nsis"
+      ],
+      "icon": "build/icon.png"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "icon": "build/icon.png",
+      "category": "public.app-category.developer-tools"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb",
+        "rpm",
+        "pacman",
+        "tar.gz"
+      ],
+      "icon": "build/icon.png",
+      "maintainer": "Sencanxg",
+      "vendor": "Sencanxg",
+      "synopsis": "IDE de escritorio con IA multi-proveedor, motores 3D y control remoto",
+      "description": "Entorno de desarrollo integrado de escritorio con asistencia de IA multi-proveedor (nube y local), integración con motores 3D (Godot/Unreal), un compañero avatar flotante y un marketplace de plugins.",
+      "category": "Development",
+      "desktop": {
+        "Name": "Nexus IDE",
+        "Comment": "IDE de escritorio con IA, 3D y plugins",
+        "Categories": "Development;IDE;TextEditor;",
+        "Keywords": "ide;code;editor;ai;electron;"
+      }
+    },
+    "appImage": {
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
+    },
+    "rpm": {
+      "depends": [
+        "libXScrnSaver"
+      ]
+    }
   }
 }

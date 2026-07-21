@@ -5910,15 +5910,21 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                   `;
               } else if (tabId === 'terminal') {
                   const currentSettings = getSavedSettings();
+                  // Opciones de shell según el sistema operativo.
+                  const _os = (typeof process !== 'undefined') ? process.platform : 'win32';
+                  const _shellChoices = _os === 'win32'
+                      ? [['powershell.exe', 'PowerShell (Windows)'], ['cmd.exe', 'Símbolo del Sistema (cmd.exe)'], ['bash', 'Bash (Git Bash / WSL)']]
+                      : _os === 'darwin'
+                          ? [['zsh', 'Zsh (macOS por defecto)'], ['bash', 'Bash'], ['sh', 'sh (POSIX)']]
+                          : [['bash', 'Bash (Linux por defecto)'], ['zsh', 'Zsh'], ['fish', 'Fish'], ['sh', 'sh (POSIX)']];
+                  const _shellOptions = _shellChoices.map(([v, n]) => `<option value="${v}" ${currentSettings.terminalShell === v ? 'selected' : ''}>${n}</option>`).join('');
                   detail.innerHTML = `
                     <h3 style="margin-top:0;margin-bottom:16px;">${NexusLocalization.t('tab_settings_terminal')}</h3>
                     <div style="display:flex;flex-direction:column;gap:12px;max-width:400px;">
                         <div>
                             <label style="font-size:11px;color:#8b949e;display:block;margin-bottom:4px;">${NexusLocalization.t('terminal_shell')}</label>
                             <select id="cfg-terminal-shell" style="width:100%;box-sizing:border-box;background:#161b22;border:1px solid #30363d;border-radius:4px;color:#fff;padding:8px 12px;font-size:13px;outline:none;">
-                                <option value="powershell.exe" ${currentSettings.terminalShell === 'powershell.exe' ? 'selected' : ''}>PowerShell (Windows)</option>
-                                <option value="cmd.exe" ${currentSettings.terminalShell === 'cmd.exe' ? 'selected' : ''}>Símbolo del Sistema (cmd.exe)</option>
-                                <option value="bash" ${currentSettings.terminalShell === 'bash' ? 'selected' : ''}>Bash (bash)</option>
+                                ${_shellOptions}
                             </select>
                         </div>
                         <button onclick="saveTerminalConfig()" style="background:#7c3aed;border:none;border-radius:4px;color:#fff;padding:8px 16px;cursor:pointer;font-size:13px;font-weight:bold;margin-top:10px;align-self:flex-start;font-family:inherit;">${NexusLocalization.t('btn_save_config')}</button>
@@ -12192,8 +12198,15 @@ if __name__ == "__main__":
             const platform = process.platform;
             if (platform === 'win32') {
                 exec('shutdown /s /t 0');
+            } else if (platform === 'darwin') {
+                exec('osascript -e \'tell app "System Events" to shut down\'');
             } else {
-                exec('shutdown -h now');
+                // Linux (Fedora, Arch, Debian, etc.): systemd primero, con fallbacks.
+                exec('systemctl poweroff', (err) => {
+                    if (err) exec('shutdown -h now', (err2) => {
+                        if (err2) exec('poweroff');
+                    });
+                });
             }
         }
 
