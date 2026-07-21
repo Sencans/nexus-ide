@@ -1,0 +1,73 @@
+name: Build & Release
+
+# Compila Nexus IDE para Linux y Windows.
+#  - Al hacer push de un tag "v*" (p. ej. v1.0.0): compila y PUBLICA los paquetes en la Release.
+#  - Manualmente (workflow_dispatch): solo compila y sube los artefactos (sin publicar).
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+# Necesario para que electron-builder pueda crear/actualizar la Release.
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+          - os: windows-latest
+            platform: win
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install Linux packaging tools
+        if: matrix.platform == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y rpm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build Linux packages
+        if: matrix.platform == 'linux'
+        shell: bash
+        run: |
+          PUB=$([[ "$GITHUB_REF" == refs/tags/* ]] && echo always || echo never)
+          npx electron-builder --linux AppImage deb rpm --publish "$PUB"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Windows packages
+        if: matrix.platform == 'win'
+        shell: bash
+        run: |
+          PUB=$([[ "$GITHUB_REF" == refs/tags/* ]] && echo always || echo never)
+          npx electron-builder --win nsis portable --publish "$PUB"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nexus-ide-${{ matrix.platform }}
+          if-no-files-found: ignore
+          path: |
+            dist/*.AppImage
+            dist/*.deb
+            dist/*.rpm
+            dist/*.exe
