@@ -80,7 +80,9 @@ jobs:
     container: archlinux:latest
     steps:
       - name: Install toolchain
-        run: pacman -Syu --noconfirm nodejs npm git python fakeroot base-devel
+        # libxcrypt-compat aporta libcrypt.so.1, que necesita el Ruby empaquetado
+        # de fpm (usado por electron-builder para construir el paquete pacman).
+        run: pacman -Syu --noconfirm nodejs npm git python fakeroot base-devel libxcrypt-compat
 
       - name: Checkout
         uses: actions/checkout@v4
