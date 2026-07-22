@@ -43,16 +43,16 @@ Nexus no solo "responde": **explora el código, actúa, observa el resultado y c
 
 ```mermaid
 flowchart LR
-  U([Consulta]) --> P[Razona]
-  P --> R{¿Explorar?}
-  R -->|Sí| READ[Read tools · MCP · grep]
+  U(["Consulta"]) --> P["Razona"]
+  P --> R{"¿Explorar?"}
+  R -->|"Sí"| READ["Read tools · MCP · grep"]
   READ --> P
-  R -->|No| ACT[Actúa: escribe / ejecuta]
-  ACT --> OBS[Observa la salida]
-  OBS --> D{¿Errores?}
-  D -->|Sí| P
-  D -->|No| MEM[Recuerda / aprende skill]
-  MEM --> DONE([Respuesta])
+  R -->|"No"| ACT["Actúa: escribe / ejecuta"]
+  ACT --> OBS["Observa la salida"]
+  OBS --> D{"¿Errores?"}
+  D -->|"Sí"| P
+  D -->|"No"| MEM["Recuerda / aprende skill"]
+  MEM --> DONE(["Respuesta"])
 ```
 
 ### 🤖 Capacidades agénticas
