@@ -2955,6 +2955,10 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                                 window.toggleAssistantVTuber(true);
                             }
                         }
+                        // Arrancar el bot de Discord si el enlace externo está activo y hay token.
+                        if (window.NexusDiscord && cfg.skillRemote && cfg.discordToken) {
+                            window.NexusDiscord.start({ token: cfg.discordToken, channelId: cfg.discordChannelId || '', security: cfg.skillEnvControl ? 'confirm' : 'restricted' });
+                        }
                     } catch(e) {
                         console.error("Failed to load assistant companion on startup:", e);
                     }
@@ -9199,7 +9203,8 @@ if __name__ == "__main__":
                     skillRemote: false,
                     skillAutoDev: true,
                     telegramToken: '',
-                    discordToken: ''
+                    discordToken: '',
+                    discordChannelId: ''
                 };
                 const stored = JSON.parse(localStorage.getItem('nexus_assistant_config') || '{}');
                 let config = { ...defaults, ...stored };
@@ -9757,9 +9762,14 @@ if __name__ == "__main__":
                                 <input type="password" id="assistant-telegram-token" value="${cfg.telegramToken || ''}" placeholder="Ej: 123456:ABC..." style="width: 100%; box-sizing: border-box; background: #0d1117; color: #fff; border: 1px solid #30363d; border-radius: 4px; padding: 6px; font-size: 11px; outline: none; font-family: monospace;">
                             </div>
                             <div>
-                                <label style="font-size: 10px; color: #8b949e; display: block; margin-bottom: 2px;">Token de Discord</label>
+                                <label style="font-size: 10px; color: #8b949e; display: block; margin-bottom: 2px;">Token de Discord (Bot)</label>
                                 <input type="password" id="assistant-discord-token" value="${cfg.discordToken || ''}" placeholder="Ej: MTIzNDU2..." style="width: 100%; box-sizing: border-box; background: #0d1117; color: #fff; border: 1px solid #30363d; border-radius: 4px; padding: 6px; font-size: 11px; outline: none; font-family: monospace;">
                             </div>
+                            <div>
+                                <label style="font-size: 10px; color: #8b949e; display: block; margin-bottom: 2px;">Channel ID de Discord (para notificaciones)</label>
+                                <input type="text" id="assistant-discord-channel" value="${cfg.discordChannelId || ''}" placeholder="Ej: 112233445566778899" style="width: 100%; box-sizing: border-box; background: #0d1117; color: #fff; border: 1px solid #30363d; border-radius: 4px; padding: 6px; font-size: 11px; outline: none; font-family: monospace;">
+                            </div>
+                            <p style="margin: 0; font-size: 9px; color: #6e7681; line-height: 1.4;">💬 Escríbele por <b>mensaje directo</b> a tu bot con <code>/help</code>, <code>/chat</code>, <code>/cmd</code>, <code>/approve</code>, <code>/deny</code>, <code>/status</code>. El Channel ID solo hace falta para que AIRI te envíe avisos proactivos.</p>
                         </div>
                     </div>
 
@@ -9843,16 +9853,28 @@ if __name__ == "__main__":
 
                 const telegramToken = document.getElementById('assistant-telegram-token').value.trim();
                 const discordToken = document.getElementById('assistant-discord-token').value.trim();
+                const discordChannelEl = document.getElementById('assistant-discord-channel');
+                const discordChannelId = discordChannelEl ? discordChannelEl.value.trim() : '';
 
                 const newCfg = {
                     apiProviderChat, apiProviderComplex, apiProviderTokens,
                     voiceName, customVoicePath, interactionType, displayMode, customAvatarPath, avatarSize,
                     skillVision, skillSpotify, skillEnvControl, skillFiles, skillMemory, skillWebcam, skillAutoDev, skillRemote,
-                    telegramToken, discordToken
+                    telegramToken, discordToken, discordChannelId
                 };
 
                 saveAssistantConfig(newCfg);
                 showToast("Configuración del Asistente guardada con éxito", "success");
+
+                // Arrancar/parar el bot de Discord según la configuración.
+                if (window.NexusDiscord) {
+                    if (skillRemote && discordToken) {
+                        window.NexusDiscord.start({ token: discordToken, channelId: discordChannelId, security: skillEnvControl ? 'confirm' : 'restricted' });
+                        showToast("Bot de Discord conectando…", "info");
+                    } else {
+                        window.NexusDiscord.stop();
+                    }
+                }
 
                 // Refresca el avatar en esta ventana...
                 if (displayMode === 'vtuber') {
@@ -14359,10 +14381,12 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
                     actions: actions
                 };
 
-                // Enviar notificación a Telegram si el canal IPC está disponible
+                // Enviar notificación a Telegram y/o Discord si están configurados
                 if (typeof ipcRenderer !== 'undefined') {
                     const actionListStr = actions.map((act, i) => `${i+1}. ${act.label}`).join('\n');
-                    ipcRenderer.send('send-telegram-notification', `⚠️ *AIRI solicita permisos en tu PC*:\n${actionListStr}\n\nResponde \`/approve\` para autorizar todo o \`/deny\` para rechazar.`);
+                    const notifMsg = `⚠️ *AIRI solicita permisos en tu PC*:\n${actionListStr}\n\nResponde \`/approve\` para autorizar todo o \`/deny\` para rechazar.`;
+                    ipcRenderer.send('send-telegram-notification', notifMsg);
+                    if (window.NexusDiscord) window.NexusDiscord.notify(notifMsg);
                 }
                 
                 window.togglePermContent = (idx) => {
@@ -14524,7 +14548,9 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
                     window.showAiriNotification("¡He completado la tarea de forma exitosa!", "success");
                 }
                 if (typeof ipcRenderer !== 'undefined') {
-                    ipcRenderer.send('send-telegram-notification', "✅ *AIRI*: ¡He terminado las tareas en el PC exitosamente!");
+                    const doneMsg = "✅ *AIRI*: ¡He terminado las tareas en el PC exitosamente!";
+                    ipcRenderer.send('send-telegram-notification', doneMsg);
+                    if (window.NexusDiscord) window.NexusDiscord.notify(doneMsg);
                 }
             }
             return executed;
