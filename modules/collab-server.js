@@ -152,6 +152,12 @@ class CollabServer {
 
     send(client, text) { try { client.socket.write(encodeFrame(text)); } catch (e) {} }
 
+    // Envía solo al cliente con ese id (para alinear a un recién llegado sin tocar al resto).
+    sendToId(id, text) {
+        for (const c of this.clients) if (c.id === id) { this.send(c, text); return true; }
+        return false;
+    }
+
     count() { return this.clients.size; }
 
     stop() {

@@ -3242,44 +3242,125 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
         window.startCronScheduler = startCronScheduler;
         window.tickCronScheduler = tickCronScheduler;
 
-        // ── Colaboración en tiempo real (LAN / VPN) — lado del renderer ───────────────
-        // Un peer ALOJA (arranca el servidor en el proceso principal) y comparte su IP;
-        // los demás se UNEN por WebSocket. Sincroniza chat y archivos (last-write-wins,
-        // confinados al workspace). Protocolo JSON: {t:'chat'|'file'|'sys', ...}.
+        // ── Colaboración: "copia local + publicar bajo revisión" ─────────────────────
+        // Cada peer tiene SU copia del proyecto. Al Publicar, se revisa el changeset
+        // (sintaxis JS/JSON) y, si pasa, se envía al central (el host), que lo RE-REVISA
+        // para no romper el proyecto original y lo propaga a todos. Un recién llegado
+        // recibe el proyecto central. Protocolo JSON: {t:'chat'|'sys'|'publish'|'sync'|'reject'}.
+        let collabCentralSnapshot = {}; // {relPath: content} última versión central conocida
+
+        // Recorre el workspace (texto, acotado) → {relPath: content}.
+        function collabScanWorkspace() {
+            const out = {};
+            if (!workspaceRoot) return out;
+            const SKIP = new Set(['node_modules', '.git', 'dist', 'build', '.cache', '.next']);
+            const BIN = /\.(png|jpe?g|gif|webp|ico|pdf|zip|gz|exe|dll|so|bin|mp4|mp3|wav|ttf|woff2?|glb|gltf)$/i;
+            const root = path.resolve(workspaceRoot);
+            let count = 0;
+            const walk = (dir) => {
+                if (count > 3000) return;
+                let entries; try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+                for (const e of entries) {
+                    if (SKIP.has(e.name)) continue;
+                    const full = path.join(dir, e.name);
+                    if (e.isDirectory()) walk(full);
+                    else if (e.isFile() && !BIN.test(e.name)) {
+                        try { if (fs.statSync(full).size > 512 * 1024) continue; count++; out[path.relative(root, full).replace(/\\/g, '/')] = fs.readFileSync(full, 'utf8'); } catch (e2) {}
+                    }
+                }
+            };
+            walk(root);
+            return out;
+        }
+        // Archivos que difieren respecto a la base (central).
+        function collabDiff(current, base) {
+            const changed = [];
+            for (const p in current) if (current[p] !== base[p]) changed.push({ path: p, content: current[p] });
+            return changed;
+        }
+        // Escribe los archivos entrantes en el workspace (CONFINADOS) + editor + snapshot.
+        function collabApplyFiles(files) {
+            let applied = 0;
+            for (const f of (files || [])) {
+                try {
+                    if (!f || typeof f.path !== 'string' || typeof f.content !== 'string') continue;
+                    const abs = (typeof resolveInWorkspace === 'function') ? resolveInWorkspace(f.path) : null;
+                    if (!abs) continue; // fuera del workspace → ignorar (seguridad)
+                    const parent = path.dirname(abs);
+                    if (!fs.existsSync(parent)) fs.mkdirSync(parent, { recursive: true });
+                    fs.writeFileSync(abs, f.content, 'utf8');
+                    try { if (typeof fileModels !== 'undefined' && fileModels[abs]) fileModels[abs].setValue(f.content); } catch (e) {}
+                    collabCentralSnapshot[f.path] = f.content;
+                    applied++;
+                } catch (e) {}
+            }
+            if (applied && typeof renderExplorer === 'function') renderExplorer();
+            return applied;
+        }
+        // Revisión de sintaxis de un archivo antes de publicar (JS con `node --check`,
+        // JSON con JSON.parse; otros lenguajes no se bloquean por falta de validador).
+        function collabCheckFile(relPath, content) {
+            return new Promise((resolve) => {
+                const ext = (relPath.split('.').pop() || '').toLowerCase();
+                if (ext === 'json') { try { JSON.parse(content); resolve({ ok: true }); } catch (e) { resolve({ ok: false, error: 'JSON inválido: ' + e.message }); } return; }
+                if (ext === 'js' || ext === 'mjs' || ext === 'cjs') {
+                    try {
+                        const os = require('os'), cp = require('child_process');
+                        const tmp = path.join(os.tmpdir(), 'nexus_rev_' + Date.now() + '_' + Math.floor(Math.random() * 1e6) + '.' + ext);
+                        fs.writeFileSync(tmp, content, 'utf8');
+                        cp.execFile(process.execPath, ['--check', tmp], { env: Object.assign({}, process.env, { ELECTRON_RUN_AS_NODE: '1' }), timeout: 10000 }, (err, stdout, stderr) => {
+                            try { fs.unlinkSync(tmp); } catch (e) {}
+                            if (err) resolve({ ok: false, error: String(stderr || err.message || 'error de sintaxis').split('\n').filter(Boolean).slice(0, 2).join(' — ') });
+                            else resolve({ ok: true });
+                        });
+                    } catch (e) { resolve({ ok: true }); }
+                    return;
+                }
+                resolve({ ok: true });
+            });
+        }
+        window.collabScanWorkspace = collabScanWorkspace;
+        window.collabDiff = collabDiff;
+        window.collabCheckFile = collabCheckFile;
+
         window.NexusCollab = (function () {
             const ipc = () => { try { return require('electron').ipcRenderer; } catch { return null; } };
-            let mode = null;   // 'host' | 'client' | null
-            let ws = null;
-            let myName = 'Invitado';
-            let peers = 0;
+            let mode = null, ws = null, myName = 'Invitado', peers = 0;
             const listeners = {};
             function emit(kind, data) { (listeners[kind] || []).forEach(fn => { try { fn(data); } catch (e) {} }); }
             function on(kind, fn) { (listeners[kind] = listeners[kind] || []).push(fn); }
-
-            function applyIncoming(text) {
-                let msg; try { msg = JSON.parse(text); } catch { return; }
-                if (msg.t === 'chat') emit('chat', msg);
-                else if (msg.t === 'file') applyRemoteFile(msg);
-                else if (msg.t === 'sys') emit('chat', { name: '·', text: msg.text, sys: true });
-            }
-            function applyRemoteFile(msg) {
-                try {
-                    if (!msg.path || typeof msg.content !== 'string') return;
-                    const abs = (typeof resolveInWorkspace === 'function') ? resolveInWorkspace(workspaceRoot, msg.path) : null;
-                    if (!abs) { showToast(`⚠️ ${msg.name || 'Peer'} intentó escribir fuera del workspace (ignorado)`, 'warning'); return; }
-                    const parent = path.dirname(abs);
-                    if (!fs.existsSync(parent)) fs.mkdirSync(parent, { recursive: true });
-                    fs.writeFileSync(abs, msg.content, 'utf8');
-                    try { if (typeof fileModels !== 'undefined' && fileModels[abs]) fileModels[abs].setValue(msg.content); } catch (e) {}
-                    if (typeof renderExplorer === 'function') renderExplorer();
-                    showToast(`🔄 ${msg.name || 'Peer'} actualizó ${msg.path}`, 'info');
-                    emit('file', msg);
-                } catch (e) {}
-            }
             function rawSend(obj) {
                 const text = JSON.stringify(obj);
                 if (mode === 'host') { const r = ipc(); if (r) r.send('collab-broadcast', text); }
                 else if (mode === 'client' && ws && ws.readyState === 1) ws.send(text);
+            }
+            async function applyIncoming(text) {
+                let msg; try { msg = JSON.parse(text); } catch { return; }
+                if (msg.t === 'chat') emit('chat', msg);
+                else if (msg.t === 'sys') emit('chat', { sys: true, text: msg.text });
+                else if (msg.t === 'publish') {
+                    if (mode !== 'host') return; // solo el central procesa publicaciones
+                    // RE-REVISIÓN en el central para NO romper el proyecto original.
+                    let review = { ok: true, issues: [] };
+                    try { review = await AgentCore.reviewChangeset(msg.files, collabCheckFile); } catch (e) {}
+                    if (!review.ok) {
+                        rawSend({ t: 'reject', to: msg.from, from: myName, issues: review.issues });
+                        showToast(`⛔ Publicación de ${msg.from} RECHAZADA por el revisor (${review.issues.length} problema/s)`, 'error');
+                        return;
+                    }
+                    collabApplyFiles(msg.files);
+                    rawSend({ t: 'sync', from: msg.from, files: msg.files });
+                    showToast(`⬆️ ${msg.from} publicó ${(msg.files || []).length} archivo(s) al proyecto`, 'success');
+                    emit('published', { from: msg.from });
+                }
+                else if (msg.t === 'sync') {
+                    const n = collabApplyFiles(msg.files);
+                    showToast(`⬇️ Proyecto actualizado por ${msg.from} (${n} archivo/s)`, 'success');
+                    emit('published', { from: msg.from });
+                }
+                else if (msg.t === 'reject') {
+                    if (mode === 'client' && msg.to === myName) { emit('rejected', msg); showToast(`❌ El central rechazó tu publicación (${(msg.issues || []).length} problema/s de código)`, 'error'); }
+                }
             }
             return {
                 on,
@@ -3295,10 +3376,17 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                     const res = await r.invoke('collab-start', { port: opts.port || 3737, token });
                     if (!res || !res.ok) throw new Error((res && res.error) || 'no se pudo iniciar el servidor');
                     mode = 'host';
+                    collabCentralSnapshot = collabScanWorkspace(); // el host arranca como versión central
                     if (r.removeAllListeners) r.removeAllListeners('collab-event');
                     r.on('collab-event', (_e, ev) => {
                         if (ev.event === 'message') applyIncoming(ev.data.text);
-                        else if (ev.event === 'join') { peers = ev.data.count; emit('status', { peers, hosting: true }); showToast('👥 Un colaborador se unió', 'success'); }
+                        else if (ev.event === 'join') {
+                            peers = ev.data.count; emit('status', { peers, hosting: true }); showToast('👥 Un colaborador se unió', 'success');
+                            // Alinea SOLO al recién llegado con el proyecto central actual.
+                            collabCentralSnapshot = collabScanWorkspace();
+                            const files = Object.keys(collabCentralSnapshot).map(p => ({ path: p, content: collabCentralSnapshot[p] }));
+                            r.send('collab-send-to', { id: ev.data.id, text: JSON.stringify({ t: 'sync', from: myName + ' (central)', files }) });
+                        }
                         else if (ev.event === 'leave') { peers = ev.data.count; emit('status', { peers, hosting: true }); }
                     });
                     emit('status', { peers: 0, hosting: true });
@@ -3309,22 +3397,50 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                     const url = `ws://${host}:${port}` + (token ? `?token=${encodeURIComponent(token)}` : '');
                     try { ws = new WebSocket(url); } catch (e) { showToast('URL de sesión inválida', 'error'); return; }
                     mode = 'client';
-                    ws.onopen = () => { emit('status', { connected: true }); rawSend({ t: 'sys', text: `${myName} se unió a la sesión` }); showToast('🔗 Conectado a la sesión', 'success'); };
+                    ws.onopen = () => { emit('status', { connected: true }); rawSend({ t: 'sys', text: `${myName} se unió a la sesión` }); showToast('🔗 Conectado — recibiendo el proyecto compartido…', 'success'); };
                     ws.onmessage = (e) => applyIncoming(typeof e.data === 'string' ? e.data : '');
                     ws.onclose = () => { emit('status', { connected: false }); mode = null; ws = null; };
                     ws.onerror = () => { showToast('⚠️ No se pudo conectar a la sesión', 'error'); };
                 },
                 chat(text) { if (!text) return; rawSend({ t: 'chat', name: myName, text }); emit('chat', { name: myName, text, self: true }); },
-                shareFile(relPath, content) { rawSend({ t: 'file', path: relPath, content, name: myName }); },
+                // Publica un changeset YA revisado. Cliente → al central; host → propaga a todos.
+                publishFiles(files) {
+                    if (!files || !files.length) return;
+                    if (mode === 'host') {
+                        rawSend({ t: 'sync', from: myName + ' (central)', files }); // ya están en el workspace del host
+                        files.forEach(f => { collabCentralSnapshot[f.path] = f.content; });
+                    } else {
+                        rawSend({ t: 'publish', from: myName, files });
+                        // (snapshot se alinea cuando llegue el 'sync' de confirmación del central)
+                    }
+                },
                 disconnect() {
                     const r = ipc();
                     if (mode === 'host' && r) r.invoke('collab-stop');
                     if (ws) { try { ws.close(); } catch (e) {} }
-                    mode = null; ws = null; peers = 0;
+                    mode = null; ws = null; peers = 0; collabCentralSnapshot = {};
                     emit('status', { hosting: false, connected: false });
                 }
             };
         })();
+
+        // Publica los cambios locales al proyecto compartido, PREVIA revisión automática.
+        async function collabPublish() {
+            const C = window.NexusCollab;
+            if (!C.isActive()) { showToast('No hay sesión de colaboración activa', 'warning'); return { error: 'no-session' }; }
+            const changed = collabDiff(collabScanWorkspace(), collabCentralSnapshot);
+            if (!changed.length) { showToast('No hay cambios que publicar', 'info'); return { nothing: true }; }
+            showToast(`🔍 Revisando ${changed.length} archivo(s) antes de publicar…`, 'info');
+            const review = await AgentCore.reviewChangeset(changed, collabCheckFile);
+            if (!review.ok) {
+                showToast(`❌ Publicación BLOQUEADA: ${review.issues.length} problema(s) de código`, 'error');
+                return { blocked: true, issues: review.issues, changed: changed.length };
+            }
+            C.publishFiles(changed);
+            showToast(`✅ Revisión OK — ${changed.length} archivo(s) publicados al proyecto`, 'success');
+            return { published: true, files: changed.length };
+        }
+        window.collabPublish = collabPublish;
 
         // Panel de colaboración (modal). Se abre con openCollabPanel() o Ctrl+Alt+L.
         window.openCollabPanel = function () {
@@ -3353,7 +3469,9 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                   </div>
                   <div id="collab-active" style="display:none;flex-direction:column;gap:8px;">
                     <div id="collab-info" style="background:#161b22;border:1px solid #30363d;border-radius:6px;padding:10px;font-size:12px;line-height:1.6;"></div>
-                    <div id="collab-chat" style="height:150px;overflow-y:auto;background:#0b0f19;border:1px solid #21262d;border-radius:6px;padding:8px;font-size:12px;display:flex;flex-direction:column;gap:4px;"></div>
+                    <button id="collab-publish" style="background:#1f6feb;border:none;border-radius:6px;color:#fff;padding:10px;cursor:pointer;font-weight:600;">📤 Publicar mis cambios (con revisión)</button>
+                    <div id="collab-review" style="display:none;background:#2d1214;border:1px solid #852222;border-radius:6px;padding:8px;font-size:11px;color:#ff9b9b;max-height:110px;overflow-y:auto;"></div>
+                    <div id="collab-chat" style="height:130px;overflow-y:auto;background:#0b0f19;border:1px solid #21262d;border-radius:6px;padding:8px;font-size:12px;display:flex;flex-direction:column;gap:4px;"></div>
                     <div style="display:flex;gap:6px;">
                       <input id="collab-chat-input" placeholder="Mensaje al equipo…" style="flex:1;background:#161b22;border:1px solid #30363d;border-radius:6px;color:#fff;padding:8px 10px;">
                       <button id="collab-send" style="background:#7c3aed;border:none;border-radius:6px;color:#fff;padding:8px 14px;cursor:pointer;">Enviar</button>
@@ -3401,6 +3519,27 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
             const sendChat = () => { const v = $('collab-chat-input').value.trim(); if (v) { C.chat(v); $('collab-chat-input').value = ''; } };
             $('collab-send').onclick = sendChat;
             $('collab-chat-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendChat(); });
+            $('collab-publish').onclick = async () => {
+                const btn = $('collab-publish'), rev = $('collab-review');
+                btn.disabled = true; btn.textContent = '🔍 Revisando el código…'; rev.style.display = 'none';
+                try {
+                    const res = await window.collabPublish();
+                    if (res && res.blocked) {
+                        rev.style.display = 'block';
+                        rev.innerHTML = `<b>❌ Publicación bloqueada — corrige antes de publicar:</b><br>` +
+                            res.issues.map(i => `• <b>${(i.path || '').replace(/</g, '&lt;')}</b>: ${(i.error || '').replace(/</g, '&lt;')}`).join('<br>');
+                    } else if (res && res.published) {
+                        rev.style.display = 'block'; rev.style.color = '#7ee787'; rev.style.borderColor = '#238636'; rev.style.background = '#12261a';
+                        rev.innerHTML = `✅ Revisión OK — ${res.files} archivo(s) publicados al proyecto compartido.`;
+                    }
+                } catch (e) { showToast('Error al publicar: ' + ((e && e.message) || e), 'error'); }
+                btn.disabled = false; btn.textContent = '📤 Publicar mis cambios (con revisión)';
+            };
+            C.on('rejected', (m) => {
+                const rev = $('collab-review'); if (!rev) return;
+                rev.style.display = 'block';
+                rev.innerHTML = `<b>❌ El central rechazó tu publicación:</b><br>` + (m.issues || []).map(i => `• <b>${(i.path || '')}</b>: ${(i.error || '')}`).join('<br>');
+            });
             $('collab-leave').onclick = () => { C.disconnect(); close(); showToast('Has salido de la sesión', 'info'); };
 
             if (C.isActive()) showActive('<b>Sesión en curso.</b>');
@@ -11226,13 +11365,6 @@ if __name__ == "__main__":
                 }
 
                 fs.writeFileSync(activeFilePath, content, 'utf8');
-                // Colaboración en tiempo real: si hay sesión activa, comparte el archivo
-                // guardado con los demás peers (solo dentro del workspace).
-                try {
-                    if (window.NexusCollab && window.NexusCollab.isActive() && workspaceRoot && activeFilePath.startsWith(workspaceRoot)) {
-                        window.NexusCollab.shareFile(path.relative(workspaceRoot, activeFilePath).replace(/\\/g, '/'), content);
-                    }
-                } catch (e) {}
                 if (typeof remoteFilesMap !== 'undefined' && remoteFilesMap[activeFilePath]) {
                     uploadFileToRemote(activeFilePath, remoteFilesMap[activeFilePath]);
                 } else {

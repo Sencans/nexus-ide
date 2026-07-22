@@ -389,6 +389,36 @@ test('parseSSEDeltas: ignora comentarios keep-alive, event: y JSON inválido', (
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// reviewChangeset (revisión previa a publicar en la colaboración)
+// ─────────────────────────────────────────────────────────────────────────────
+test('reviewChangeset: todo válido → ok, sin issues', async () => {
+    const check = async () => ({ ok: true });
+    const r = await AC.reviewChangeset([{ path: 'a.js', content: '1' }, { path: 'b.json', content: '{}' }], check);
+    assert.strictEqual(r.ok, true);
+    assert.strictEqual(r.checked, 2);
+    assert.strictEqual(r.issues.length, 0);
+});
+
+test('reviewChangeset: un archivo con error bloquea (issue con path y error)', async () => {
+    const check = async (p) => p === 'roto.js' ? ({ ok: false, error: 'SyntaxError: falta )' }) : ({ ok: true });
+    const r = await AC.reviewChangeset([{ path: 'ok.js', content: '1' }, { path: 'roto.js', content: 'f(' }], check);
+    assert.strictEqual(r.ok, false);
+    assert.deepStrictEqual(r.issues, [{ path: 'roto.js', error: 'SyntaxError: falta )' }]);
+});
+
+test('reviewChangeset: si checkFn lanza, se captura como issue', async () => {
+    const check = async () => { throw new Error('boom'); };
+    const r = await AC.reviewChangeset([{ path: 'x.js', content: '1' }], check);
+    assert.strictEqual(r.ok, false);
+    assert.ok(r.issues[0].error.includes('boom'));
+});
+
+test('reviewChangeset: changeset vacío → ok; falta checkFn → lanza', async () => {
+    assert.deepStrictEqual(await AC.reviewChangeset([], async () => ({ ok: true })), { ok: true, issues: [], checked: 0 });
+    await assert.rejects(() => AC.reviewChangeset([{ path: 'a', content: '' }], null), /falta checkFn/);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // cronMatches (programador de tareas)
 // ─────────────────────────────────────────────────────────────────────────────
 test('cronMatches: comodín * en todos los campos siempre coincide', () => {

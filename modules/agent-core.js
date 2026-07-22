@@ -451,6 +451,26 @@
         return skills;
     }
 
+    // Revisión automática de un changeset ANTES de publicarlo al proyecto compartido
+    // (para no romper el original). `checkFn(path, content) => {ok, error}` valida cada
+    // archivo (inyectable: la app usa 'node --check' para JS y JSON.parse para JSON; los
+    // tests usan un mock). Devuelve { ok, issues:[{path,error}], checked }.
+    async function reviewChangeset(files, checkFn) {
+        const list = Array.isArray(files) ? files : [];
+        if (typeof checkFn !== 'function') throw new Error('reviewChangeset: falta checkFn');
+        const issues = [];
+        for (const f of list) {
+            if (!f || typeof f.path !== 'string') continue;
+            try {
+                const r = await checkFn(f.path, f.content == null ? '' : f.content);
+                if (r && r.ok === false) issues.push({ path: f.path, error: r.error || 'error' });
+            } catch (e) {
+                issues.push({ path: f.path, error: String((e && e.message) || e) });
+            }
+        }
+        return { ok: issues.length === 0, issues, checked: list.length };
+    }
+
     // Fallback entre modelos/proveedores: prueba cada modelo en orden y devuelve la
     // primera respuesta correcta. Si uno falla (error de API, cuota, red) pasa al
     // siguiente. `send(modelId)` es inyectable (tests). onFallback(from, to) opcional.
@@ -492,7 +512,8 @@
         runWithFallback,
         parseLearnSkillDirectives,
         cronMatches,
-        cronFieldMatches
+        cronFieldMatches,
+        reviewChangeset
     };
 
     if (typeof module !== 'undefined' && module.exports) {

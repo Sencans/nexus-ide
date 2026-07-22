@@ -261,6 +261,7 @@ ipcMain.handle('collab-start', async (event, opts) => {
 });
 ipcMain.handle('collab-stop', () => { if (collabServer) { collabServer.stop(); collabServer = null; } return { ok: true }; });
 ipcMain.on('collab-broadcast', (event, text) => { if (collabServer) collabServer.broadcast(String(text)); });
+ipcMain.on('collab-send-to', (event, arg) => { if (collabServer && arg) collabServer.sendToId(arg.id, String(arg.text)); });
 ipcMain.handle('collab-status', () => ({ hosting: !!collabServer, peers: collabServer ? collabServer.count() : 0 }));
 
 // Helper para obtener la dirección IP local de la red WiFi/Ethernet
