@@ -2,6 +2,24 @@
 
 Todas las novedades notables de **Nexus IDE**. El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/) y el proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
 
+## [2.1.0] — 2026-07-21
+
+Ronda de calidad: implementación real del bot de Discord, reparación de varios subsistemas que "parecían vivos pero estaban rotos", y más modularización del código.
+
+### Añadido
+- **Bot de Discord funcional** (antes era un campo de token sin nada detrás): nuevo módulo `modules/discord-bot.js` que conecta al Discord Gateway (WebSocket) y envía por REST, sin dependencias. Control por **mensaje directo** con `/help`, `/status`, `/chat`, `/cmd`, `/approve`, `/deny`; notificaciones proactivas de AIRI también por Discord. Nuevo campo **Channel ID** en la config.
+- **Guía de usuario completa** ([`GUIA.md`](GUIA.md)) que documenta todas las funciones y cómo configurarlas.
+
+### Arreglado
+- **Cardinal Code Supervisor** (auto-revisión/corrección de código) estaba **muerto por defecto**: usaba una variable fuera de scope (`ReferenceError` silencioso). Ahora funciona; además aplica **todas** las correcciones al **archivo correcto**, respeta el checkbox de auto-corrección, es `$`-safe, y el pre-flight ya no rechaza código válido (`if/for/while`/métodos).
+- **SSH/VPS inalcanzable**: el icono de la barra lateral estaba oculto sin otra entrada → **revelado** (todo el subsistema SSH/SFTP/terminal ya funcionaba).
+- **Colaboración multi-agente** rota out-of-the-box: dejaba de fijar el rol *Coder* a un Ollama local inexistente para usuarios solo-nube.
+- **ComfyUI**: los generadores ya no se cuelgan para siempre ante errores de ejecución (manejo de `execution_error` + timeout).
+- **Telegram**: `Content-Length` en bytes UTF-8 (los mensajes con emojis/acentos ya no fallan).
+
+### Cambiado
+- **Modularización (fases 2 y 3)**: el avatar/compañero se movió a `modules/companion.js` y el registro/motor de IA a `modules/ai-providers.js`. `app.js` baja a ~20k líneas.
+
 ## [2.0.0] — 2026-07-20
 
 Versión mayor: la app evoluciona de editor con IA a un **IDE multiplataforma** con compañero virtual, ecosistema de plugins y una arquitectura de código modular.

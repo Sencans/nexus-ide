@@ -4,7 +4,7 @@
 
 **Entorno de desarrollo de escritorio de última generación: código, IA multi-proveedor, motores 3D y control remoto en una sola ventana.**
 
-[![Version](https://img.shields.io/badge/versión-2.0.0-7c3aed?style=flat-square)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/versión-2.1.0-7c3aed?style=flat-square)](CHANGELOG.md)
 [![Electron](https://img.shields.io/badge/Electron-31-47848F?style=flat-square&logo=electron&logoColor=white)](https://www.electronjs.org/)
 [![Monaco Editor](https://img.shields.io/badge/Monaco_Editor-0.43-0078D4?style=flat-square&logo=visualstudiocode&logoColor=white)](https://microsoft.github.io/monaco-editor/)
 [![Babylon.js](https://img.shields.io/badge/Babylon.js-6.x-BB464B?style=flat-square&logo=babylondotjs&logoColor=white)](https://www.babylonjs.com/)
@@ -30,6 +30,10 @@ Nexus IDE es un **entorno de desarrollo integrado (IDE) de escritorio** construi
 - [Privacidad y API Keys](#-privacidad-y-api-keys)
 - [Contribuir](#-contribuir)
 - [Licencia](#-licencia)
+
+---
+
+> 📖 **¿Buscas cómo usar y configurar cada función?** Consulta la **[Guía completa de Funciones y Configuración (GUIA.md)](GUIA.md)**.
 
 ---
 
