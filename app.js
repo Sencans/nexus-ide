@@ -661,7 +661,8 @@ if (mesh) {
                 
                 const data = await response.json();
                 window.ragActive = true;
-                
+                localStorage.setItem('nexus_rag_enabled', 'true'); // recordar que RAG está disponible (auto-sondeo futuro)
+
                 if (statusDot) statusDot.style.background = '#3fb950'; // green
                 if (statusText) {
                     statusText.style.color = '#3fb950';
@@ -15232,11 +15233,48 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
             const ideContainer = document.getElementById('ide-container');
 
         const requirements = [
-            { id: 'git', name: 'Git SCM', checkCmd: 'git --version', wingetId: 'Git.Git', icon: '🌳', desc: 'Control de versiones y descarga de plugins.' },
-            { id: 'node', name: 'Node.js & NPM', checkCmd: 'node --version', wingetId: 'OpenJS.NodeJS.LTS', icon: '🟢', desc: 'Entorno de ejecución principal y npm.' },
-            { id: 'python', name: 'Python 3', checkCmd: 'python --version', wingetId: 'Python.Python.3.11', icon: '🐍', desc: 'Ejecución de base de datos SQLite y scripts.' },
-            { id: 'ollama', name: 'Ollama (LLM Local)', checkCmd: 'ollama --version', wingetId: 'Ollama.Ollama', icon: '🦙', desc: 'Ejecución local de modelos de lenguaje para chat y Cardinal.' }
+            { id: 'git', name: 'Git SCM', checkCmd: 'git --version', wingetId: 'Git.Git', linuxPkg: 'git', brewPkg: 'git', icon: '🌳', desc: 'Control de versiones y descarga de plugins.' },
+            { id: 'node', name: 'Node.js & NPM', checkCmd: 'node --version', wingetId: 'OpenJS.NodeJS.LTS', linuxPkg: 'nodejs npm', brewPkg: 'node', icon: '🟢', desc: 'Entorno de ejecución principal y npm.' },
+            { id: 'python', name: 'Python 3', checkCmd: 'python --version', wingetId: 'Python.Python.3.11', linuxPkg: 'python3 python3-pip', brewPkg: 'python', icon: '🐍', desc: 'Ejecución de base de datos SQLite y scripts.' },
+            { id: 'ollama', name: 'Ollama (LLM Local)', checkCmd: 'ollama --version', wingetId: 'Ollama.Ollama', special: 'ollama', brewPkg: 'ollama', icon: '🦙', desc: 'Ejecución local de modelos de lenguaje para chat y Cardinal.' }
         ];
+
+        // Detecta el gestor de paquetes de Linux disponible.
+        async function detectLinuxPkgManager() {
+            const { exec } = require('child_process');
+            const mgrs = [
+                { bin: 'dnf', install: 'dnf install -y' },
+                { bin: 'apt-get', install: 'apt-get install -y' },
+                { bin: 'pacman', install: 'pacman -S --noconfirm' },
+                { bin: 'zypper', install: 'zypper install -y' }
+            ];
+            for (const m of mgrs) {
+                const ok = await new Promise(r => exec('which ' + m.bin, { timeout: 2000 }, e => r(!e)));
+                if (ok) return m;
+            }
+            return null;
+        }
+
+        // Construye el comando de instalación de un requisito para el SO actual.
+        async function buildRequirementInstall(req) {
+            const plat = process.platform;
+            if (plat === 'win32') {
+                return { shellCmd: `winget install --id ${req.wingetId} -e --silent --accept-source-agreements --accept-package-agreements` };
+            }
+            if (plat === 'darwin') {
+                return { shellCmd: `brew install ${req.brewPkg || req.id}`, note: 'Requiere Homebrew (https://brew.sh).' };
+            }
+            // Linux
+            if (req.special === 'ollama') {
+                return { shellCmd: 'curl -fsSL https://ollama.com/install.sh | sh', note: 'Instalador oficial de Ollama.' };
+            }
+            const mgr = await detectLinuxPkgManager();
+            if (!mgr) {
+                return { unsupported: true, manual: `Instala "${req.linuxPkg || req.id}" con el gestor de paquetes de tu distribución.` };
+            }
+            // pkexec muestra un diálogo gráfico de autenticación (PolicyKit).
+            return { shellCmd: `pkexec ${mgr.install} ${req.linuxPkg || req.id}`, note: `Se pedirá tu contraseña vía ${mgr.bin}.` };
+        }
 
         let missingReqs = [];
 
@@ -15273,7 +15311,8 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
             // 1. Level 1: Check with 'where' to get the absolute path
             let pathFromWhere = await new Promise((resolve) => {
                 const exeName = req.id === 'git' ? 'git' : req.id;
-                exec(`where ${exeName}`, { timeout: 3000 }, (err, stdout) => {
+                const finder = process.platform === 'win32' ? 'where' : 'which'; // cross-platform
+                exec(`${finder} ${exeName}`, { timeout: 3000 }, (err, stdout) => {
                     if (!err && stdout.trim()) {
                         const lines = stdout.split('\n').map(l => l.trim()).filter(Boolean);
                         if (lines.length > 0 && fs.existsSync(lines[0])) {
@@ -15302,7 +15341,13 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
                 req.foundPath = "Detectado en PATH global";
                 return true;
             }
-            
+
+            // Cross-platform: en Linux/macOS 'python' suele llamarse 'python3'.
+            if (req.id === 'python' && process.platform !== 'win32') {
+                const py3 = await new Promise(r => exec('python3 --version', { timeout: 3000 }, e => r(!e)));
+                if (py3) { req.foundPath = 'python3 en PATH'; return true; }
+            }
+
             // 2. Level 2: Check common installation directories
             const localAppData = process.env.LOCALAPPDATA || (process.env.USERPROFILE ? path.join(process.env.USERPROFILE, 'AppData', 'Local') : '');
             
@@ -15720,37 +15765,29 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
                         continue;
                     }
                     
-                    logEl.textContent += `\nDescargando e instalando ${req.name} (${req.wingetId})...\n`;
-                    logEl.textContent += `Ejecutando: winget install --id ${req.wingetId} -e --accept-source-agreements --accept-package-agreements\n`;
-                    logEl.scrollTop = logEl.scrollHeight;
-                    
                     statusEl.textContent = `Instalando ${req.name}...`;
-                    
+
+                    // Instalación consciente del SO (Windows winget / Linux gestor+pkexec / macOS brew).
+                    const plan = await buildRequirementInstall(req);
+                    if (plan.unsupported) {
+                        logEl.textContent += `\n⚠️ No se pudo automatizar la instalación de ${req.name}.\n${plan.manual}\n`;
+                        logEl.scrollTop = logEl.scrollHeight;
+                        continue;
+                    }
+                    logEl.textContent += `\nInstalando ${req.name}...\n`;
+                    if (plan.note) logEl.textContent += `(${plan.note})\n`;
+                    logEl.textContent += `Ejecutando: ${plan.shellCmd}\n`;
+                    logEl.scrollTop = logEl.scrollHeight;
+
                     const code = await new Promise((resolve) => {
-                        const child = spawn('winget', [
-                            'install', 
-                            '--id', req.wingetId, 
-                            '-e', 
-                            '--silent',
-                            '--accept-source-agreements', 
-                            '--accept-package-agreements'
-                        ], { shell: true });
-                        
-                        child.stdout.on('data', (data) => {
-                            logEl.textContent += data.toString();
-                            logEl.scrollTop = logEl.scrollHeight;
-                        });
-                        
-                        child.stderr.on('data', (data) => {
-                            logEl.textContent += data.toString();
-                            logEl.scrollTop = logEl.scrollHeight;
-                        });
-                        
-                        child.on('close', (exitCode) => {
-                            resolve(exitCode);
-                        });
+                        const isWin = process.platform === 'win32';
+                        const child = spawn(isWin ? 'cmd' : 'sh', [isWin ? '/c' : '-c', plan.shellCmd]);
+                        child.stdout.on('data', (data) => { logEl.textContent += data.toString(); logEl.scrollTop = logEl.scrollHeight; });
+                        child.stderr.on('data', (data) => { logEl.textContent += data.toString(); logEl.scrollTop = logEl.scrollHeight; });
+                        child.on('error', (e) => { logEl.textContent += `\n❌ ${e.message}\n`; resolve(-1); });
+                        child.on('close', (exitCode) => resolve(exitCode));
                     });
-                    
+
                     logEl.textContent += `\nProceso finalizado con código de salida: ${code}\n`;
                     logEl.scrollTop = logEl.scrollHeight;
                 }
@@ -17734,8 +17771,9 @@ if (mesh) {
                 document.getElementById('video-comfy-url').value = storedComfyUrl;
                 document.getElementById('video-comfy-path').value = storedComfyPath;
                 
-                // Probar el estado de conexión de ComfyUI al arrancar
-                if (typeof checkComfyStatus === 'function') {
+                // Probar ComfyUI al arrancar SOLO si está configurado (evita el ERR_CONNECTION_REFUSED
+                // en cada boot para quien no usa ComfyUI). Al abrir el panel de vídeo se sondea igual.
+                if (typeof checkComfyStatus === 'function' && (localStorage.getItem('nexus_comfy_path') || localStorage.getItem('nexus_comfy_url'))) {
                     checkComfyStatus();
                 }
 
@@ -19659,9 +19697,11 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                     });
                 }
                 
-                setTimeout(() => {
-                    syncRAGStatus();
-                }, 1000);
+                // Sondear el backend RAG al arrancar SOLO si ya se detectó activo antes
+                // (evita el ERR_CONNECTION_REFUSED en :8000 en cada boot). Al abrir el panel RAG se sondea igual.
+                if (localStorage.getItem('nexus_rag_enabled') === 'true') {
+                    setTimeout(() => { syncRAGStatus(); }, 1000);
+                }
 
                 // Auto layout on resize
                 window.addEventListener('resize', () => {
