@@ -20,7 +20,8 @@
       font-src 'self' data: https://cdnjs.cloudflare.com https://fonts.gstatic.com;
       media-src 'self' data: blob: file: https: http://localhost:* http://127.0.0.1:*;
       connect-src 'self' data: blob: file: https: http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:* wss:;
-      frame-src 'self' data: blob: https://excalidraw.com;
+      frame-src 'self' file: data: blob: https://excalidraw.com;
+      form-action 'self';
       object-src 'none';
       base-uri 'self';
     ">

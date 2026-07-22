@@ -23,15 +23,21 @@ function hardenWindow(win) {
     }
     return { action: 'deny' };
   });
-  // Impide que la propia ventana navegue fuera de la app local.
-  win.webContents.on('will-navigate', (event, url) => {
+  // Impide que la propia ventana navegue fuera de la app local (navegación y
+  // redirects 30x del servidor, que NO disparan will-navigate).
+  const blockNav = (event, url) => {
     if (!isLocal(url)) {
       event.preventDefault();
       if (/^https?:\/\//i.test(url)) shell.openExternal(url).catch(() => {});
     }
-  });
-  // Rechaza cualquier intento de adjuntar un <webview>.
+  };
+  win.webContents.on('will-navigate', blockNav);
+  win.webContents.on('will-redirect', blockNav);
+  // Rechaza cualquier intento de adjuntar un <webview> o abrir dispositivos.
   win.webContents.on('will-attach-webview', (event) => { event.preventDefault(); });
+  win.webContents.on('select-usb-device', (event) => { event.preventDefault(); });
+  win.webContents.on('select-serial-port', (event) => { event.preventDefault(); });
+  win.webContents.on('select-hid-device', (event) => { event.preventDefault(); });
 }
 
 function createWindow () {
@@ -69,14 +75,21 @@ function createWindow () {
     callback({ cancel: false, requestHeaders: details.requestHeaders });
   });
 
+  // Allowlist de permisos: solo cámara/micrófono (asistente por webcam + dictado);
+  // todo lo demás denegado.
+  const permAllowed = (permission) => {
+    const perm = String(permission || '').toLowerCase();
+    return perm.includes('media') || perm.includes('audio') || perm.includes('microphone');
+  };
   session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
-    const perm = permission.toLowerCase();
-    if (perm.includes('media') || perm.includes('audio') || perm.includes('microphone')) {
-      callback(true);
-    } else {
-      callback(false);
-    }
+    callback(permAllowed(permission));
   });
+  // El request handler no cubre la ruta SÍNCRONA de comprobación (por defecto
+  // concede de más); reflejamos la misma allowlist aquí.
+  session.defaultSession.setPermissionCheckHandler((webContents, permission) => permAllowed(permission));
+  // Cierra por completo WebUSB / Web Serial / WebHID / Web Bluetooth (no se usan;
+  // el acceso a hardware va por Node).
+  session.defaultSession.setDevicePermissionHandler(() => false);
 
 
   // Forzar la limpieza de la caché antes de cargar para ver siempre los últimos cambios
@@ -88,19 +101,24 @@ function createWindow () {
   mainWindow.focus();
   startHardwareTelemetry();
 
-  // Auto-screenshot for debugging layout transparency
-  setInterval(async () => {
-    try {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        const img = await mainWindow.webContents.capturePage();
-        const buffer = img.toPNG();
-        const fs = require('fs');
-        const path = require('path');
-        fs.writeFileSync(path.join(__dirname, 'app_screenshot.png'), buffer);
-      }
-    } catch (e) {}
-  }, 2000);
-  mainWindow.webContents.openDevTools(); // Descomentar para ver la consola de errores
+  // Artefactos de depuración: SOLO en modo desarrollo (NEXUS_DEV=1). En producción
+  // dejarlos activos es un riesgo: DevTools con nodeIntegration es un REPL de Node
+  // completo para cualquiera frente al equipo, y el volcado periódico de capturas a
+  // disco (app_screenshot.png cada 2 s) es un problema de privacidad y de escritura.
+  if (process.env.NEXUS_DEV) {
+    setInterval(async () => {
+      try {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          const img = await mainWindow.webContents.capturePage();
+          const buffer = img.toPNG();
+          const fs = require('fs');
+          const path = require('path');
+          fs.writeFileSync(path.join(__dirname, 'app_screenshot.png'), buffer);
+        }
+      } catch (e) {}
+    }, 2000);
+    mainWindow.webContents.openDevTools();
+  }
 
   // Configurar Menú de Aplicación con soporte nativo de Zoom y atajos
   const menuTemplate = [
