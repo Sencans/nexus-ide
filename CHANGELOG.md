@@ -4,6 +4,9 @@ Todas las novedades notables de **Nexus IDE**. El formato sigue [Keep a Changelo
 
 ## [Sin publicar]
 
+### Añadido
+- **Redacción de secretos antes de enviar contexto a la IA en la nube**: el IDE manda el archivo activo, los fragmentos de RAG y los adjuntos al modelo; ahora un filtro (`redactSecrets`) sustituye por `«SECRETO_REDACTADO»` las API keys (OpenAI, Anthropic, Google, GitHub, Groq, xAI, OpenRouter, AWS, Slack), los JWT, los tokens `Bearer`, las contraseñas embebidas en *connection strings*, los bloques de clave privada PEM y las asignaciones tipo `.env` con valor literal. Conservador: no toca referencias a variables (`process.env.X`), `null`, ni identificadores cortos. Verificado: 10/10 secretos redactados, 0 falsos positivos en código legítimo.
+
 ### Seguridad
 - **Cifrado de secretos en reposo**: las claves de API y las contraseñas SSH ya no se guardan en base64 reversible, sino **cifradas con el almacén de credenciales del sistema operativo** (DPAPI en Windows, Keychain en macOS, libsecret/kwallet en Linux) mediante el `safeStorage` de Electron. Formato nuevo con prefijo `v2:`; las claves antiguas en base64 se leen y **migran automáticamente** a cifrado al arrancar. Si el sistema no ofrece almacén seguro (p. ej. Linux sin keyring), degrada a base64 sin romperse.
 - **Endurecimiento de las ventanas de Electron** (defensa en profundidad contra inyección de contenido, ya que el renderer usa Node):

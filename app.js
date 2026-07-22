@@ -3049,6 +3049,45 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
             showToast("Minimapa " + (settings.minimap ? "activado" : "desactivado"), "info");
         };
 
+        // Redacta secretos (API keys, tokens, contraseñas, claves privadas, connection
+        // strings) del contexto ANTES de enviarlo a un proveedor de IA en la nube. Un IDE
+        // manda a diario el código del usuario al modelo; sin esto, cualquier clave pegada
+        // en el archivo activo, un .env abierto o un fragmento de RAG se filtraría.
+        // Conservador: reemplaza solo patrones con forma clara de secreto para no romper
+        // código legítimo. Devuelve el texto con los secretos sustituidos por «SECRETO_REDACTADO».
+        function redactSecrets(text) {
+            if (!text || typeof text !== 'string') return text;
+            const R = '«SECRETO_REDACTADO»';
+            let out = text;
+            // Bloques de clave privada PEM (RSA/EC/OPENSSH/PGP...)
+            out = out.replace(/-----BEGIN (?:[A-Z0-9 ]+ )?PRIVATE KEY-----[\s\S]*?-----END (?:[A-Z0-9 ]+ )?PRIVATE KEY-----/g, R);
+            // Claves de proveedores con prefijo reconocible
+            out = out.replace(/\bsk-ant-[a-zA-Z0-9\-_]{20,}/g, R);              // Anthropic
+            out = out.replace(/\bsk-(?:proj-)?[a-zA-Z0-9\-_]{20,}/g, R);        // OpenAI (incl. sk-proj-)
+            out = out.replace(/\bAIza[0-9A-Za-z\-_]{20,}/g, R);               // Google API
+            out = out.replace(/\bgh[posru]_[A-Za-z0-9]{30,}\b/g, R);           // GitHub tokens
+            out = out.replace(/\bxox[baprs]-[A-Za-z0-9-]{10,}/g, R);          // Slack
+            out = out.replace(/\bAKIA[0-9A-Z]{16}\b/g, R);                     // AWS access key id
+            out = out.replace(/\bgsk_[A-Za-z0-9]{20,}/g, R);                   // Groq
+            out = out.replace(/\bxai-[A-Za-z0-9]{20,}/g, R);                   // xAI
+            out = out.replace(/\bsk-or-v1-[A-Za-z0-9]{20,}/g, R);             // OpenRouter
+            // JWT (header.payload.signature)
+            out = out.replace(/\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g, R);
+            // Cabeceras/tokens Bearer
+            out = out.replace(/\b(Bearer|Authorization:\s*Bearer)\s+[A-Za-z0-9._\-]{16,}/gi, '$1 ' + R);
+            // Contraseña embebida en connection strings (esquema://user:PASS@host)
+            out = out.replace(/\b([a-z][a-z0-9+.\-]*:\/\/[^:\/\s]+:)[^@\s]{3,}@/gi, '$1' + R + '@');
+            // Asignaciones tipo .env de claves sensibles con valor literal (no una variable).
+            out = out.replace(/\b([A-Z0-9_]*(?:API[_-]?KEY|SECRET|ACCESS[_-]?TOKEN|AUTH[_-]?TOKEN|PASSWORD|PASSWD|PRIVATE[_-]?KEY|CLIENT[_-]?SECRET|TOKEN)[A-Z0-9_]*)(\s*[:=]\s*)(["']?)([^\s"'`,;]{6,})\3/gi,
+                (m, key, sep, q, val) => {
+                    // No redactar si el valor parece una referencia a variable/env, no un literal.
+                    if (/^(process\.env|import\.meta|os\.environ|System\.getenv|None|null|undefined|true|false|\$\{|\$\(|process|env\.)/.test(val)) return m;
+                    return key + sep + q + R + q;
+                });
+            return out;
+        }
+        window.redactSecrets = redactSecrets;
+
         function getChatContext() {
             const contextType = document.getElementById('chat-context-select').value;
             if (contextType === 'ninguno') {
@@ -3081,7 +3120,7 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                     showToast("No hay texto seleccionado, se enviará sin contexto.", "warning");
                     return '';
                 }
-                return `\n\n[CONTEXTO - SELECCIÓN DE CÓDIGO EN EL EDITOR (Archivo: ${path.basename(activeFilePath)})]:\n\`\`\`\n${content}\n\`\`\``;
+                return `\n\n[CONTEXTO - SELECCIÓN DE CÓDIGO EN EL EDITOR (Archivo: ${path.basename(activeFilePath)})]:\n\`\`\`\n${redactSecrets(content)}\n\`\`\``;
             } 
             
             if (contextType === 'completo') {
@@ -3091,7 +3130,7 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                     const ta = document.getElementById('fallback-textarea-' + activePane);
                     if (ta) content = ta.value;
                 }
-                return `\n\n[CONTEXTO - CONTENIDO COMPLETO DEL ARCHIVO ACTIVO (${path.basename(activeFilePath)})]:\n\`\`\`\n${content}\n\`\`\``;
+                return `\n\n[CONTEXTO - CONTENIDO COMPLETO DEL ARCHIVO ACTIVO (${path.basename(activeFilePath)})]:\n\`\`\`\n${redactSecrets(content)}\n\`\`\``;
             }
             
             return '';
@@ -19361,11 +19400,13 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                                 }
                             }
                             
-                            let textWithContextAndAttachments = text + contextText + ragContextText;
+                            // contextText ya viene redactado desde getChatContext; redactamos
+                            // los fragmentos RAG y los adjuntos antes de enviarlos a la nube.
+                            let textWithContextAndAttachments = text + contextText + redactSecrets(ragContextText);
                             if (textAttachments.length > 0) {
                                 textWithContextAndAttachments += "\n\nArchivos adjuntos del usuario:";
                                 textAttachments.forEach(att => {
-                                    textWithContextAndAttachments += `\n\n--- ARCHIVO ADJUNTO: ${att.name} ---\n${att.textContent}\n--- FIN DE ARCHIVO ---`;
+                                    textWithContextAndAttachments += `\n\n--- ARCHIVO ADJUNTO: ${att.name} ---\n${redactSecrets(att.textContent)}\n--- FIN DE ARCHIVO ---`;
                                 });
                             }
 
