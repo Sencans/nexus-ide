@@ -14687,10 +14687,42 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
             });
         }
 
+        // Ejecuta un comando CAPTURANDO su salida (para que el agente pueda OBSERVAR el
+        // resultado en el bucle ReAct). Se muestra también en el terminal integrado. Con
+        // timeout de 120 s para no colgarse con procesos interactivos/servidores.
+        function runCommandCaptured(command) {
+            return new Promise((resolve) => {
+                try {
+                    const cp = require('child_process');
+                    const isWin = process.platform === 'win32';
+                    if (typeof appendTerminalOutput === 'function') appendTerminalOutput(`\n$ ${command}\n`);
+                    cp.exec(command, {
+                        cwd: workspaceRoot || undefined,
+                        shell: isWin ? 'powershell.exe' : '/bin/bash',
+                        timeout: 120000,
+                        maxBuffer: 2 * 1024 * 1024,
+                        windowsHide: true
+                    }, (err, stdout, stderr) => {
+                        let out = '';
+                        if (stdout) out += String(stdout);
+                        if (stderr) out += (out ? '\n' : '') + String(stderr);
+                        const timedOut = !!(err && err.killed);
+                        const code = err ? (typeof err.code === 'number' ? err.code : 1) : 0;
+                        if (typeof appendTerminalOutput === 'function') appendTerminalOutput((out || '(sin salida)') + '\n');
+                        if (timedOut) out += `\n⏱️ [terminado por timeout de 120s]`;
+                        else if (code !== 0) out += `\n[código de salida: ${code}]`;
+                        resolve({ output: (out || '(sin salida)').slice(0, 8000), code });
+                    });
+                } catch (e) {
+                    resolve({ output: `Error al ejecutar: ${String((e && e.message) || e)}`, code: 1 });
+                }
+            });
+        }
+
         async function executeAgentCommands(text) {
             text = normalizeAgentResponse(text);
             const actions = parseAgentActions(text);
-            if (actions.length === 0) return false;
+            if (actions.length === 0) return { executed: false, summary: '' };
 
             const requirePermission = localStorage.getItem('nexus_agent_permissions') !== 'never';
             let approvedActions = [];
@@ -14703,10 +14735,11 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
 
             if (approvedActions.length === 0) {
                 showToast("Acciones del agente canceladas o denegadas por el usuario", "info");
-                return false;
+                return { executed: false, summary: '' };
             }
 
             let executed = false;
+            const results = []; // resumen de resultados para el bucle ReAct
 
             for (const action of approvedActions) {
                 if (action.type === '3d_script') {
@@ -14755,18 +14788,21 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
                         }
                         fs.writeFileSync(filePath, content, 'utf8');
                         showToast(`Archivo escrito: ${path.basename(filePath)}`, 'success');
-                        
+
                         if (openFiles.includes(filePath)) {
                             const model = fileModels[filePath];
                             if (model) model.setValue(content);
                         }
+                        results.push(`✅ Escrito ${path.basename(filePath)} (${(content.match(/\n/g) || []).length + 1} líneas)`);
                         executed = true;
                     } catch (e) {
                         showToast(`Error al escribir archivo: ${e.message}`, 'error');
+                        results.push(`❌ Error escribiendo ${filePath}: ${e.message}`);
                     }
                 } else if (action.type === 'run_command') {
                     showToast(`Agente ejecutando: ${action.command}`, 'info');
-                    sendTerminalCommand(action.command);
+                    const cap = await runCommandCaptured(action.command);
+                    results.push(`$ ${action.command}\n${cap.output}`);
                     executed = true;
                 } else if (action.type === 'run_skill') {
                     showToast("Agente ejecutando Habilidad: " + action.skillId, "info");
@@ -14821,7 +14857,7 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
                     if (window.NexusDiscord) window.NexusDiscord.notify(doneMsg);
                 }
             }
-            return executed;
+            return { executed, summary: redactSecrets(results.join('\n\n')) };
         }
 
         // =========================================================================
@@ -19657,9 +19693,63 @@ Solicita las lecturas que necesites para EXPLORAR el código antes de modificarl
                             if (chatMode === 'agent' || hasActions) {
                                 botMsg.innerHTML = formatAgentActions(response);
                                 chatMessages.appendChild(botMsg);
-                                
-                                // Ejecutar las acciones recibidas
-                                await executeAgentCommands(response);
+
+                                // Ejecutar las acciones recibidas (captura resultados)
+                                let execResult = await executeAgentCommands(response);
+
+                                // ── Bucle ReAct: si se ejecutaron acciones, devolver su salida al
+                                // modelo para que OBSERVE el resultado (salida de comandos, errores de
+                                // test) y CONTINÚE o corrija, hasta un tope. Cada acción sigue pasando
+                                // por el gate de permisos dentro de executeAgentCommands.
+                                let reactIters = 0;
+                                const MAX_REACT = 4;
+                                while (execResult && execResult.executed && execResult.summary &&
+                                       reactIters < MAX_REACT && !chatAbortController.signal.aborted) {
+                                    reactIters++;
+                                    const reactLoading = document.createElement('div');
+                                    reactLoading.style.cssText = `padding:8px; color:#8b949e; font-size:12px; margin-right:20px;`;
+                                    reactLoading.textContent = `🔄 El agente revisa los resultados (paso ${reactIters}/${MAX_REACT})…`;
+                                    chatMessages.appendChild(reactLoading);
+                                    chatMessages.scrollTop = chatMessages.scrollHeight;
+
+                                    const reactPrompt = `[RESULTADOS DE LA EJECUCIÓN DE TUS ACCIONES]\n${execResult.summary}\n\nRevisa los resultados. Si hubo errores, corrígelos con nuevas acciones. Si la tarea ya está completa y correcta, resume brevemente al usuario SIN emitir más acciones.`;
+                                    chatHistory.push({ role: 'user', content: '[Resultados de ejecución de las acciones]' });
+
+                                    let reactResp;
+                                    try {
+                                        reactResp = await sendRequestToAI(selectedModelId, reactPrompt, sysPrompt, chatHistory.slice(0, -1), chatAbortController.signal, []);
+                                    } catch (reactErr) {
+                                        reactLoading.remove();
+                                        break;
+                                    }
+                                    reactResp = normalizeAgentResponse(reactResp);
+
+                                    // Resolver lecturas que pida el modelo tras ver los resultados.
+                                    let rActs = parseReadToolActions(reactResp);
+                                    let rIters = 0;
+                                    while (rActs.length > 0 && rIters < MAX_READ_LOOP && !chatAbortController.signal.aborted) {
+                                        rIters++;
+                                        const rRes = await executeReadTools(rActs);
+                                        chatHistory.push({ role: 'assistant', content: reactResp });
+                                        chatHistory.push({ role: 'user', content: '[Resultados de lecturas]' });
+                                        reactResp = await sendRequestToAI(selectedModelId, `[RESULTADOS DE LAS LECTURAS QUE SOLICITASTE]\n${rRes}\n\nContinúa con la tarea.`, sysPrompt, chatHistory.slice(0, -1), chatAbortController.signal, []);
+                                        reactResp = normalizeAgentResponse(reactResp);
+                                        rActs = parseReadToolActions(reactResp);
+                                    }
+
+                                    reactLoading.remove();
+                                    chatHistory.push({ role: 'assistant', content: reactResp });
+
+                                    const reactMsg = document.createElement('div');
+                                    reactMsg.style.cssText = botMsg.style.cssText;
+                                    const reactHasActions = reactResp.includes('[WRITE_FILE:') || reactResp.includes('[RUN_COMMAND]') || reactResp.includes('[RUN_3D_SCRIPT]');
+                                    reactMsg.innerHTML = reactHasActions ? formatAgentActions(reactResp) : formatMarkdown(reactResp);
+                                    chatMessages.appendChild(reactMsg);
+                                    chatMessages.scrollTop = chatMessages.scrollHeight;
+
+                                    if (!reactHasActions) break;
+                                    execResult = await executeAgentCommands(reactResp);
+                                }
                             } else {
                                 botMsg.innerHTML = formatMarkdown(response);
                                 chatMessages.appendChild(botMsg);
