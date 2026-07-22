@@ -7,27 +7,27 @@
   
     <text x="40" y="108" font-size="13" fill="#c9d1d9">redactSecrets (2 KB de código)</text>
     <rect x="40" y="114" width="470" height="14" rx="7" fill="#21262d"/>
-    <rect x="40" y="114" width="11" height="14" rx="7" fill="url(#g)"/>
-    <text x="522" y="125" font-size="13" font-weight="700" fill="#a78bfa">51,525 ops/s</text>
+    <rect x="40" y="114" width="13" height="14" rx="7" fill="url(#g)"/>
+    <text x="522" y="125" font-size="13" font-weight="700" fill="#a78bfa">60,000 ops/s</text>
     <text x="40" y="154" font-size="13" fill="#c9d1d9">parseSSEDeltas (25 deltas SSE)</text>
     <rect x="40" y="160" width="470" height="14" rx="7" fill="#21262d"/>
     <rect x="40" y="160" width="11" height="14" rx="7" fill="url(#g)"/>
-    <text x="522" y="171" font-size="13" font-weight="700" fill="#a78bfa">50,323 ops/s</text>
+    <text x="522" y="171" font-size="13" font-weight="700" fill="#a78bfa">52,084 ops/s</text>
     <text x="40" y="200" font-size="13" fill="#c9d1d9">normalizeAgentResponse (markdown)</text>
     <rect x="40" y="206" width="470" height="14" rx="7" fill="#21262d"/>
-    <rect x="40" y="206" width="145" height="14" rx="7" fill="url(#g)"/>
-    <text x="522" y="217" font-size="13" font-weight="700" fill="#a78bfa">685,862 ops/s</text>
+    <rect x="40" y="206" width="130" height="14" rx="7" fill="url(#g)"/>
+    <text x="522" y="217" font-size="13" font-weight="700" fill="#a78bfa">602,326 ops/s</text>
     <text x="40" y="246" font-size="13" fill="#c9d1d9">parseAgentActions (3 acciones)</text>
     <rect x="40" y="252" width="470" height="14" rx="7" fill="#21262d"/>
     <rect x="40" y="252" width="470" height="14" rx="7" fill="url(#g)"/>
-    <text x="522" y="263" font-size="13" font-weight="700" fill="#a78bfa">2,229,712 ops/s</text>
+    <text x="522" y="263" font-size="13" font-weight="700" fill="#a78bfa">2,169,339 ops/s</text>
     <text x="40" y="292" font-size="13" fill="#c9d1d9">toolCallsToTags (3 tool_calls)</text>
     <rect x="40" y="298" width="470" height="14" rx="7" fill="#21262d"/>
-    <rect x="40" y="298" width="222" height="14" rx="7" fill="url(#g)"/>
-    <text x="522" y="309" font-size="13" font-weight="700" fill="#a78bfa">1,052,592 ops/s</text>
+    <rect x="40" y="298" width="214" height="14" rx="7" fill="url(#g)"/>
+    <text x="522" y="309" font-size="13" font-weight="700" fill="#a78bfa">987,087 ops/s</text>
     <text x="40" y="338" font-size="13" fill="#c9d1d9">cronMatches (5 campos)</text>
     <rect x="40" y="344" width="470" height="14" rx="7" fill="#21262d"/>
-    <rect x="40" y="344" width="382" height="14" rx="7" fill="url(#g)"/>
-    <text x="522" y="355" font-size="13" font-weight="700" fill="#a78bfa">1,811,553 ops/s</text>
+    <rect x="40" y="344" width="329" height="14" rx="7" fill="url(#g)"/>
+    <text x="522" y="355" font-size="13" font-weight="700" fill="#a78bfa">1,518,559 ops/s</text>
   <text x="40" y="408" font-size="11" fill="#6e7681">Generado por `npm run bench` — números reales de esta máquina, no benchmarks inventados.</text>
 </svg>
