@@ -182,13 +182,28 @@ npm run dist:mac    # electron-builder → .dmg (macOS)
 
 ```
 nexus-ide/
-├── main.js                 # Proceso principal de Electron (ventanas, IPC, companion)
-├── index.html              # Interfaz completa del IDE (editor, IA, 3D, plugins)
+├── main.js                 # Proceso principal de Electron (ventanas, IPC, servidor de colaboración, hardware)
+├── index.html              # Shell de la UI (carga styles.css + los scripts de abajo)
+├── styles.css              # Estilos (glassmorphism)
+├── app.js                  # Lógica del renderer: editor, IA, agente, 3D, plugins (archivo principal, grande)
+├── modules/                # Módulos JS extraídos y testeables
+│   ├── agent-core.js       #   Núcleo agéntico puro (redacción de secretos, parsing, tool-calls, ReAct, cron…)
+│   ├── ai-providers.js     #   Registro de proveedores de IA y resolvers
+│   ├── mcp-client.js       #   Cliente MCP (Model Context Protocol) sobre stdio
+│   ├── collab-server.js    #   Servidor WebSocket para la colaboración LAN/VPN
+│   ├── companion.js        #   Avatar/compañero flotante (AIRI)
+│   ├── discord-bot.js      #   Bot de Discord (Gateway)
+│   └── plugins-utils.js    #   Utilidades de los plugins
+├── test/                   # Suite de tests (node --test, sin dependencias) → npm test
+├── benchmark/              # Benchmark de rendimiento del núcleo → npm run bench
+├── .github/workflows/      # CI: test.yml (tests), build.yml (release multiplataforma), benchmark.yml
 ├── image_to_3d.py          # Conversor imagen-a-3D (Blender)
 ├── blender_godot_bridge/   # Puente IPC entre Blender y Godot (C++/GDExtension)
-├── package.json            # Metadatos y scripts (start, dist)
-└── docs/                   # Recursos de documentación (capturas)
+├── docs/                   # Recursos de documentación (capturas, gráficos SVG)
+└── package.json            # Metadatos y scripts (start, test, bench, dist)
 ```
+
+> **Nota de arquitectura (honesta):** el grueso de la lógica del renderer vive hoy en `app.js`, un archivo grande. La modularización se hace **por fases**: la lógica de más valor y con efectos secundarios se va extrayendo a `modules/` (con inyección de dependencias) para poder cubrirla con tests. La UI del editor todavía no está separada.
 
 ---
 
