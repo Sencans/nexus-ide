@@ -3092,6 +3092,75 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
             return block;
         }
 
+        // ── Gestor de servidores MCP (Model Context Protocol) ────────────────────────
+        // Conecta a los servidores MCP configurados en nexus_mcp_servers (JSON: array de
+        // {name, command, args}), agrega sus herramientas y permite invocarlas. El agente
+        // las usa con [MCP: servidor herramienta {json}]; se ejecutan como las lecturas.
+        window.__mcpClients = window.__mcpClients || {};
+        async function initMcpServers() {
+            let servers = [];
+            try { servers = JSON.parse(localStorage.getItem('nexus_mcp_servers') || '[]'); } catch { servers = []; }
+            if (!Array.isArray(servers) || !servers.length || !window.NexusMCP) return;
+            for (const srv of servers) {
+                if (!srv || !srv.name || !srv.command || window.__mcpClients[srv.name]) continue;
+                try {
+                    const client = window.NexusMCP.makeClient({ timeout: 15000 });
+                    await client.connect(srv.command, srv.args || []);
+                    const tools = await client.listTools();
+                    window.__mcpClients[srv.name] = { client, tools };
+                    showToast(`🔌 MCP "${srv.name}" conectado (${tools.length} herramientas)`, 'success');
+                } catch (e) {
+                    showToast(`⚠️ MCP "${srv.name}" no conectó: ${(e && e.message) || e}`, 'warning');
+                }
+            }
+        }
+        window.initMcpServers = initMcpServers;
+
+        // Bloque de herramientas MCP para inyectar en el system prompt.
+        function getMcpToolsPromptBlock() {
+            const names = Object.keys(window.__mcpClients);
+            if (!names.length) return '';
+            let block = `\n\nHERRAMIENTAS MCP disponibles (invócalas con [MCP: servidor herramienta {json de argumentos}]; se ejecutan y te devuelvo el resultado):`;
+            for (const s of names) {
+                for (const t of (window.__mcpClients[s].tools || [])) {
+                    block += `\n- [MCP: ${s} ${t.name} {…}] — ${(t.description || '').slice(0, 100)}`;
+                }
+            }
+            return block;
+        }
+
+        // Extrae acciones MCP: [MCP: servidor herramienta {json}] (json opcional).
+        function parseMcpActions(text) {
+            const actions = [];
+            if (!text || Object.keys(window.__mcpClients).length === 0) return actions;
+            const re = /\[MCP:\s*(\S+)\s+(\S+)\s*(\{[\s\S]*?\})?\s*\]/g;
+            let m;
+            while ((m = re.exec(text)) !== null) {
+                let args = {};
+                if (m[3]) { try { args = JSON.parse(m[3]); } catch { args = {}; } }
+                actions.push({ server: m[1], tool: m[2], args });
+            }
+            return actions;
+        }
+
+        // Ejecuta las acciones MCP y devuelve el resultado (redactado) para el modelo.
+        async function executeMcpActions(actions) {
+            const parts = [];
+            for (const a of actions) {
+                const entry = window.__mcpClients[a.server];
+                if (!entry) { parts.push(`[MCP: ${a.server} ${a.tool}] → servidor no conectado`); continue; }
+                try {
+                    const res = await entry.client.callTool(a.tool, a.args);
+                    const txt = (res && res.content) ? res.content.map(c => c.text || JSON.stringify(c)).join('\n') : JSON.stringify(res);
+                    parts.push(`[MCP: ${a.server} ${a.tool}]\n${redactSecrets(txt)}`);
+                } catch (e) {
+                    parts.push(`[MCP: ${a.server} ${a.tool}] → error: ${(e && e.message) || e}`);
+                }
+            }
+            return parts.join('\n\n');
+        }
+        window.executeMcpActions = executeMcpActions;
+
         function getChatContext() {
             const contextType = document.getElementById('chat-context-select').value;
             if (contextType === 'ninguno') {
@@ -3850,6 +3919,8 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                                 <option value="docker" ${localStorage.getItem('nexus_sandbox') === 'docker' ? 'selected' : ''}>🐳 Docker (aislado; requiere Docker instalado)</option>
                             </select>
                             <input id="cfg-sandbox-image" type="text" placeholder="Imagen Docker (p. ej. node:20-slim, python:3.12-slim)" value="${(localStorage.getItem('nexus_sandbox_image') || '').replace(/"/g, '&quot;')}" style="width:100%;box-sizing:border-box;background:#161b22;border:1px solid #30363d;border-radius:4px;color:#fff;padding:8px 12px;font-size:12px;outline:none;margin-top:6px;">
+                            <label style="font-size:11px;color:#8b949e;display:block;margin:10px 0 4px;">🔌 Servidores MCP (JSON: <code>[{"name","command","args"}]</code>)</label>
+                            <textarea id="cfg-mcp-servers" placeholder='[{"name":"filesystem","command":"npx","args":["-y","@modelcontextprotocol/server-filesystem","."]}]' style="width:100%;box-sizing:border-box;background:#161b22;border:1px solid #30363d;border-radius:4px;color:#fff;padding:8px 12px;font-size:12px;outline:none;min-height:60px;resize:vertical;font-family:monospace;">${(localStorage.getItem('nexus_mcp_servers') || '')}</textarea>
                         </div>
                         ${projectTypeSection}
                         <div style="border-top: 1px solid #30363d; margin-top: 6px; padding-top: 10px;">
@@ -4641,6 +4712,16 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                   __sandboxDockerAvail = null; // re-comprobar Docker con el nuevo ajuste
                   const imgEl = document.getElementById('cfg-sandbox-image');
                   if (imgEl && imgEl.value.trim()) localStorage.setItem('nexus_sandbox_image', imgEl.value.trim());
+              }
+
+              const mcpEl = document.getElementById('cfg-mcp-servers');
+              if (mcpEl) {
+                  const raw = mcpEl.value.trim();
+                  if (!raw) { localStorage.removeItem('nexus_mcp_servers'); }
+                  else {
+                      try { JSON.parse(raw); localStorage.setItem('nexus_mcp_servers', raw); if (typeof initMcpServers === 'function') initMcpServers(); }
+                      catch (e) { showToast('⚠️ La config de servidores MCP no es JSON válido', 'error'); }
+                  }
               }
 
               const appMode = document.getElementById('cfg-app-mode').value || 'full';
@@ -17809,6 +17890,9 @@ void AMyActor::Tick(float DeltaTime)
                 syncEngineUI();
                 loadApiKeys();
 
+                // Conectar a los servidores MCP configurados (en segundo plano).
+                setTimeout(() => { try { initMcpServers(); } catch (e) {} }, 1500);
+
                 // Aplicar configuraciones guardadas al arrancar (idioma, tema, etc.)
                 applySettings(getSavedSettings());
 
@@ -19351,6 +19435,7 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
 - [GREP: patrón] → buscar un patrón/regex de texto en todo el proyecto.
 Solicita las lecturas que necesites para EXPLORAR el código antes de modificarlo; te devolveré los resultados y podrás pedir más o proceder. No pidas permiso para leer.`;
                             sysPrompt += buildMemoryPromptBlock();
+                            sysPrompt += getMcpToolsPromptBlock();
 
                             // Token optimization context fetching
                             const contextText = getChatContext();
@@ -19427,17 +19512,21 @@ Solicita las lecturas que necesites para EXPLORAR el código antes de modificarl
                             let readLoopIters = 0;
                             const MAX_READ_LOOP = 5;
                             let readActs = parseReadToolActions(response);
+                            let mcpActs = parseMcpActions(response);
                             const readConvo = [...chatHistory.slice(0, -1), { role: 'user', content: textWithContextAndAttachments }];
-                            while (readActs.length > 0 && readLoopIters < MAX_READ_LOOP && !chatAbortController.signal.aborted) {
+                            while ((readActs.length > 0 || mcpActs.length > 0) && readLoopIters < MAX_READ_LOOP && !chatAbortController.signal.aborted) {
                                 readLoopIters++;
                                 if (readLoopIters === 1) showToast('🔍 El agente está explorando el proyecto…', 'info');
-                                const readResults = await executeReadTools(readActs);
+                                const readResults = readActs.length ? await executeReadTools(readActs) : '';
+                                const mcpResults = mcpActs.length ? await executeMcpActions(mcpActs) : '';
+                                const combined = [readResults, mcpResults].filter(Boolean).join('\n\n');
                                 readConvo.push({ role: 'assistant', content: response });
-                                const contPrompt = `[RESULTADOS DE LAS LECTURAS QUE SOLICITASTE]\n${readResults}\n\nUsa esta información para continuar la tarea. Puedes solicitar más lecturas si lo necesitas, o proceder con las acciones ([WRITE_FILE]/[RUN_COMMAND]) o responder al usuario.`;
+                                const contPrompt = `[RESULTADOS DE LAS LECTURAS/HERRAMIENTAS QUE SOLICITASTE]\n${combined}\n\nUsa esta información para continuar la tarea. Puedes solicitar más lecturas/herramientas si lo necesitas, o proceder con las acciones ([WRITE_FILE]/[RUN_COMMAND]) o responder al usuario.`;
                                 readConvo.push({ role: 'user', content: contPrompt });
                                 response = await sendRequestToAI(selectedModelId, contPrompt, sysPrompt, readConvo.slice(0, -1), chatAbortController.signal, []);
                                 response = normalizeAgentResponse(response);
                                 readActs = parseReadToolActions(response);
+                                mcpActs = parseMcpActions(response);
                             }
 
                             // Bucle silencioso de pre-flight check de Cardinal
