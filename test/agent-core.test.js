@@ -351,6 +351,44 @@ test('runCommandCaptured: exec que lanza → code 1, no rompe', async () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// parseSSEDeltas  (streaming SSE, 3 formatos de proveedor)
+// ─────────────────────────────────────────────────────────────────────────────
+test('parseSSEDeltas: OpenAI-compat extrae los deltas de choices[].delta.content', () => {
+    const buf = 'data: {"choices":[{"delta":{"content":"Ho"}}]}\ndata: {"choices":[{"delta":{"content":"la"}}]}\n';
+    const r = AC.parseSSEDeltas(buf, 'openai');
+    assert.deepStrictEqual(r.deltas, ['Ho', 'la']);
+    assert.strictEqual(r.done, false);
+});
+
+test('parseSSEDeltas: [DONE] marca done; línea incompleta va a rest', () => {
+    const r = AC.parseSSEDeltas('data: {"choices":[{"delta":{"content":"x"}}]}\ndata: [DONE]\ndata: {"cho', 'openai');
+    assert.deepStrictEqual(r.deltas, ['x']);
+    assert.strictEqual(r.done, true);
+    assert.strictEqual(r.rest, 'data: {"cho');
+});
+
+test('parseSSEDeltas: Google extrae candidates[].content.parts[].text', () => {
+    const buf = 'data: {"candidates":[{"content":{"parts":[{"text":"Hola"}]}}]}\n';
+    assert.deepStrictEqual(AC.parseSSEDeltas(buf, 'google').deltas, ['Hola']);
+});
+
+test('parseSSEDeltas: Anthropic solo content_block_delta aporta texto', () => {
+    const buf = [
+        'data: {"type":"message_start"}',
+        'data: {"type":"content_block_delta","delta":{"text":"Hi"}}',
+        'data: {"type":"content_block_delta","delta":{"text":" there"}}',
+        'data: {"type":"message_stop"}',
+        ''
+    ].join('\n');
+    assert.deepStrictEqual(AC.parseSSEDeltas(buf, 'anthropic').deltas, ['Hi', ' there']);
+});
+
+test('parseSSEDeltas: ignora comentarios keep-alive, event: y JSON inválido', () => {
+    const buf = ': keep-alive\nevent: message\ndata: {roto\ndata: {"choices":[{"delta":{"content":"ok"}}]}\n';
+    assert.deepStrictEqual(AC.parseSSEDeltas(buf, 'openai').deltas, ['ok']);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Sandbox (dockerWrap / checkDockerAvailable / runCommandCaptured con sandbox)
 // ─────────────────────────────────────────────────────────────────────────────
 test('dockerWrap: envuelve el comando en docker run con mount, imagen y base64', () => {

@@ -328,6 +328,40 @@
         });
     }
 
+    // Extrae los deltas de texto de un buffer de eventos SSE (streaming del chat).
+    // Devuelve { deltas: [texto...], rest: parte incompleta, done: bool }. Soporta los
+    // tres formatos: OpenAI-compat (choices[].delta.content), Google
+    // (candidates[].content.parts[].text) y Anthropic (content_block_delta.delta.text).
+    function extractStreamDelta(json, provider) {
+        try {
+            if (provider === 'google') {
+                return (json.candidates[0].content.parts || []).map(p => p.text || '').join('');
+            }
+            if (provider === 'anthropic') {
+                if (json.type === 'content_block_delta') return (json.delta && json.delta.text) || '';
+                return '';
+            }
+            return (json.choices[0].delta.content) || ''; // OpenAI-compat
+        } catch { return ''; }
+    }
+    function parseSSEDeltas(buffer, provider) {
+        const parts = String(buffer).split('\n');
+        const rest = parts.pop();
+        const deltas = [];
+        let done = false;
+        for (let line of parts) {
+            line = line.trim();
+            if (!line || line.startsWith(':')) continue;      // comentario/keep-alive SSE
+            if (!line.startsWith('data:')) continue;          // ignora líneas 'event:' etc.
+            const payload = line.slice(5).trim();
+            if (payload === '[DONE]') { done = true; continue; }
+            let json; try { json = JSON.parse(payload); } catch { continue; }
+            const d = extractStreamDelta(json, provider);
+            if (d) deltas.push(d);
+        }
+        return { deltas, rest, done };
+    }
+
     const AgentCore = {
         redactSecrets,
         toolCallsToTags,
@@ -339,7 +373,9 @@
         executeReadTools,
         runCommandCaptured,
         dockerWrap,
-        checkDockerAvailable
+        checkDockerAvailable,
+        parseSSEDeltas,
+        extractStreamDelta
     };
 
     if (typeof module !== 'undefined' && module.exports) {

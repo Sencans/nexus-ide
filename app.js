@@ -3919,6 +3919,10 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                                 <option value="docker" ${localStorage.getItem('nexus_sandbox') === 'docker' ? 'selected' : ''}>🐳 Docker (aislado; requiere Docker instalado)</option>
                             </select>
                             <input id="cfg-sandbox-image" type="text" placeholder="Imagen Docker (p. ej. node:20-slim, python:3.12-slim)" value="${(localStorage.getItem('nexus_sandbox_image') || '').replace(/"/g, '&quot;')}" style="width:100%;box-sizing:border-box;background:#161b22;border:1px solid #30363d;border-radius:4px;color:#fff;padding:8px 12px;font-size:12px;outline:none;margin-top:6px;">
+                            <div style="display:flex;align-items:center;gap:8px;margin-top:10px;">
+                                <input id="cfg-streaming" type="checkbox" ${localStorage.getItem('nexus_streaming') === 'true' ? 'checked' : ''} style="cursor:pointer;width:16px;height:16px;">
+                                <label for="cfg-streaming" style="font-size:13px;color:#e6edf3;cursor:pointer;user-select:none;">⚡ Streaming de respuestas (mostrar el texto según se genera)</label>
+                            </div>
                             <label style="font-size:11px;color:#8b949e;display:block;margin:10px 0 4px;">🔌 Servidores MCP (JSON: <code>[{"name","command","args"}]</code>)</label>
                             <textarea id="cfg-mcp-servers" placeholder='[{"name":"filesystem","command":"npx","args":["-y","@modelcontextprotocol/server-filesystem","."]}]' style="width:100%;box-sizing:border-box;background:#161b22;border:1px solid #30363d;border-radius:4px;color:#fff;padding:8px 12px;font-size:12px;outline:none;min-height:60px;resize:vertical;font-family:monospace;">${(localStorage.getItem('nexus_mcp_servers') || '')}</textarea>
                         </div>
@@ -4713,6 +4717,9 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                   const imgEl = document.getElementById('cfg-sandbox-image');
                   if (imgEl && imgEl.value.trim()) localStorage.setItem('nexus_sandbox_image', imgEl.value.trim());
               }
+
+              const streamingEl = document.getElementById('cfg-streaming');
+              if (streamingEl) localStorage.setItem('nexus_streaming', streamingEl.checked ? 'true' : 'false');
 
               const mcpEl = document.getElementById('cfg-mcp-servers');
               if (mcpEl) {
@@ -11171,7 +11178,10 @@ if __name__ == "__main__":
                     const lib = parsedUrl.protocol === 'https:' ? https : http;
                     const req = lib.request(reqOptions, (res) => {
                         let data = '';
-                        res.on('data', (chunk) => data += chunk);
+                        res.on('data', (chunk) => {
+                            data += chunk;
+                            if (typeof options.onChunk === 'function') { try { options.onChunk(chunk.toString()); } catch (e) {} }
+                        });
                         res.on('end', () => {
                             resolve({
                                 ok: res.statusCode >= 200 && res.statusCode < 300,
@@ -14144,12 +14154,12 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
         function toolCallsToTags(toolCalls) { return AgentCore.toolCallsToTags(toolCalls); }
         function nativeToolsEnabled() { try { return localStorage.getItem('nexus_native_tools') === 'true'; } catch { return false; } }
 
-        async function sendRequestToAI(modelId, promptText, systemText, history = [], signal = null, images = []) {
+        async function sendRequestToAI(modelId, promptText, systemText, history = [], signal = null, images = [], onToken = null) {
             const apiKey = getApiKeyForModel(modelId);
             if (!apiKey) {
                 throw new Error(`No se ha configurado la API Key para el proveedor de este modelo. Haz clic en el engranaje ⚙ para configurarla.`);
             }
-            
+
             const provider = getProviderForModel(modelId);
             const realModelId = getRealModelId(modelId, provider);
             let url = '';
@@ -14159,13 +14169,27 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
                 signal: signal
             };
             let sentTools = false; // ¿se envió el parámetro 'tools' en esta petición? (para fallback)
+
+            // ── Streaming (SSE): opt-in (nexus_streaming). Emite deltas por onToken y
+            // acumula el texto completo, que se devuelve para que el pipeline lo parsee.
+            const streaming = (typeof onToken === 'function') && localStorage.getItem('nexus_streaming') === 'true';
+            let __streamFull = '';
+            if (streaming) {
+                let sseBuf = '';
+                options.onChunk = (chunk) => {
+                    sseBuf += chunk;
+                    const parsed = AgentCore.parseSSEDeltas(sseBuf, provider);
+                    sseBuf = parsed.rest;
+                    for (const d of parsed.deltas) { __streamFull += d; try { onToken(d); } catch (e) {} }
+                };
+            }
             
             // conversational memory is limited to the last 6 messages
             // Slice history to the last 5 messages, and combined with current prompt we get 6 total.
             const historyToUse = history.slice(-AGENT_HISTORY_WINDOW);
             
             if (provider === 'google') {
-                url = `https://generativelanguage.googleapis.com/v1beta/models/${realModelId}:generateContent?key=${apiKey}`;
+                url = `https://generativelanguage.googleapis.com/v1beta/models/${realModelId}:${streaming ? 'streamGenerateContent?alt=sse&' : 'generateContent?'}key=${apiKey}`;
                 const contents = [];
                 historyToUse.forEach(msg => {
                     contents.push({
@@ -14242,9 +14266,10 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
                     cleanModelId = localStorage.getItem(localModelKey(provider)) || LOCAL_AI_DEFAULT_MODELS[provider];
                 }
                 const openaiBody = { model: cleanModelId, messages: messages };
+                if (streaming) openaiBody.stream = true;
                 // Tool-calling nativo: solo para proveedores en la nube (los locales suelen
-                // no soportarlo bien) y si el usuario lo activó. Con fallback si lo rechaza.
-                if (nativeToolsEnabled() && !LOCAL_AI_PROVIDERS.has(provider)) {
+                // no soportarlo bien), si el usuario lo activó y NO estamos en streaming.
+                if (nativeToolsEnabled() && !LOCAL_AI_PROVIDERS.has(provider) && !streaming) {
                     openaiBody.tools = AGENT_TOOLS_SCHEMA;
                     sentTools = true;
                 }
@@ -14278,7 +14303,8 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
                     model: realModelId,
                     max_tokens: 4000,
                     system: systemText,
-                    messages: messages
+                    messages: messages,
+                    ...(streaming ? { stream: true } : {})
                 });
             }
             
@@ -14297,6 +14323,12 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
             if (!response.ok) {
                 const errText = await response.text();
                 throw new Error(`API Error: ${response.status} - ${errText}`);
+            }
+
+            // Streaming: los deltas ya se emitieron por onToken durante la descarga;
+            // devolvemos el texto acumulado para que el pipeline lo parsee igual.
+            if (streaming) {
+                return __streamFull;
             }
 
             const data = await response.json();
@@ -19500,7 +19532,13 @@ Solicita las lecturas que necesites para EXPLORAR el código antes de modificarl
                                 chatHistory = chatHistory.slice(-CHAT_HISTORY_CAP);
                             }
 
-                            let response = await sendRequestToAI(selectedModelId, textWithContextAndAttachments, sysPrompt, chatHistory.slice(0, -1), chatAbortController.signal, imgAttachments);
+                            // Streaming: muestra los tokens en vivo en la burbuja de carga.
+                            let __streamShown = '';
+                            const __onToken = (delta) => {
+                                __streamShown += delta;
+                                if (loadingMsg) { try { loadingMsg.textContent = __streamShown.slice(-1200); loadingMsg.style.whiteSpace = 'pre-wrap'; } catch (e) {} }
+                            };
+                            let response = await sendRequestToAI(selectedModelId, textWithContextAndAttachments, sysPrompt, chatHistory.slice(0, -1), chatAbortController.signal, imgAttachments, __onToken);
                             // FIX #8: normalizar (fences markdown -> [WRITE_FILE]) ANTES del pre-flight,
                             // si no, una respuesta con fences se salta la validación.
                             response = normalizeAgentResponse(response);
