@@ -3082,6 +3082,20 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
             while ((m = re.exec(text)) !== null) { saveProjectMemoryFact(m[1]); saved++; }
             if (saved && typeof showToast === 'function') showToast(`🧠 Guardado en la memoria del proyecto (${saved})`, 'info');
         }
+
+        // Learning loop: guarda las habilidades que el agente aprende con [LEARN_SKILL: ...]
+        // (sin sobrescribir las que ya definió el usuario). Quedan invocables con [SKILL: id].
+        function processLearnSkillDirectives(text) {
+            if (!text || typeof window.saveSkill !== 'function' || !window.AgentCore) return;
+            const learned = AgentCore.parseLearnSkillDirectives(text);
+            let added = 0;
+            const existing = (typeof window.getSkills === 'function') ? window.getSkills() : [];
+            for (const sk of learned) {
+                if (existing.some(s => s.id === sk.id)) continue; // no pisar skills del usuario
+                try { window.saveSkill(sk); added++; } catch (e) {}
+            }
+            if (added && typeof showToast === 'function') showToast(`🎓 Aprendí ${added} habilidad(es) reutilizable(s)`, 'success');
+        }
         // Bloque de memoria para inyectar en el system prompt.
         function buildMemoryPromptBlock() {
             const mem = getProjectMemory();
@@ -19531,6 +19545,7 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
 Solicita las lecturas que necesites para EXPLORAR el código antes de modificarlo; te devolveré los resultados y podrás pedir más o proceder. No pidas permiso para leer.`;
                             sysPrompt += buildMemoryPromptBlock();
                             sysPrompt += getMcpToolsPromptBlock();
+                            sysPrompt += `\n\nAPRENDIZAJE: si resuelves una tarea que probablemente se repita, puedes GUARDARLA como habilidad reutilizable con [LEARN_SKILL: id | nombre | descripción | procedimiento o comando]. Quedará disponible para invocarla luego con [SKILL: id]. Hazlo solo con procedimientos genuinamente reutilizables.`;
 
                             // Token optimization context fetching
                             const contextText = getChatContext();
@@ -19687,7 +19702,8 @@ Solicita las lecturas que necesites para EXPLORAR el código antes de modificarl
                             // Guardar hechos que el agente haya pedido recordar ([REMEMBER: ...])
                             // y quitar la directiva del texto que se muestra/registra.
                             processMemoryDirectives(response);
-                            response = response.replace(/\[REMEMBER:\s*[^\]]+?\]/g, '').replace(/\n{3,}/g, '\n\n').trim();
+                            processLearnSkillDirectives(response);
+                            response = response.replace(/\[REMEMBER:\s*[^\]]+?\]/g, '').replace(/\[LEARN_SKILL:\s*[^\]]+?\]/g, '').replace(/\n{3,}/g, '\n\n').trim();
 
                             // Registrar la respuesta en el historial
                             chatHistory.push({ role: 'assistant', content: response });
@@ -19748,7 +19764,8 @@ Solicita las lecturas que necesites para EXPLORAR el código antes de modificarl
 
                                     reactLoading.remove();
                                     processMemoryDirectives(reactResp);
-                                    reactResp = reactResp.replace(/\[REMEMBER:\s*[^\]]+?\]/g, '').replace(/\n{3,}/g, '\n\n').trim();
+                                    processLearnSkillDirectives(reactResp);
+                                    reactResp = reactResp.replace(/\[REMEMBER:\s*[^\]]+?\]/g, '').replace(/\[LEARN_SKILL:\s*[^\]]+?\]/g, '').replace(/\n{3,}/g, '\n\n').trim();
                                     chatHistory.push({ role: 'assistant', content: reactResp });
 
                                     const reactMsg = document.createElement('div');

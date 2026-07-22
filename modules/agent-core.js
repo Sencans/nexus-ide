@@ -393,6 +393,31 @@
         return { drafts, final: finalText, synthesizer };
     }
 
+    // Learning loop: extrae las directivas [LEARN_SKILL: id | nombre | descripción |
+    // procedimiento] que el agente emite para APRENDER una habilidad reutilizable a
+    // partir de una tarea. Devuelve objetos de skill listos para guardar. El id se
+    // SANEA (solo [a-zA-Z0-9_-]) para evitar path traversal al persistir a disco.
+    function parseLearnSkillDirectives(text) {
+        const skills = [];
+        if (!text) return skills;
+        const re = /\[LEARN_SKILL:\s*([^\]]+?)\]/g;
+        let m;
+        while ((m = re.exec(text)) !== null) {
+            const fields = m[1].split('|').map((s) => s.trim());
+            const id = (fields[0] || '').replace(/[^a-zA-Z0-9_-]/g, '_').replace(/^_+|_+$/g, '').slice(0, 40);
+            if (!id) continue;
+            skills.push({
+                id,
+                name: fields[1] || id,
+                description: fields[2] || '',
+                systemPrompt: fields[3] || fields[2] || '',
+                commandTemplate: '',
+                scriptCode: ''
+            });
+        }
+        return skills;
+    }
+
     // Fallback entre modelos/proveedores: prueba cada modelo en orden y devuelve la
     // primera respuesta correcta. Si uno falla (error de API, cuota, red) pasa al
     // siguiente. `send(modelId)` es inyectable (tests). onFallback(from, to) opcional.
@@ -431,7 +456,8 @@
         extractStreamDelta,
         buildMoASynthesisPrompt,
         runMixtureOfAgents,
-        runWithFallback
+        runWithFallback,
+        parseLearnSkillDirectives
     };
 
     if (typeof module !== 'undefined' && module.exports) {

@@ -389,6 +389,35 @@ test('parseSSEDeltas: ignora comentarios keep-alive, event: y JSON inválido', (
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// parseLearnSkillDirectives (learning loop / auto-skills)
+// ─────────────────────────────────────────────────────────────────────────────
+test('parseLearnSkillDirectives: extrae id/nombre/descripción/procedimiento', () => {
+    const r = AC.parseLearnSkillDirectives('Listo. [LEARN_SKILL: run_tests | Correr tests | Ejecuta la suite | npm test] fin');
+    assert.strictEqual(r.length, 1);
+    assert.deepStrictEqual(r[0], {
+        id: 'run_tests', name: 'Correr tests', description: 'Ejecuta la suite',
+        systemPrompt: 'npm test', commandTemplate: '', scriptCode: ''
+    });
+});
+
+test('parseLearnSkillDirectives: SANEA el id (evita path traversal)', () => {
+    const r = AC.parseLearnSkillDirectives('[LEARN_SKILL: ../../etc/passwd | x | y | z]');
+    assert.ok(!r[0].id.includes('/') && !r[0].id.includes('..'), 'id saneado sin separadores de ruta');
+    assert.strictEqual(r[0].id, 'etc_passwd');
+});
+
+test('parseLearnSkillDirectives: varias directivas y campos faltantes (fallback de nombre)', () => {
+    const r = AC.parseLearnSkillDirectives('[LEARN_SKILL: a] y [LEARN_SKILL: b | Beta]');
+    assert.strictEqual(r.length, 2);
+    assert.strictEqual(r[0].name, 'a');      // sin nombre -> usa el id
+    assert.strictEqual(r[1].name, 'Beta');
+});
+
+test('parseLearnSkillDirectives: id vacío tras sanear se descarta', () => {
+    assert.strictEqual(AC.parseLearnSkillDirectives('[LEARN_SKILL:  /// | x]').length, 0);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // runWithFallback (fallback entre modelos/proveedores)
 // ─────────────────────────────────────────────────────────────────────────────
 test('runWithFallback: devuelve el primero que responde', async () => {
