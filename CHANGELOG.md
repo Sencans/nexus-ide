@@ -17,6 +17,10 @@ Ronda de calidad: implementación real del bot de Discord, reparación de varios
 - **ComfyUI**: los generadores ya no se cuelgan para siempre ante errores de ejecución (manejo de `execution_error` + timeout).
 - **Telegram**: `Content-Length` en bytes UTF-8 (los mensajes con emojis/acentos ya no fallan).
 
+### Seguridad
+- El **Coder del equipo multi-agente** ejecutaba escrituras de archivos y comandos de shell (incluso en rutas absolutas fuera del workspace) **sin respetar los permisos del agente**. Ahora, si el usuario tiene activada la confirmación (por defecto), **aprueba todas las acciones** antes de tocar el disco o ejecutar nada.
+- **SSH**: se añadió **verificación de host key (TOFU)** — memoriza la huella SHA-256 del servidor en la primera conexión y rechaza si cambia (protección contra ataques *man-in-the-middle*).
+
 ### Cambiado
 - **Modularización (fases 2 y 3)**: el avatar/compañero se movió a `modules/companion.js` y el registro/motor de IA a `modules/ai-providers.js`. `app.js` baja a ~20k líneas.
 
