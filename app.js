@@ -3088,6 +3088,43 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
         }
         window.redactSecrets = redactSecrets;
 
+        // ── Memoria persistente del proyecto (hechos curados, cross-session) ──────────
+        // Cuántos mensajes de historial se envían al modelo (antes eran 6, muy corto).
+        const AGENT_HISTORY_WINDOW = 12;
+        const CHAT_HISTORY_CAP = 40; // tope del historial en memoria/persistido por proyecto
+        function projectMemoryKey() { return 'nexus_mem_' + (workspaceRoot || 'default'); }
+        function getProjectMemory() {
+            try { return JSON.parse(localStorage.getItem(projectMemoryKey()) || '[]'); } catch { return []; }
+        }
+        function saveProjectMemoryFact(fact) {
+            fact = String(fact || '').trim();
+            if (!fact) return;
+            let mem = getProjectMemory();
+            if (mem.includes(fact)) return; // no duplicar
+            mem.push(fact);
+            if (mem.length > 40) mem = mem.slice(-40); // cota de hechos
+            try { localStorage.setItem(projectMemoryKey(), JSON.stringify(mem)); } catch {}
+        }
+        window.getProjectMemory = getProjectMemory;
+        window.saveProjectMemoryFact = saveProjectMemoryFact;
+        // Extrae y guarda las directivas [REMEMBER: hecho] (seguras → auto, sin permiso).
+        function processMemoryDirectives(text) {
+            if (!text) return;
+            let m, saved = 0;
+            const re = /\[REMEMBER:\s*([^\]]+?)\]/g;
+            while ((m = re.exec(text)) !== null) { saveProjectMemoryFact(m[1]); saved++; }
+            if (saved && typeof showToast === 'function') showToast(`🧠 Guardado en la memoria del proyecto (${saved})`, 'info');
+        }
+        // Bloque de memoria para inyectar en el system prompt.
+        function buildMemoryPromptBlock() {
+            const mem = getProjectMemory();
+            let block = `\n\nMEMORIA PERSISTENTE (puedes guardar un hecho duradero del proyecto con [REMEMBER: hecho]; se recordará entre sesiones).`;
+            if (mem.length) {
+                block += `\nHechos recordados de este proyecto:\n` + mem.map(f => `- ${f}`).join('\n');
+            }
+            return block;
+        }
+
         function getChatContext() {
             const contextType = document.getElementById('chat-context-select').value;
             if (contextType === 'ninguno') {
@@ -14076,7 +14113,7 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
             
             // conversational memory is limited to the last 6 messages
             // Slice history to the last 5 messages, and combined with current prompt we get 6 total.
-            const historyToUse = history.slice(-5);
+            const historyToUse = history.slice(-AGENT_HISTORY_WINDOW);
             
             if (provider === 'google') {
                 url = `https://generativelanguage.googleapis.com/v1beta/models/${realModelId}:generateContent?key=${apiKey}`;
@@ -19390,7 +19427,7 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
 
                             chatHistory.push({ role: 'user', content: text });
                             if (chatHistory.length > 10) {
-                                chatHistory = chatHistory.slice(-10);
+                                chatHistory = chatHistory.slice(-CHAT_HISTORY_CAP);
                             }
 
                             // 1. Paso Planificador
@@ -19550,6 +19587,7 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
 - [LIST_DIR: ruta] → listar los archivos/carpetas de un directorio (ruta vacía = raíz).
 - [GREP: patrón] → buscar un patrón/regex de texto en todo el proyecto.
 Solicita las lecturas que necesites para EXPLORAR el código antes de modificarlo; te devolveré los resultados y podrás pedir más o proceder. No pidas permiso para leer.`;
+                            sysPrompt += buildMemoryPromptBlock();
 
                             // Token optimization context fetching
                             const contextText = getChatContext();
@@ -19611,7 +19649,7 @@ Solicita las lecturas que necesites para EXPLORAR el código antes de modificarl
 
                             chatHistory.push({ role: 'user', content: text + (textAttachments.length > 0 ? ` [Adjunto: ${textAttachments.map(t=>t.name).join(', ')}]` : '') });
                             if (chatHistory.length > 10) {
-                                chatHistory = chatHistory.slice(-10);
+                                chatHistory = chatHistory.slice(-CHAT_HISTORY_CAP);
                             }
 
                             let response = await sendRequestToAI(selectedModelId, textWithContextAndAttachments, sysPrompt, chatHistory.slice(0, -1), chatAbortController.signal, imgAttachments);
@@ -19680,6 +19718,11 @@ Solicita las lecturas que necesites para EXPLORAR el código antes de modificarl
                             // Normalizar la respuesta para convertir bloques de código Markdown a tags de acción executables
                             response = normalizeAgentResponse(response);
 
+                            // Guardar hechos que el agente haya pedido recordar ([REMEMBER: ...])
+                            // y quitar la directiva del texto que se muestra/registra.
+                            processMemoryDirectives(response);
+                            response = response.replace(/\[REMEMBER:\s*[^\]]+?\]/g, '').replace(/\n{3,}/g, '\n\n').trim();
+
                             // Registrar la respuesta en el historial
                             chatHistory.push({ role: 'assistant', content: response });
 
@@ -19738,6 +19781,8 @@ Solicita las lecturas que necesites para EXPLORAR el código antes de modificarl
                                     }
 
                                     reactLoading.remove();
+                                    processMemoryDirectives(reactResp);
+                                    reactResp = reactResp.replace(/\[REMEMBER:\s*[^\]]+?\]/g, '').replace(/\n{3,}/g, '\n\n').trim();
                                     chatHistory.push({ role: 'assistant', content: reactResp });
 
                                     const reactMsg = document.createElement('div');
