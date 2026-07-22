@@ -5,6 +5,7 @@ Todas las novedades notables de **Nexus IDE**. El formato sigue [Keep a Changelo
 ## [Sin publicar]
 
 ### Añadido
+- **El agente ahora puede LEER y explorar el repositorio** (antes solo podía escribir y ejecutar, trabajando a ciegas). Tres herramientas de lectura que el modelo invoca por su cuenta: `[READ_FILE: ruta]`, `[LIST_DIR: ruta]` y `[GREP: patrón]`. Son **seguras** (solo lectura y **confinadas al workspace**: se rechaza cualquier ruta que escape, p. ej. `../../.ssh/id_rsa`), así que se **auto-ejecutan sin pedir permiso**. Un **bucle agéntico** devuelve los resultados al modelo (hasta 5 iteraciones) para que investigue el código antes de modificarlo; las escrituras/comandos siguen pasando por el gate de permisos. Los resultados de lectura también se **redactan** de secretos.
 - **Redacción de secretos antes de enviar contexto a la IA en la nube**: el IDE manda el archivo activo, los fragmentos de RAG y los adjuntos al modelo; ahora un filtro (`redactSecrets`) sustituye por `«SECRETO_REDACTADO»` las API keys (OpenAI, Anthropic, Google, GitHub, Groq, xAI, OpenRouter, AWS, Slack), los JWT, los tokens `Bearer`, las contraseñas embebidas en *connection strings*, los bloques de clave privada PEM y las asignaciones tipo `.env` con valor literal. Conservador: no toca referencias a variables (`process.env.X`), `null`, ni identificadores cortos. Verificado: 10/10 secretos redactados, 0 falsos positivos en código legítimo.
 
 ### Seguridad

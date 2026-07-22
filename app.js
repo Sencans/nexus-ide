@@ -14363,6 +14363,107 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
             return actions;
         }
 
+        // ── Herramientas de LECTURA del agente (seguras: solo lectura, confinadas al
+        // workspace). Le dan "ojos" al agente para explorar el repo antes de actuar. ──
+        function parseReadToolActions(text) {
+            const actions = [];
+            if (!text) return actions;
+            let m;
+            const reRead = /\[READ_FILE:\s*([^\]]+?)\]/g;
+            while ((m = reRead.exec(text)) !== null) actions.push({ type: 'read_file', arg: m[1].trim() });
+            const reList = /\[LIST_DIR:\s*([^\]]*?)\]/g;
+            while ((m = reList.exec(text)) !== null) actions.push({ type: 'list_dir', arg: m[1].trim() });
+            const reGrep = /\[GREP:\s*([^\]]+?)\]/g;
+            while ((m = reGrep.exec(text)) !== null) actions.push({ type: 'grep', arg: m[1].trim() });
+            return actions;
+        }
+
+        // Resuelve una ruta y GARANTIZA que queda dentro del workspace (evita que el
+        // agente —o una inyección de prompt en un archivo— lea ~/.ssh/id_rsa y demás).
+        function resolveInWorkspace(p) {
+            if (!workspaceRoot) return null;
+            const root = path.resolve(workspaceRoot);
+            const resolved = path.resolve(root, p || '.');
+            if (resolved !== root && !resolved.startsWith(root + path.sep)) return null;
+            return resolved;
+        }
+
+        // Búsqueda de texto recursiva y acotada dentro del workspace.
+        function grepWorkspace(pattern) {
+            const fs = require('fs');
+            if (!workspaceRoot || !pattern) return '(sin patrón o sin workspace abierto)';
+            let rx = null;
+            try { rx = new RegExp(pattern, 'i'); } catch { rx = null; }
+            const SKIP = new Set(['node_modules', '.git', 'dist', 'build', '.cache', '.next']);
+            const BIN = /\.(png|jpe?g|gif|webp|ico|pdf|zip|gz|exe|dll|so|bin|mp4|mp3|wav|ttf|woff2?|glb|gltf)$/i;
+            const hits = [];
+            const MAX_HITS = 60, MAX_FILES = 2000;
+            let filesScanned = 0;
+            const root = path.resolve(workspaceRoot);
+            const walk = (dir) => {
+                if (hits.length >= MAX_HITS || filesScanned >= MAX_FILES) return;
+                let entries;
+                try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+                for (const e of entries) {
+                    if (hits.length >= MAX_HITS || filesScanned >= MAX_FILES) return;
+                    if (SKIP.has(e.name)) continue;
+                    const full = path.join(dir, e.name);
+                    if (e.isDirectory()) { walk(full); }
+                    else if (e.isFile() && !BIN.test(e.name)) {
+                        filesScanned++;
+                        let text;
+                        try { if (fs.statSync(full).size > 524288) continue; text = fs.readFileSync(full, 'utf8'); } catch { continue; }
+                        const lines = text.split('\n');
+                        for (let i = 0; i < lines.length; i++) {
+                            const hit = rx ? rx.test(lines[i]) : lines[i].includes(pattern);
+                            if (hit) {
+                                const rel = path.relative(root, full).replace(/\\/g, '/');
+                                hits.push(`${rel}:${i + 1}: ${redactSecrets(lines[i].trim().slice(0, 200))}`);
+                                if (hits.length >= MAX_HITS) break;
+                            }
+                        }
+                    }
+                }
+            };
+            walk(root);
+            if (!hits.length) return '(sin coincidencias)';
+            return hits.join('\n') + (hits.length >= MAX_HITS ? '\n… (más resultados omitidos)' : '');
+        }
+
+        // Ejecuta las lecturas solicitadas y devuelve un texto (redactado) para el modelo.
+        async function executeReadTools(actions) {
+            const fs = require('fs');
+            const MAX_FILE = 24000;
+            const parts = [];
+            for (const act of actions) {
+                try {
+                    if (act.type === 'read_file') {
+                        const abs = resolveInWorkspace(act.arg);
+                        if (!abs) { parts.push(`[READ_FILE: ${act.arg}] → ⛔ fuera del workspace (denegado)`); continue; }
+                        if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) { parts.push(`[READ_FILE: ${act.arg}] → no existe o no es un archivo`); continue; }
+                        let content = fs.readFileSync(abs, 'utf8');
+                        let extra = '';
+                        if (content.length > MAX_FILE) { content = content.slice(0, MAX_FILE); extra = `\n… (truncado a ${MAX_FILE} caracteres)`; }
+                        parts.push(`[READ_FILE: ${act.arg}]\n\`\`\`\n${redactSecrets(content)}${extra}\n\`\`\``);
+                    } else if (act.type === 'list_dir') {
+                        const abs = resolveInWorkspace(act.arg || '.');
+                        if (!abs) { parts.push(`[LIST_DIR: ${act.arg}] → ⛔ fuera del workspace (denegado)`); continue; }
+                        if (!fs.existsSync(abs) || !fs.statSync(abs).isDirectory()) { parts.push(`[LIST_DIR: ${act.arg}] → no existe o no es un directorio`); continue; }
+                        const entries = fs.readdirSync(abs, { withFileTypes: true })
+                            .filter(e => e.name !== 'node_modules' && e.name !== '.git')
+                            .slice(0, 200)
+                            .map(e => (e.isDirectory() ? e.name + '/' : e.name));
+                        parts.push(`[LIST_DIR: ${act.arg || '.'}]\n${entries.join('\n') || '(vacío)'}`);
+                    } else if (act.type === 'grep') {
+                        parts.push(`[GREP: ${act.arg}]\n${grepWorkspace(act.arg)}`);
+                    }
+                } catch (e) {
+                    parts.push(`[${act.type}: ${act.arg}] → error: ${String((e && e.message) || e)}`);
+                }
+            }
+            return parts.join('\n\n');
+        }
+
         function showActionPermissionsModal(actions) {
             return new Promise((resolve) => {
                 // Notificación Nativa del Sistema
@@ -19348,9 +19449,16 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                         } else {
                             const currentOS = (typeof process !== 'undefined') ? process.platform : 'win32';
                             const operatingSystemName = currentOS === 'win32' ? 'Windows (win32, PowerShell)' : (currentOS === 'darwin' ? 'macOS (darwin, Bash)' : 'Linux (linux, Bash)');
-                            const sysPrompt = (chatMode === 'agent') ? 
+                            let sysPrompt = (chatMode === 'agent') ?
                                 getAgentSystemPrompt(operatingSystemName)
                                 : getChatSystemPrompt();
+                            // Herramientas de LECTURA/exploración (se ejecutan solas y te devuelvo
+                            // el resultado para que continúes; confinadas al workspace):
+                            sysPrompt += `\n\nHERRAMIENTAS DE LECTURA / READ TOOLS (auto-ejecutadas, confinadas al workspace):
+- [READ_FILE: ruta] → leer un archivo del proyecto para ver su contenido.
+- [LIST_DIR: ruta] → listar los archivos/carpetas de un directorio (ruta vacía = raíz).
+- [GREP: patrón] → buscar un patrón/regex de texto en todo el proyecto.
+Solicita las lecturas que necesites para EXPLORAR el código antes de modificarlo; te devolveré los resultados y podrás pedir más o proceder. No pidas permiso para leer.`;
 
                             // Token optimization context fetching
                             const contextText = getChatContext();
@@ -19419,6 +19527,26 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                             // FIX #8: normalizar (fences markdown -> [WRITE_FILE]) ANTES del pre-flight,
                             // si no, una respuesta con fences se salta la validación.
                             response = normalizeAgentResponse(response);
+
+                            // ── Bucle de herramientas de LECTURA: el agente explora el repo (leer
+                            // archivos, listar directorios, grep) ANTES de actuar. Son operaciones
+                            // seguras (solo lectura, confinadas al workspace) → se auto-ejecutan sin
+                            // pedir permiso, y su resultado se le devuelve al modelo para que continúe.
+                            let readLoopIters = 0;
+                            const MAX_READ_LOOP = 5;
+                            let readActs = parseReadToolActions(response);
+                            const readConvo = [...chatHistory.slice(0, -1), { role: 'user', content: textWithContextAndAttachments }];
+                            while (readActs.length > 0 && readLoopIters < MAX_READ_LOOP && !chatAbortController.signal.aborted) {
+                                readLoopIters++;
+                                if (readLoopIters === 1) showToast('🔍 El agente está explorando el proyecto…', 'info');
+                                const readResults = await executeReadTools(readActs);
+                                readConvo.push({ role: 'assistant', content: response });
+                                const contPrompt = `[RESULTADOS DE LAS LECTURAS QUE SOLICITASTE]\n${readResults}\n\nUsa esta información para continuar la tarea. Puedes solicitar más lecturas si lo necesitas, o proceder con las acciones ([WRITE_FILE]/[RUN_COMMAND]) o responder al usuario.`;
+                                readConvo.push({ role: 'user', content: contPrompt });
+                                response = await sendRequestToAI(selectedModelId, contPrompt, sysPrompt, readConvo.slice(0, -1), chatAbortController.signal, []);
+                                response = normalizeAgentResponse(response);
+                                readActs = parseReadToolActions(response);
+                            }
 
                             // Bucle silencioso de pre-flight check de Cardinal
                             let attempts = 0;
