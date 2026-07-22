@@ -3197,6 +3197,51 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
         }
         window.runMoA = runMoA;
 
+        // ── Programador de tareas (cron) ──────────────────────────────────────────────
+        // Ejecuta tareas del agente en horarios cron y entrega el resultado a un canal
+        // (chat/telegram/discord). Config en nexus_cron_jobs: [{id, cron, task, channel,
+        // model?, enabled?}]. El matcher de cron vive en agent-core (testeado).
+        window.__cronLastRun = window.__cronLastRun || {};
+        async function runCronJob(job) {
+            try {
+                const model = job.model || (typeof selectedModelId !== 'undefined' ? selectedModelId : null);
+                if (!model) { showToast('⏰ Cron: no hay modelo configurado', 'warning'); return; }
+                const sys = 'Eres una tarea programada de Nexus IDE. Cumple la instrucción y responde de forma concisa y útil.';
+                const result = await sendRequestToAI(model, job.task, sys, [], null, []);
+                const msg = `⏰ *Tarea programada${job.id ? ' «' + job.id + '»' : ''}*:\n${result}`;
+                const ch = (job.channel || 'chat').toLowerCase();
+                if (ch === 'telegram' && typeof ipcRenderer !== 'undefined') ipcRenderer.send('send-telegram-notification', msg);
+                else if (ch === 'discord' && window.NexusDiscord) window.NexusDiscord.notify(msg);
+                else { showToast(`⏰ Tarea "${job.id || ''}" completada`, 'success'); if (typeof window.showAiriNotification === 'function') window.showAiriNotification(String(result).slice(0, 200), 'info'); }
+            } catch (e) {
+                showToast(`⏰ Cron "${job.id || ''}" falló: ${(e && e.message) || e}`, 'error');
+            }
+        }
+        function tickCronScheduler() {
+            if (!window.AgentCore) return;
+            let jobs = [];
+            try { jobs = JSON.parse(localStorage.getItem('nexus_cron_jobs') || '[]'); } catch { jobs = []; }
+            if (!Array.isArray(jobs) || !jobs.length) return;
+            const now = new Date();
+            const minuteKey = now.toISOString().slice(0, 16); // YYYY-MM-DDTHH:MM
+            jobs.forEach((job, i) => {
+                if (!job || job.enabled === false || !job.cron || !job.task) return;
+                const jid = job.id || ('job' + i);
+                if (window.__cronLastRun[jid] === minuteKey) return; // no repetir en el mismo minuto
+                if (AgentCore.cronMatches(job.cron, now)) {
+                    window.__cronLastRun[jid] = minuteKey;
+                    runCronJob(job);
+                }
+            });
+        }
+        let __cronInterval = null;
+        function startCronScheduler() {
+            if (__cronInterval) return;
+            __cronInterval = setInterval(tickCronScheduler, 60000);
+        }
+        window.startCronScheduler = startCronScheduler;
+        window.tickCronScheduler = tickCronScheduler;
+
         function getChatContext() {
             const contextType = document.getElementById('chat-context-select').value;
             if (contextType === 'ninguno') {
@@ -3961,6 +4006,8 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                             </div>
                             <label style="font-size:11px;color:#8b949e;display:block;margin:10px 0 4px;">🔁 Modelos de respaldo (fallback, separados por coma; si el principal falla)</label>
                             <input id="cfg-fallback-models" type="text" placeholder="p. ej. gpt-4o-mini, claude-3-5-haiku, gemini-1.5-flash" value="${(localStorage.getItem('nexus_fallback_models') || '').replace(/"/g, '&quot;')}" style="width:100%;box-sizing:border-box;background:#161b22;border:1px solid #30363d;border-radius:4px;color:#fff;padding:8px 12px;font-size:12px;outline:none;">
+                            <label style="font-size:11px;color:#8b949e;display:block;margin:10px 0 4px;">⏰ Tareas programadas (cron JSON: <code>[{"id","cron","task","channel"}]</code>)</label>
+                            <textarea id="cfg-cron-jobs" placeholder='[{"id":"resumen","cron":"0 9 * * 1-5","task":"Dame un resumen de novedades","channel":"telegram"}]' style="width:100%;box-sizing:border-box;background:#161b22;border:1px solid #30363d;border-radius:4px;color:#fff;padding:8px 12px;font-size:12px;outline:none;min-height:50px;resize:vertical;font-family:monospace;">${(localStorage.getItem('nexus_cron_jobs') || '')}</textarea>
                             <label style="font-size:11px;color:#8b949e;display:block;margin:10px 0 4px;">🔌 Servidores MCP (JSON: <code>[{"name","command","args"}]</code>)</label>
                             <textarea id="cfg-mcp-servers" placeholder='[{"name":"filesystem","command":"npx","args":["-y","@modelcontextprotocol/server-filesystem","."]}]' style="width:100%;box-sizing:border-box;background:#161b22;border:1px solid #30363d;border-radius:4px;color:#fff;padding:8px 12px;font-size:12px;outline:none;min-height:60px;resize:vertical;font-family:monospace;">${(localStorage.getItem('nexus_mcp_servers') || '')}</textarea>
                         </div>
@@ -4763,6 +4810,16 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
               if (fallbackEl) {
                   const fbVal = fallbackEl.value.trim();
                   if (fbVal) localStorage.setItem('nexus_fallback_models', fbVal); else localStorage.removeItem('nexus_fallback_models');
+              }
+
+              const cronEl = document.getElementById('cfg-cron-jobs');
+              if (cronEl) {
+                  const rawCron = cronEl.value.trim();
+                  if (!rawCron) { localStorage.removeItem('nexus_cron_jobs'); }
+                  else {
+                      try { JSON.parse(rawCron); localStorage.setItem('nexus_cron_jobs', rawCron); if (typeof startCronScheduler === 'function') startCronScheduler(); }
+                      catch (e) { showToast('⚠️ La config de tareas programadas no es JSON válido', 'error'); }
+                  }
               }
 
               const mcpEl = document.getElementById('cfg-mcp-servers');
@@ -17968,6 +18025,8 @@ void AMyActor::Tick(float DeltaTime)
 
                 // Conectar a los servidores MCP configurados (en segundo plano).
                 setTimeout(() => { try { initMcpServers(); } catch (e) {} }, 1500);
+                // Arrancar el programador de tareas (cron).
+                try { startCronScheduler(); } catch (e) {}
 
                 // Aplicar configuraciones guardadas al arrancar (idioma, tema, etc.)
                 applySettings(getSavedSettings());

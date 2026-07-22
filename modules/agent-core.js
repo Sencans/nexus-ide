@@ -393,6 +393,39 @@
         return { drafts, final: finalText, synthesizer };
     }
 
+    // Cron: ¿coincide un campo (minuto/hora/…) con un valor? Soporta '*', números,
+    // listas 'a,b', rangos 'a-b', pasos '*/n' y 'a-b/n'.
+    function cronFieldMatches(field, value) {
+        if (field === '*') return true;
+        return String(field).split(',').some((part) => {
+            part = part.trim();
+            let step = 1, range = part;
+            if (part.includes('/')) {
+                const sp = part.split('/');
+                range = sp[0]; step = parseInt(sp[1], 10) || 1;
+            }
+            let lo, hi;
+            if (range === '*') { lo = -Infinity; hi = Infinity; }
+            else if (range.includes('-')) { const ab = range.split('-'); lo = parseInt(ab[0], 10); hi = parseInt(ab[1], 10); }
+            else { lo = hi = parseInt(range, 10); }
+            if (isNaN(lo) || (isFinite(hi) && isNaN(hi))) return false;
+            if (value < lo || value > hi) return false;
+            const base = (range === '*') ? 0 : lo;
+            return ((value - base) % step) === 0;
+        });
+    }
+    // ¿La expresión cron de 5 campos (min hora dia-mes mes dia-semana) coincide con
+    // la fecha dada? (día de semana: 0=domingo). Puro y testeable.
+    function cronMatches(expr, date) {
+        const parts = String(expr).trim().split(/\s+/);
+        if (parts.length !== 5) return false;
+        return cronFieldMatches(parts[0], date.getMinutes())
+            && cronFieldMatches(parts[1], date.getHours())
+            && cronFieldMatches(parts[2], date.getDate())
+            && cronFieldMatches(parts[3], date.getMonth() + 1)
+            && cronFieldMatches(parts[4], date.getDay());
+    }
+
     // Learning loop: extrae las directivas [LEARN_SKILL: id | nombre | descripción |
     // procedimiento] que el agente emite para APRENDER una habilidad reutilizable a
     // partir de una tarea. Devuelve objetos de skill listos para guardar. El id se
@@ -457,7 +490,9 @@
         buildMoASynthesisPrompt,
         runMixtureOfAgents,
         runWithFallback,
-        parseLearnSkillDirectives
+        parseLearnSkillDirectives,
+        cronMatches,
+        cronFieldMatches
     };
 
     if (typeof module !== 'undefined' && module.exports) {

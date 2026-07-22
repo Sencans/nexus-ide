@@ -389,6 +389,42 @@ test('parseSSEDeltas: ignora comentarios keep-alive, event: y JSON inválido', (
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// cronMatches (programador de tareas)
+// ─────────────────────────────────────────────────────────────────────────────
+test('cronMatches: comodín * en todos los campos siempre coincide', () => {
+    assert.strictEqual(AC.cronMatches('* * * * *', new Date(2024, 0, 1, 3, 7)), true);
+});
+
+test('cronMatches: minuto y hora exactos', () => {
+    // 2024-01-15 09:30, lunes
+    const d = new Date(2024, 0, 15, 9, 30);
+    assert.strictEqual(AC.cronMatches('30 9 * * *', d), true);
+    assert.strictEqual(AC.cronMatches('31 9 * * *', d), false);
+    assert.strictEqual(AC.cronMatches('30 10 * * *', d), false);
+});
+
+test('cronMatches: pasos */n', () => {
+    assert.strictEqual(AC.cronMatches('*/15 * * * *', new Date(2024, 0, 1, 0, 30)), true);  // 30 % 15 == 0
+    assert.strictEqual(AC.cronMatches('*/15 * * * *', new Date(2024, 0, 1, 0, 20)), false); // 20 % 15 != 0
+});
+
+test('cronMatches: rangos y listas (día de semana lun-vie)', () => {
+    const lunes = new Date(2024, 0, 15, 9, 0);   // getDay()=1
+    const domingo = new Date(2024, 0, 14, 9, 0); // getDay()=0
+    assert.strictEqual(AC.cronMatches('0 9 * * 1-5', lunes), true);
+    assert.strictEqual(AC.cronMatches('0 9 * * 1-5', domingo), false);
+    assert.strictEqual(AC.cronMatches('0 9 * * 0,6', domingo), true); // fin de semana
+});
+
+test('cronMatches: mes y día del mes; expresión inválida -> false', () => {
+    const d = new Date(2024, 11, 25, 12, 0); // 25 dic
+    assert.strictEqual(AC.cronMatches('0 12 25 12 *', d), true);
+    assert.strictEqual(AC.cronMatches('0 12 25 11 *', d), false);
+    assert.strictEqual(AC.cronMatches('mal expr', d), false);
+    assert.strictEqual(AC.cronMatches('* * *', d), false); // menos de 5 campos
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // parseLearnSkillDirectives (learning loop / auto-skills)
 // ─────────────────────────────────────────────────────────────────────────────
 test('parseLearnSkillDirectives: extrae id/nombre/descripción/procedimiento', () => {
