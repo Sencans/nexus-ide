@@ -3251,6 +3251,17 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
         const COLLAB_SKIP = new Set(['node_modules', '.git', 'dist', 'build', '.cache', '.next']);
         const COLLAB_BIN = /\.(png|jpe?g|gif|webp|ico|pdf|zip|gz|exe|dll|so|bin|mp4|mp3|wav|ttf|woff2?|glb|gltf|db|sqlite|wasm|class|jar|lib)$/i;
         const COLLAB_SECRET = /(^|\/)(\.env(\..*)?|.*\.(pem|key|p12|pfx|keystore|crt)|id_rsa.*|\.npmrc|\.netrc|credentials.*|.*\.secret)$/i;
+        // Anti-symlink (M3): comprueba que el REALPATH del destino queda dentro del workspace
+        // (path.resolve no sigue enlaces; un symlink dentro del proyecto podría apuntar fuera).
+        function collabRealpathSafe(abs) {
+            try {
+                const rootReal = fs.realpathSync(path.resolve(workspaceRoot));
+                let dir = abs;
+                while (!fs.existsSync(dir) && path.dirname(dir) !== dir) dir = path.dirname(dir); // sube al ancestro existente
+                const dirReal = fs.realpathSync(dir);
+                return dirReal === rootReal || dirReal.startsWith(rootReal + path.sep);
+            } catch (e) { return false; }
+        }
 
         // Recorre el workspace (texto, acotado) → {relPath: content}. Excluye binarios y
         // SECRETOS (.env, claves, etc.) para no filtrarlos a los peers.
@@ -3298,6 +3309,7 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                     if (COLLAB_SKIP.has(rel.split('/')[0]) || COLLAB_SECRET.test(rel)) continue; // no escribir en .git, node_modules, secretos…
                     const abs = (typeof resolveInWorkspace === 'function') ? resolveInWorkspace(f.path) : null;
                     if (!abs) continue; // fuera del workspace → ignorar (seguridad)
+                    if (!collabRealpathSafe(abs)) continue; // symlink que escapa del workspace → ignorar
                     if (f.deleted) {
                         try { if (fs.existsSync(abs)) fs.unlinkSync(abs); } catch (e) {}
                         try { if (typeof fileModels !== 'undefined' && fileModels[abs]) delete fileModels[abs]; } catch (e) {}
@@ -3328,20 +3340,50 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
             return new Promise((resolve) => {
                 const ext = (relPath.split('.').pop() || '').toLowerCase();
                 if (ext === 'json') { try { JSON.parse(content); resolve({ ok: true }); } catch (e) { resolve({ ok: false, error: 'JSON inválido: ' + e.message }); } return; }
-                if (ext === 'js' || ext === 'mjs' || ext === 'cjs') {
+                // Validador por subproceso: escribe un temporal y ejecuta el linter de sintaxis.
+                // Si el intérprete NO está instalado (ENOENT) → no se bloquea (no se puede validar).
+                const runCheck = (writeExt, cmd, argsOf, nodeEnv) => {
+                    let tmp;
                     try {
-                        const os = require('os'), cp = require('child_process');
-                        const tmp = path.join(os.tmpdir(), 'nexus_rev_' + Date.now() + '_' + Math.floor(Math.random() * 1e6) + '.' + ext);
+                        const os = require('os');
+                        tmp = path.join(os.tmpdir(), 'nexus_rev_' + Date.now() + '_' + Math.floor(Math.random() * 1e6) + '.' + writeExt);
                         fs.writeFileSync(tmp, content, 'utf8');
-                        cp.execFile(process.execPath, ['--check', tmp], { env: Object.assign({}, process.env, { ELECTRON_RUN_AS_NODE: '1' }), timeout: 10000 }, (err, stdout, stderr) => {
-                            try { fs.unlinkSync(tmp); } catch (e) {}
-                            if (err) resolve({ ok: false, error: String(stderr || err.message || 'error de sintaxis').split('\n').filter(Boolean).slice(0, 2).join(' — ') });
+                    } catch (e) { resolve({ ok: true }); return; }
+                    const cp = require('child_process');
+                    const opts = { timeout: 10000, windowsHide: true };
+                    if (nodeEnv) opts.env = Object.assign({}, process.env, { ELECTRON_RUN_AS_NODE: '1' });
+                    cp.execFile(cmd, argsOf(tmp), opts, (err, stdout, stderr) => {
+                        try { fs.unlinkSync(tmp); } catch (e) {}
+                        if (err && (err.code === 'ENOENT' || /ENOENT|not found|no such file/i.test(String(err.message)))) { resolve({ ok: true }); return; }
+                        if (err) { resolve({ ok: false, error: String(stderr || err.message || 'error de sintaxis').split('\n').filter(Boolean).slice(0, 2).join(' — ') }); return; }
+                        resolve({ ok: true });
+                    });
+                };
+                if (ext === 'js' || ext === 'mjs' || ext === 'cjs') { runCheck(ext, process.execPath, (t) => ['--check', t], true); return; }
+                if (ext === 'py' || ext === 'pyw')                  { runCheck('py', 'python', (t) => ['-m', 'py_compile', t], false); return; }
+                if (ext === 'sh' || ext === 'bash') {
+                    // Shell: se pasa el script por STDIN a `bash -n` (evita problemas de rutas
+                    // Windows en Git Bash y funciona en todos los SO). Si bash no está → no bloquea.
+                    try {
+                        const cp = require('child_process');
+                        const child = cp.spawn('bash', ['-n'], { timeout: 10000, windowsHide: true });
+                        let stderr = '';
+                        child.stderr.on('data', (d) => { stderr += d.toString(); });
+                        child.on('error', () => resolve({ ok: true })); // bash no instalado
+                        child.on('close', (code) => {
+                            if (code === 0) { resolve({ ok: true }); return; }
+                            // Solo bloqueamos ante un error de SINTAXIS claro; cualquier fallo de
+                            // entorno (WSL vs Git Bash, exec, etc.) NO bloquea (mejor no romper que
+                            // dar un falso positivo sobre código válido).
+                            if (/syntax error|unexpected|error de sintaxis/i.test(stderr)) resolve({ ok: false, error: stderr.split('\n').filter(Boolean).slice(0, 2).join(' — ') });
                             else resolve({ ok: true });
                         });
+                        child.stdin.on('error', () => {});
+                        child.stdin.write(content); child.stdin.end();
                     } catch (e) { resolve({ ok: true }); }
                     return;
                 }
-                resolve({ ok: true });
+                resolve({ ok: true }); // otros lenguajes: sin validador → no se bloquea
             });
         }
         window.collabScanWorkspace = collabScanWorkspace;

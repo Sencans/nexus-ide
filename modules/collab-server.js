@@ -93,7 +93,17 @@ class CollabServer {
             this.server = http.createServer((req, res) => { res.writeHead(426); res.end('Solo WebSocket'); });
             this.server.on('upgrade', (req, socket) => this._handleUpgrade(req, socket));
             this.server.on('error', reject);
-            this.server.listen(port, () => resolve(this.server.address().port));
+            this.server.listen(port, () => {
+                // Heartbeat: ping cada 30 s; si un cliente no respondió al pong anterior, se cierra.
+                this._hb = setInterval(() => {
+                    for (const c of this.clients) {
+                        if (c.isAlive === false) { this._remove(c); continue; }
+                        c.isAlive = false;
+                        try { c.socket.write(encodeFrame('', 0x9)); } catch (e) { this._remove(c); }
+                    }
+                }, 30000);
+                resolve(this.server.address().port);
+            });
         });
     }
 
@@ -116,7 +126,7 @@ class CollabServer {
             'Connection: Upgrade\r\n' +
             'Sec-WebSocket-Accept: ' + computeAcceptKey(key) + '\r\n\r\n'
         );
-        const client = { socket, id: this._nextId++, buf: Buffer.alloc(0), meta: {}, assembling: null };
+        const client = { socket, id: this._nextId++, buf: Buffer.alloc(0), meta: {}, assembling: null, isAlive: true };
         this.clients.add(client);
         if (this.onJoin) { try { this.onJoin(client); } catch (e) {} }
 
@@ -129,6 +139,7 @@ class CollabServer {
             for (const f of frames) {
                 if (f.opcode === 0x8) { this._remove(client); return; }                                   // close
                 if (f.opcode === 0x9) { try { socket.write(encodeFrame(f.payload, 0xA)); } catch (e) {} continue; } // ping→pong (bytes exactos)
+                if (f.opcode === 0xA) { client.isAlive = true; continue; }                                 // pong recibido → vivo
                 if (f.opcode === 0x1 || f.opcode === 0x2 || f.opcode === 0x0) {
                     // Reensamblado de mensajes fragmentados (respeta el bit FIN).
                     if (f.opcode !== 0x0) client.assembling = { chunks: [f.payload], binary: f.opcode === 0x2 };
@@ -176,6 +187,7 @@ class CollabServer {
     count() { return this.clients.size; }
 
     stop() {
+        if (this._hb) { clearInterval(this._hb); this._hb = null; }
         for (const c of this.clients) { try { c.socket.destroy(); } catch (e) {} }
         this.clients.clear();
         if (this.server) { try { this.server.close(); } catch (e) {} }
