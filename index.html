@@ -3,6 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!--
+      Content-Security-Policy: defensa en profundidad. La app necesita
+      'unsafe-inline' (86 handlers on*= y estilos inline) y 'unsafe-eval'
+      (new Function para scripts Babylon del usuario, cargadores de plugins y
+      blueprints; workers de Monaco vía data:). Aun con esas concesiones, la
+      política sigue bloqueando object/embed, restringe base-uri y limita los
+      orígenes de script a los locales + cdnjs (fallback de Monaco).
+    -->
+    <meta http-equiv="Content-Security-Policy" content="
+      default-src 'self';
+      script-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdnjs.cloudflare.com https://cdn.babylonjs.com;
+      worker-src 'self' blob: data:;
+      style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com;
+      img-src 'self' data: blob: file: https: http://localhost:* http://127.0.0.1:*;
+      font-src 'self' data: https://cdnjs.cloudflare.com https://fonts.gstatic.com;
+      media-src 'self' data: blob: file: https: http://localhost:* http://127.0.0.1:*;
+      connect-src 'self' data: blob: file: https: http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:* wss:;
+      frame-src 'self' data: blob: https://excalidraw.com;
+      object-src 'none';
+      base-uri 'self';
+    ">
     <title>Nexus IDE - PC Desktop App</title>
     <link rel="stylesheet" href="styles.css">
 </head>

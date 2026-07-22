@@ -1,8 +1,38 @@
-const { app, BrowserWindow, ipcMain, dialog, Tray, Menu, screen, safeStorage } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Tray, Menu, screen, safeStorage, shell } = require('electron');
 const path = require('path');
 
 let mainWindow = null;
 let tray = null;
+
+// ─── Hardening de ventanas: contención de navegación/contenido ────────────────
+// Como el renderer usa Node directamente (nodeIntegration:true), la defensa clave
+// es impedir que se cargue o navegue a contenido no confiable (que tendría acceso
+// total al sistema). Bloquea ventanas nuevas y navegación fuera de la app local;
+// los enlaces http(s) externos se abren en el navegador del SO, no en Electron.
+function hardenWindow(win) {
+  const isLocal = (url) => typeof url === 'string' && (
+    url.startsWith('file://') ||
+    url.startsWith('http://localhost') || url.startsWith('https://localhost') ||
+    url.startsWith('http://127.0.0.1') || url.startsWith('https://127.0.0.1') ||
+    url === 'about:blank'
+  );
+  // Nada de ventanas nuevas con Node; abre enlaces externos en el navegador del SO.
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:\/\//i.test(url) && !isLocal(url)) {
+      shell.openExternal(url).catch(() => {});
+    }
+    return { action: 'deny' };
+  });
+  // Impide que la propia ventana navegue fuera de la app local.
+  win.webContents.on('will-navigate', (event, url) => {
+    if (!isLocal(url)) {
+      event.preventDefault();
+      if (/^https?:\/\//i.test(url)) shell.openExternal(url).catch(() => {});
+    }
+  });
+  // Rechaza cualquier intento de adjuntar un <webview>.
+  win.webContents.on('will-attach-webview', (event) => { event.preventDefault(); });
+}
 
 function createWindow () {
   mainWindow = new BrowserWindow({
@@ -13,9 +43,12 @@ function createWindow () {
       nodeIntegration: true,
       contextIsolation: false, // Permite usar módulos de Node directamente en tu index.html (fs, path, etc)
       sandbox: false,
-      webSecurity: false
+      webSecurity: false,
+      webviewTag: false // no se usan <webview>; deshabilitarlo cierra un vector de inyección
     }
   });
+
+  hardenWindow(mainWindow);
 
   mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
     console.log(`[BROWSER CONSOLE] Level: ${level} | ${message} | ${path.basename(sourceId)}:${line}`);
@@ -1327,9 +1360,12 @@ function createCompanionWindow() {
       contextIsolation: false,
       sandbox: false,
       webSecurity: false,
+      webviewTag: false,
       backgroundThrottling: false // mantener la animación fluida aunque no tenga foco
     }
   });
+
+  hardenWindow(companionWindow);
 
   // Flotar por encima de cualquier otra aplicación de escritorio.
   companionWindow.setAlwaysOnTop(true, 'screen-saver');

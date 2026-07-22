@@ -6,6 +6,9 @@ Todas las novedades notables de **Nexus IDE**. El formato sigue [Keep a Changelo
 
 ### Seguridad
 - **Cifrado de secretos en reposo**: las claves de API y las contraseñas SSH ya no se guardan en base64 reversible, sino **cifradas con el almacén de credenciales del sistema operativo** (DPAPI en Windows, Keychain en macOS, libsecret/kwallet en Linux) mediante el `safeStorage` de Electron. Formato nuevo con prefijo `v2:`; las claves antiguas en base64 se leen y **migran automáticamente** a cifrado al arrancar. Si el sistema no ofrece almacén seguro (p. ej. Linux sin keyring), degrada a base64 sin romperse.
+- **Endurecimiento de las ventanas de Electron** (defensa en profundidad contra inyección de contenido, ya que el renderer usa Node):
+  - **Contención de navegación**: `setWindowOpenHandler` bloquea la apertura de ventanas nuevas y abre los enlaces externos en el navegador del SO; guard de `will-navigate` que impide que la app navegue fuera del contenido local; se rechaza cualquier `<webview>` (`webviewTag: false` + guard). Aplicado a la ventana principal y a la del compañero.
+  - **Content-Security-Policy**: nueva política que bloquea `<object>/<embed>`, restringe `base-uri` y limita los orígenes de script/estilo/frame a los locales y a los CDN de confianza (Monaco, Babylon, fuentes, Excalidraw). Verificada para no romper Monaco, Babylon 3D, las fuentes ni las llamadas a las APIs de IA.
 
 ## [2.1.0] — 2026-07-21
 
