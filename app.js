@@ -13731,48 +13731,59 @@ WICHTIG! Wenn der Entwickler Sie auffordert, eine Datei zu erstellen, zu schreib
         async function runAgentCodeValidation(coderCode) {
             coderCode = normalizeAgentResponse(coderCode);
             const { exec } = require('child_process');
-            
-            // 1. Extraer y escribir archivos
+
+            // 1. Recolectar archivos a escribir y comandos a ejecutar (SIN tocar el disco aún).
+            const writes = [];
             const writeFileRegex = /\[WRITE_FILE:\s*(.+?)\]([\s\S]*?)\[END_WRITE_FILE\]/g;
             let match;
-            let filesWritten = false;
             while ((match = writeFileRegex.exec(coderCode)) !== null) {
                 let filePath = match[1].trim();
-                const content = match[2];
-                if (!path.isAbsolute(filePath)) {
-                    filePath = path.resolve(workspaceRoot, filePath);
-                }
-                try {
-                    const parent = path.dirname(filePath);
-                    if (!fs.existsSync(parent)) {
-                        fs.mkdirSync(parent, { recursive: true });
-                    }
-                    fs.writeFileSync(filePath, content, 'utf8');
-                    filesWritten = true;
-                    
-                    // Sincronizar contenido si está abierto en el editor
-                    if (openFiles.includes(filePath)) {
-                        const model = fileModels[filePath];
-                        if (model) {
-                            model.setValue(content);
-                        }
-                    }
-                } catch (e) {
-                    return { success: false, error: `Error al escribir el archivo '${path.basename(filePath)}': ${e.message}` };
-                }
+                if (!path.isAbsolute(filePath)) filePath = path.resolve(workspaceRoot, filePath);
+                writes.push({ filePath, content: match[2] });
             }
-
-            if (filesWritten) {
-                renderExplorer();
-            }
-
-            // 2. Extraer comandos y ejecutarlos secuencialmente
             const runCommandRegex = /\[RUN_COMMAND\]([\s\S]*?)\[END_RUN_COMMAND\]/g;
             const commands = [];
             while ((match = runCommandRegex.exec(coderCode)) !== null) {
                 commands.push(match[1].trim());
             }
 
+            // SEGURIDAD: el Coder del equipo multi-agente debe respetar el ajuste de permisos
+            // del agente. Si el usuario pide confirmación (por defecto), aprueba TODAS las
+            // acciones (escrituras y comandos) antes de escribir en disco o ejecutar nada.
+            const requirePermission = localStorage.getItem('nexus_agent_permissions') !== 'never';
+            if (requirePermission && (writes.length || commands.length) && typeof showActionPermissionsModal === 'function') {
+                const actions = [
+                    ...writes.map(w => ({ type: 'write_file', label: 'Escribir archivo: ' + w.filePath, path: w.filePath })),
+                    ...commands.map(c => ({ type: 'run_command', label: 'Ejecutar comando: ' + c, command: c }))
+                ];
+                const approved = await showActionPermissionsModal(actions);
+                if (!approved || approved.length === 0) {
+                    return { success: false, error: 'Acciones del agente denegadas por el usuario (permisos del agente).' };
+                }
+            }
+
+            // 2. Escribir archivos.
+            let filesWritten = false;
+            for (const w of writes) {
+                try {
+                    const parent = path.dirname(w.filePath);
+                    if (!fs.existsSync(parent)) fs.mkdirSync(parent, { recursive: true });
+                    fs.writeFileSync(w.filePath, w.content, 'utf8');
+                    filesWritten = true;
+                    // Sincronizar contenido si está abierto en el editor
+                    if (openFiles.includes(w.filePath)) {
+                        const model = fileModels[w.filePath];
+                        if (model) model.setValue(w.content);
+                    }
+                } catch (e) {
+                    return { success: false, error: `Error al escribir el archivo '${path.basename(w.filePath)}': ${e.message}` };
+                }
+            }
+            if (filesWritten) {
+                renderExplorer();
+            }
+
+            // 3. Ejecutar comandos secuencialmente.
             if (commands.length === 0) {
                 return { success: true };
             }
@@ -17181,7 +17192,31 @@ void AMyActor::Tick(float DeltaTime)
                         return;
                     }
                 }
-                
+
+                // SEGURIDAD: verificación de host key (TOFU — Trust On First Use).
+                // Memoriza la huella SHA-256 del servidor en la 1ª conexión y RECHAZA si cambia
+                // (posible ataque MITM), igual que el ~/.ssh/known_hosts de SSH estándar.
+                connConfig.hostHash = 'sha256';
+                connConfig.hostVerifier = (hashedKey) => {
+                    try {
+                        const keyId = `${host}:${port}`;
+                        const store = JSON.parse(localStorage.getItem('nexus_vps_hostkeys') || '{}');
+                        const known = store[keyId];
+                        if (!known) {
+                            store[keyId] = hashedKey;
+                            localStorage.setItem('nexus_vps_hostkeys', JSON.stringify(store));
+                            addRemoteLog(`🔑 Huella del host memorizada (SHA-256): ${String(hashedKey).slice(0, 16)}…`);
+                            return true; // TOFU: confiar en la primera conexión
+                        }
+                        if (known === hashedKey) return true;
+                        addRemoteLog('⛔ La huella del servidor SSH CAMBIÓ. Conexión rechazada (posible MITM). Si el cambio es legítimo, borra la huella guardada.');
+                        showToast('⛔ Huella SSH cambiada: conexión rechazada por seguridad (posible MITM).', 'error');
+                        return false;
+                    } catch (e) {
+                        return true; // ante fallo de almacenamiento, no bloquear la conexión
+                    }
+                };
+
                 conn.on('ready', () => {
                     sshConn = conn;
                     addRemoteLog("🟢 Autenticación de SSH exitosa.");
