@@ -18,16 +18,18 @@ const crypto = require('crypto');
 const http = require('http');
 
 const WS_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
+const MAX_PAYLOAD = 32 * 1024 * 1024; // tope de 32 MB por mensaje (anti-DoS)
 
 // Clave de aceptación del handshake: base64(sha1(clave-del-cliente + GUID)).
 function computeAcceptKey(secWebSocketKey) {
     return crypto.createHash('sha1').update(String(secWebSocketKey) + WS_GUID).digest('base64');
 }
 
-// Codifica un frame del SERVIDOR (sin máscara). opcode 0x1 = texto.
+// Codifica un frame del SERVIDOR (sin máscara). opcode 0x1 = texto. Acepta Buffer
+// (para eco de ping/pong sin corromper binario) o string.
 function encodeFrame(str, opcode) {
     opcode = opcode || 0x1;
-    const payload = Buffer.from(String(str), 'utf8');
+    const payload = Buffer.isBuffer(str) ? str : Buffer.from(String(str), 'utf8');
     const len = payload.length;
     let header;
     if (len < 126) {
@@ -43,19 +45,22 @@ function encodeFrame(str, opcode) {
 }
 
 // Decodifica los frames completos de un buffer (cliente→servidor, enmascarados).
-// Devuelve { frames: [{opcode, payload:Buffer}], rest: Buffer } (rest = incompleto).
+// Devuelve { frames: [{opcode, payload:Buffer, fin}], rest, error }. error=true si un
+// frame declara un payload mayor que MAX_PAYLOAD (el llamante debe cerrar la conexión).
 function decodeFrames(buf) {
     const frames = [];
     let offset = 0;
     while (offset + 2 <= buf.length) {
         const b0 = buf[offset];
         const b1 = buf[offset + 1];
+        const fin = (b0 & 0x80) !== 0;
         const opcode = b0 & 0x0f;
         const masked = (b1 & 0x80) !== 0;
         let len = b1 & 0x7f;
         let p = offset + 2;
         if (len === 126) { if (p + 2 > buf.length) break; len = buf.readUInt16BE(p); p += 2; }
         else if (len === 127) { if (p + 8 > buf.length) break; len = Number(buf.readBigUInt64BE(p)); p += 8; }
+        if (len > MAX_PAYLOAD) return { frames, rest: buf.slice(offset), error: true }; // frame gigante → abortar
         let mask = null;
         if (masked) { if (p + 4 > buf.length) break; mask = buf.slice(p, p + 4); p += 4; }
         if (p + len > buf.length) break; // frame incompleto → espera más datos
@@ -65,10 +70,10 @@ function decodeFrames(buf) {
             for (let i = 0; i < len; i++) out[i] = payload[i] ^ mask[i & 3];
             payload = out;
         }
-        frames.push({ opcode, payload });
+        frames.push({ opcode, payload, fin });
         offset = p + len;
     }
-    return { frames, rest: buf.slice(offset) };
+    return { frames, rest: buf.slice(offset), error: false };
 }
 
 class CollabServer {
@@ -111,22 +116,32 @@ class CollabServer {
             'Connection: Upgrade\r\n' +
             'Sec-WebSocket-Accept: ' + computeAcceptKey(key) + '\r\n\r\n'
         );
-        const client = { socket, id: this._nextId++, buf: Buffer.alloc(0), meta: {} };
+        const client = { socket, id: this._nextId++, buf: Buffer.alloc(0), meta: {}, assembling: null };
         this.clients.add(client);
         if (this.onJoin) { try { this.onJoin(client); } catch (e) {} }
 
         socket.on('data', (chunk) => {
             client.buf = Buffer.concat([client.buf, chunk]);
-            const { frames, rest } = decodeFrames(client.buf);
+            if (client.buf.length > MAX_PAYLOAD + 1024) { this._remove(client); return; } // buffer desbordado → cerrar
+            const { frames, rest, error } = decodeFrames(client.buf);
             client.buf = rest;
+            if (error) { this._remove(client); return; } // payload gigante → cerrar
             for (const f of frames) {
-                if (f.opcode === 0x8) { this._remove(client); return; }       // close
-                if (f.opcode === 0x9) { try { socket.write(encodeFrame(f.payload.toString(), 0xA)); } catch (e) {} continue; } // ping→pong
-                if (f.opcode === 0x1) {
-                    const text = f.payload.toString('utf8');
-                    // Relay a los demás clientes.
-                    this.broadcast(text, client);
-                    if (this.onMessage) { try { this.onMessage(client, text); } catch (e) {} }
+                if (f.opcode === 0x8) { this._remove(client); return; }                                   // close
+                if (f.opcode === 0x9) { try { socket.write(encodeFrame(f.payload, 0xA)); } catch (e) {} continue; } // ping→pong (bytes exactos)
+                if (f.opcode === 0x1 || f.opcode === 0x2 || f.opcode === 0x0) {
+                    // Reensamblado de mensajes fragmentados (respeta el bit FIN).
+                    if (f.opcode !== 0x0) client.assembling = { chunks: [f.payload], binary: f.opcode === 0x2 };
+                    else if (client.assembling) client.assembling.chunks.push(f.payload);
+                    else continue; // continuación sin inicio → ignora
+                    if (f.fin && client.assembling) {
+                        const full = Buffer.concat(client.assembling.chunks);
+                        const binary = client.assembling.binary;
+                        client.assembling = null;
+                        // NO se retransmite a otros clientes: el host (onMessage) es la única
+                        // autoridad; así un peer no puede inyectar 'sync' a los demás sin revisión.
+                        if (!binary && this.onMessage) { try { this.onMessage(client, full.toString('utf8')); } catch (e) {} }
+                    }
                 }
             }
         });

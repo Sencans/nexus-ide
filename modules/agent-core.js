@@ -461,6 +461,7 @@
         const issues = [];
         for (const f of list) {
             if (!f || typeof f.path !== 'string') continue;
+            if (f.deleted) continue; // los borrados no se validan sintácticamente
             try {
                 const r = await checkFn(f.path, f.content == null ? '' : f.content);
                 if (r && r.ok === false) issues.push({ path: f.path, error: r.error || 'error' });

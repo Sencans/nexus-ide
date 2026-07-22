@@ -39,17 +39,19 @@ test('decodeFrames: decodifica un frame enmascarado (cliente→servidor) y respe
 });
 
 // ── Cliente WebSocket mínimo para los tests de integración ────────────────────
-function maskFrame(str) {
+function maskFrameRaw(str, opcode, fin) {
     const payload = Buffer.from(str, 'utf8');
     const len = payload.length;
     const mask = crypto.randomBytes(4);
+    const b0 = (fin ? 0x80 : 0x00) | (opcode & 0x0f);
     let header;
-    if (len < 126) header = Buffer.from([0x81, 0x80 | len]);
-    else { header = Buffer.alloc(4); header[0] = 0x81; header[1] = 0x80 | 126; header.writeUInt16BE(len, 2); }
+    if (len < 126) header = Buffer.from([b0, 0x80 | len]);
+    else { header = Buffer.alloc(4); header[0] = b0; header[1] = 0x80 | 126; header.writeUInt16BE(len, 2); }
     const masked = Buffer.alloc(len);
     for (let i = 0; i < len; i++) masked[i] = payload[i] ^ mask[i & 3];
     return Buffer.concat([header, mask, masked]);
 }
+function maskFrame(str) { return maskFrameRaw(str, 0x1, true); }
 
 function makeRawClient(port, opts) {
     opts = opts || {};
@@ -62,7 +64,12 @@ function makeRawClient(port, opts) {
         let handshook = false;
         let buf = Buffer.alloc(0);
         const messages = [];
-        const client = { messages, onMsg: null, send: (s) => sock.write(maskFrame(s)), close: () => sock.destroy() };
+        const client = {
+            messages, onMsg: null,
+            send: (s) => sock.write(maskFrame(s)),
+            sendFragmented: (a, b) => { sock.write(maskFrameRaw(a, 0x1, false)); sock.write(maskFrameRaw(b, 0x0, true)); },
+            close: () => sock.destroy()
+        };
         sock.on('data', (chunk) => {
             buf = Buffer.concat([buf, chunk]);
             if (!handshook) {
@@ -82,20 +89,41 @@ function makeRawClient(port, opts) {
     });
 }
 
-// ── Integración: servidor + 2 clientes (hub / relay) ──────────────────────────
-test('CollabServer: retransmite el mensaje de un cliente a los demás (no al emisor)', async () => {
+// ── Integración: el mensaje de un cliente va SOLO al host (onMessage), NO a otros ──
+// (el host es la única autoridad: así un peer no puede inyectar 'sync' a los demás).
+test('CollabServer: el mensaje de un cliente llega a onMessage (host), no a otros clientes', async () => {
     const srv = new C.CollabServer();
-    const port = await srv.start(0); // 0 = puerto libre asignado por el SO
+    const received = [];
+    srv.onMessage = (client, text) => received.push(text);
+    const port = await srv.start(0);
     try {
         const a = await makeRawClient(port);
         const b = await makeRawClient(port);
-        const got = new Promise((res) => { b.onMsg = res; });
-        a.send('hola equipo');
-        assert.strictEqual(await got, 'hola equipo');
-        await new Promise((r) => setTimeout(r, 60));
-        assert.strictEqual(a.messages.length, 0, 'el emisor NO recibe su propio mensaje');
-        assert.strictEqual(srv.count(), 2);
+        a.send('hola central');
+        await new Promise((r) => setTimeout(r, 80));
+        assert.deepStrictEqual(received, ['hola central'], 'onMessage recibe el mensaje del cliente');
+        assert.strictEqual(b.messages.length, 0, 'otro cliente NO recibe el mensaje (sin relay cliente→cliente)');
+        assert.strictEqual(a.messages.length, 0, 'el emisor tampoco lo recibe de vuelta');
+        // El servidor puede difundir explícitamente (lo usa el host): broadcast llega a todos.
+        srv.broadcast('anuncio');
+        await new Promise((r) => setTimeout(r, 80));
+        assert.strictEqual(a.messages.pop(), 'anuncio');
+        assert.strictEqual(b.messages.pop(), 'anuncio');
         a.close(); b.close();
+    } finally { srv.stop(); }
+});
+
+test('CollabServer: reensambla un mensaje fragmentado (FIN=0 + continuación)', async () => {
+    const srv = new C.CollabServer();
+    const received = [];
+    srv.onMessage = (client, text) => received.push(text);
+    const port = await srv.start(0);
+    try {
+        const a = await makeRawClient(port);
+        a.sendFragmented('Hola', ' mundo');   // dos frames: texto(FIN=0) + continuación(FIN=1)
+        await new Promise((r) => setTimeout(r, 100));
+        assert.deepStrictEqual(received, ['Hola mundo']);
+        a.close();
     } finally { srv.stop(); }
 });
 

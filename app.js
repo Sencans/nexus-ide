@@ -3248,44 +3248,69 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
         // para no romper el proyecto original y lo propaga a todos. Un recién llegado
         // recibe el proyecto central. Protocolo JSON: {t:'chat'|'sys'|'publish'|'sync'|'reject'}.
         let collabCentralSnapshot = {}; // {relPath: content} última versión central conocida
+        const COLLAB_SKIP = new Set(['node_modules', '.git', 'dist', 'build', '.cache', '.next']);
+        const COLLAB_BIN = /\.(png|jpe?g|gif|webp|ico|pdf|zip|gz|exe|dll|so|bin|mp4|mp3|wav|ttf|woff2?|glb|gltf|db|sqlite|wasm|class|jar|lib)$/i;
+        const COLLAB_SECRET = /(^|\/)(\.env(\..*)?|.*\.(pem|key|p12|pfx|keystore|crt)|id_rsa.*|\.npmrc|\.netrc|credentials.*|.*\.secret)$/i;
 
-        // Recorre el workspace (texto, acotado) → {relPath: content}.
+        // Recorre el workspace (texto, acotado) → {relPath: content}. Excluye binarios y
+        // SECRETOS (.env, claves, etc.) para no filtrarlos a los peers.
         function collabScanWorkspace() {
             const out = {};
             if (!workspaceRoot) return out;
-            const SKIP = new Set(['node_modules', '.git', 'dist', 'build', '.cache', '.next']);
-            const BIN = /\.(png|jpe?g|gif|webp|ico|pdf|zip|gz|exe|dll|so|bin|mp4|mp3|wav|ttf|woff2?|glb|gltf)$/i;
             const root = path.resolve(workspaceRoot);
             let count = 0;
             const walk = (dir) => {
-                if (count > 3000) return;
                 let entries; try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
                 for (const e of entries) {
-                    if (SKIP.has(e.name)) continue;
+                    if (count > 3000) return;
+                    if (COLLAB_SKIP.has(e.name)) continue;
                     const full = path.join(dir, e.name);
-                    if (e.isDirectory()) walk(full);
-                    else if (e.isFile() && !BIN.test(e.name)) {
-                        try { if (fs.statSync(full).size > 512 * 1024) continue; count++; out[path.relative(root, full).replace(/\\/g, '/')] = fs.readFileSync(full, 'utf8'); } catch (e2) {}
-                    }
+                    if (e.isDirectory()) { walk(full); continue; }
+                    if (!e.isFile()) continue;
+                    const rel = path.relative(root, full).replace(/\\/g, '/');
+                    if (COLLAB_BIN.test(e.name) || COLLAB_SECRET.test(rel)) continue; // binarios / secretos: no se comparten
+                    try {
+                        if (fs.statSync(full).size > 512 * 1024) continue;
+                        const content = fs.readFileSync(full, 'utf8');
+                        if (content.indexOf(String.fromCharCode(0)) !== -1) continue; // binario (byte nulo)
+                        count++; out[rel] = content;
+                    } catch (e2) {}
                 }
             };
             walk(root);
             return out;
         }
-        // Archivos que difieren respecto a la base (central).
+        // Cambios respecto a la base (central): añadidos/modificados + BORRADOS.
         function collabDiff(current, base) {
             const changed = [];
             for (const p in current) if (current[p] !== base[p]) changed.push({ path: p, content: current[p] });
+            for (const p in base) if (!(p in current)) changed.push({ path: p, deleted: true });
             return changed;
         }
-        // Escribe los archivos entrantes en el workspace (CONFINADOS) + editor + snapshot.
+        // Aplica los cambios entrantes en el workspace (CONFINADOS + denylist) + editor +
+        // snapshot. Maneja borrados y NO pisa ediciones locales sin guardar.
         function collabApplyFiles(files) {
             let applied = 0;
             for (const f of (files || [])) {
                 try {
-                    if (!f || typeof f.path !== 'string' || typeof f.content !== 'string') continue;
+                    if (!f || typeof f.path !== 'string') continue;
+                    const rel = f.path.replace(/\\/g, '/');
+                    if (COLLAB_SKIP.has(rel.split('/')[0]) || COLLAB_SECRET.test(rel)) continue; // no escribir en .git, node_modules, secretos…
                     const abs = (typeof resolveInWorkspace === 'function') ? resolveInWorkspace(f.path) : null;
                     if (!abs) continue; // fuera del workspace → ignorar (seguridad)
+                    if (f.deleted) {
+                        try { if (fs.existsSync(abs)) fs.unlinkSync(abs); } catch (e) {}
+                        try { if (typeof fileModels !== 'undefined' && fileModels[abs]) delete fileModels[abs]; } catch (e) {}
+                        delete collabCentralSnapshot[f.path];
+                        applied++; continue;
+                    }
+                    if (typeof f.content !== 'string') continue;
+                    // Guard: no pisar ediciones locales SIN GUARDAR (buffer ≠ disco y ≠ entrante).
+                    if (typeof fileModels !== 'undefined' && fileModels[abs] && fs.existsSync(abs)) {
+                        let disk = ''; try { disk = fs.readFileSync(abs, 'utf8'); } catch (e) {}
+                        const buf = fileModels[abs].getValue();
+                        if (buf !== disk && buf !== f.content) { showToast(`⚠️ Conflicto en ${f.path}: tienes cambios sin guardar, no se sobrescribió`, 'warning'); continue; }
+                    }
                     const parent = path.dirname(abs);
                     if (!fs.existsSync(parent)) fs.mkdirSync(parent, { recursive: true });
                     fs.writeFileSync(abs, f.content, 'utf8');
@@ -3336,8 +3361,8 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
             }
             async function applyIncoming(text) {
                 let msg; try { msg = JSON.parse(text); } catch { return; }
-                if (msg.t === 'chat') emit('chat', msg);
-                else if (msg.t === 'sys') emit('chat', { sys: true, text: msg.text });
+                if (msg.t === 'chat') { emit('chat', msg); if (mode === 'host') rawSend(msg); } // el host re-difunde a todos
+                else if (msg.t === 'sys') { emit('chat', { sys: true, text: msg.text }); if (mode === 'host') rawSend(msg); }
                 else if (msg.t === 'publish') {
                     if (mode !== 'host') return; // solo el central procesa publicaciones
                     // RE-REVISIÓN en el central para NO romper el proyecto original.
@@ -3354,6 +3379,7 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                     emit('published', { from: msg.from });
                 }
                 else if (msg.t === 'sync') {
+                    if (mode !== 'client') return; // el host ORIGINA los sync; nunca aplica uno entrante (evita que un peer inyecte cambios sin revisión)
                     const n = collabApplyFiles(msg.files);
                     showToast(`⬇️ Proyecto actualizado por ${msg.from} (${n} archivo/s)`, 'success');
                     emit('published', { from: msg.from });
@@ -3364,6 +3390,7 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
             }
             return {
                 on,
+                off: (kind, fn) => { if (listeners[kind]) listeners[kind] = listeners[kind].filter((x) => x !== fn); },
                 isActive: () => mode !== null,
                 mode: () => mode,
                 setName: (n) => { if (n) myName = n; },
@@ -3378,8 +3405,10 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                     mode = 'host';
                     collabCentralSnapshot = collabScanWorkspace(); // el host arranca como versión central
                     if (r.removeAllListeners) r.removeAllListeners('collab-event');
+                    let publishQueue = Promise.resolve();
                     r.on('collab-event', (_e, ev) => {
-                        if (ev.event === 'message') applyIncoming(ev.data.text);
+                        // Serializa el procesado de mensajes (evita la carrera de publicaciones concurrentes).
+                        if (ev.event === 'message') { publishQueue = publishQueue.then(() => applyIncoming(ev.data.text)).catch(() => {}); }
                         else if (ev.event === 'join') {
                             peers = ev.data.count; emit('status', { peers, hosting: true }); showToast('👥 Un colaborador se unió', 'success');
                             // Alinea SOLO al recién llegado con el proyecto central actual.
@@ -3402,13 +3431,14 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                     ws.onclose = () => { emit('status', { connected: false }); mode = null; ws = null; };
                     ws.onerror = () => { showToast('⚠️ No se pudo conectar a la sesión', 'error'); };
                 },
-                chat(text) { if (!text) return; rawSend({ t: 'chat', name: myName, text }); emit('chat', { name: myName, text, self: true }); },
+                // El host se muestra su propio chat al instante; el cliente lo verá cuando el host lo re-difunda.
+                chat(text) { if (!text) return; rawSend({ t: 'chat', name: myName, text }); if (mode === 'host') emit('chat', { name: myName, text, self: true }); },
                 // Publica un changeset YA revisado. Cliente → al central; host → propaga a todos.
                 publishFiles(files) {
                     if (!files || !files.length) return;
                     if (mode === 'host') {
                         rawSend({ t: 'sync', from: myName + ' (central)', files }); // ya están en el workspace del host
-                        files.forEach(f => { collabCentralSnapshot[f.path] = f.content; });
+                        files.forEach(f => { if (f.deleted) delete collabCentralSnapshot[f.path]; else collabCentralSnapshot[f.path] = f.content; });
                     } else {
                         rawSend({ t: 'publish', from: myName, files });
                         // (snapshot se alinea cuando llegue el 'sync' de confirmación del central)
@@ -3482,7 +3512,9 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
               </div>`;
             document.body.appendChild(ov);
             const $ = (id) => document.getElementById(id);
-            const close = () => ov.remove();
+            const panelHandlers = []; // {kind, fn} para desuscribir al cerrar (evita fuga/duplicados)
+            const sub = (kind, fn) => { panelHandlers.push({ kind, fn }); C.on(kind, fn); };
+            const close = () => { panelHandlers.forEach(h => C.off(h.kind, h.fn)); ov.remove(); };
             $('collab-close').onclick = close;
             ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
 
@@ -3491,14 +3523,15 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                 $('collab-active').style.display = 'flex';
                 if (infoHtml) $('collab-info').innerHTML = infoHtml;
             }
+            const collabEsc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
             function addChat(m) {
                 const el = document.createElement('div');
                 if (m.sys) { el.style.cssText = 'color:#8b949e;font-style:italic;'; el.textContent = m.text; }
-                else { el.innerHTML = `<b style="color:${m.self ? '#a78bfa' : '#58a6ff'};">${(m.name || '?')}:</b> ${String(m.text).replace(/</g, '&lt;')}`; }
+                else { el.innerHTML = `<b style="color:${m.self ? '#a78bfa' : '#58a6ff'};">${collabEsc(m.name || '?')}:</b> ${collabEsc(m.text)}`; }
                 const box = $('collab-chat'); box.appendChild(el); box.scrollTop = box.scrollHeight;
             }
-            C.on('chat', addChat);
-            C.on('status', (s) => { if ($('collab-info') && (s.hosting)) { /* actualizar contador */ const cur = $('collab-info').getAttribute('data-base') || ''; $('collab-info').innerHTML = cur + `<br><b>Conectados:</b> ${C.peerCount()}`; } });
+            sub('chat', addChat);
+            sub('status', (s) => { if ($('collab-info') && (s.hosting)) { const cur = $('collab-info').getAttribute('data-base') || ''; $('collab-info').innerHTML = cur + `<br><b>Conectados:</b> ${C.peerCount()}`; } });
 
             $('collab-host-btn').onclick = async () => {
                 C.setName($('collab-name').value.trim() || 'Host');
@@ -3527,7 +3560,7 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                     if (res && res.blocked) {
                         rev.style.display = 'block';
                         rev.innerHTML = `<b>❌ Publicación bloqueada — corrige antes de publicar:</b><br>` +
-                            res.issues.map(i => `• <b>${(i.path || '').replace(/</g, '&lt;')}</b>: ${(i.error || '').replace(/</g, '&lt;')}`).join('<br>');
+                            res.issues.map(i => `• <b>${collabEsc(i.path)}</b>: ${collabEsc(i.error)}`).join('<br>');
                     } else if (res && res.published) {
                         rev.style.display = 'block'; rev.style.color = '#7ee787'; rev.style.borderColor = '#238636'; rev.style.background = '#12261a';
                         rev.innerHTML = `✅ Revisión OK — ${res.files} archivo(s) publicados al proyecto compartido.`;
@@ -3535,10 +3568,10 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                 } catch (e) { showToast('Error al publicar: ' + ((e && e.message) || e), 'error'); }
                 btn.disabled = false; btn.textContent = '📤 Publicar mis cambios (con revisión)';
             };
-            C.on('rejected', (m) => {
+            sub('rejected', (m) => {
                 const rev = $('collab-review'); if (!rev) return;
                 rev.style.display = 'block';
-                rev.innerHTML = `<b>❌ El central rechazó tu publicación:</b><br>` + (m.issues || []).map(i => `• <b>${(i.path || '')}</b>: ${(i.error || '')}`).join('<br>');
+                rev.innerHTML = `<b>❌ El central rechazó tu publicación:</b><br>` + (m.issues || []).map(i => `• <b>${collabEsc(i.path)}</b>: ${collabEsc(i.error)}`).join('<br>');
             });
             $('collab-leave').onclick = () => { C.disconnect(); close(); showToast('Has salido de la sesión', 'info'); };
 
