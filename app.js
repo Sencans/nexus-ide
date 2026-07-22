@@ -3161,6 +3161,28 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
         }
         window.executeMcpActions = executeMcpActions;
 
+        // ── Mixture-of-Agents: consulta a varios modelos en paralelo + síntesis ───────
+        // Reusa los 3 modelos del multi-agente ya configurados (dedup) y usa sendRequestToAI
+        // como transporte. Delega la orquestación en el núcleo testeable (agent-core).
+        async function runMoA(query, uiHooks) {
+            uiHooks = uiHooks || {};
+            let models = [
+                localStorage.getItem('nexus_multi_agent_role_planner'),
+                localStorage.getItem('nexus_multi_agent_role_coder'),
+                localStorage.getItem('nexus_multi_agent_role_reviewer')
+            ].filter(Boolean);
+            models = [...new Set(models)];
+            if (!models.length && typeof selectedModelId !== 'undefined' && selectedModelId) models = [selectedModelId];
+            if (!models.length) throw new Error('Configura los modelos del multi-agente para usar MoA.');
+            const sys = 'Responde de forma completa, precisa y bien razonada a la consulta del desarrollador.';
+            return AgentCore.runMixtureOfAgents(query, models, {
+                synthesizer: models[0],
+                send: (m, prompt) => sendRequestToAI(m, prompt, sys, [], chatAbortController ? chatAbortController.signal : null, []),
+                onDraft: uiHooks.onDraft
+            });
+        }
+        window.runMoA = runMoA;
+
         function getChatContext() {
             const contextType = document.getElementById('chat-context-select').value;
             if (contextType === 'ninguno') {
@@ -19078,6 +19100,39 @@ Este proyecto contiene un script interactivo para el Motor 3D de Nexus IDE.
                     const input = document.getElementById('chat-input');
                     const text = input.value.trim();
                     if (!text) return;
+
+                    // Comando /moa <consulta>: Mixture-of-Agents (varios modelos en paralelo + síntesis)
+                    if (text.toLowerCase().startsWith('/moa ')) {
+                        const q = text.slice(5).trim();
+                        input.value = '';
+                        chatAbortController = new AbortController();
+                        const chatMessages = document.getElementById('chat-messages');
+                        const um = document.createElement('div');
+                        um.style.cssText = `padding:10px; border-radius:6px; background:#2b3a42; border:1px solid #3c4f5a; align-self:flex-end; margin-left:20px; margin-bottom:10px; color:#fff; word-break: break-word;`;
+                        um.textContent = text;
+                        chatMessages.appendChild(um);
+                        const loading = document.createElement('div');
+                        loading.style.cssText = `padding:10px; border-radius:6px; background:#1e1e1e; border:1px solid #333; margin-right:20px; margin-bottom:10px; color:#8b949e;`;
+                        loading.textContent = '🧠 Mixture-of-Agents: consultando modelos en paralelo…';
+                        chatMessages.appendChild(loading);
+                        chatMessages.scrollTop = chatMessages.scrollHeight;
+                        try {
+                            const res = await runMoA(q, { onDraft: (i, m) => { loading.textContent = `🧠 MoA: respuesta recibida de ${typeof getModelName === 'function' ? getModelName(m) : m}…`; } });
+                            loading.remove();
+                            const bot = document.createElement('div');
+                            bot.style.cssText = `padding:10px; border-radius:6px; background:#1e1e1e; border:1px solid #333; margin-right:20px; margin-bottom:10px; color:#fff; word-break: break-word;`;
+                            bot.innerHTML = `<div style="font-size:11px;color:#a78bfa;margin-bottom:6px;">🧠 Mixture-of-Agents (${res.drafts.length} modelos → síntesis)</div>` + formatMarkdown(res.final);
+                            chatMessages.appendChild(bot);
+                        } catch (e) {
+                            loading.remove();
+                            const err = document.createElement('div');
+                            err.style.cssText = `padding:10px; border-radius:6px; background:#4a1e1e; border:1px solid #852222; margin-right:20px; margin-bottom:10px; color:#ff8080;`;
+                            err.textContent = 'MoA: ' + ((e && e.message) || e);
+                            chatMessages.appendChild(err);
+                        }
+                        chatMessages.scrollTop = chatMessages.scrollHeight;
+                        return;
+                    }
 
                     // Interceptar si es una petición de generación de video o imagen en chat
                     const genRequest = parseGenerationRequest(text);

@@ -362,6 +362,37 @@
         return { deltas, rest, done };
     }
 
+    // Construye el prompt del sintetizador de una Mixture-of-Agents: combina las N
+    // respuestas de los modelos en una sola respuesta final superior.
+    function buildMoASynthesisPrompt(query, drafts) {
+        let p = 'Eres un agente SINTETIZADOR. Varios modelos han respondido de forma independiente a la consulta del usuario. Combina lo mejor de cada respuesta en UNA respuesta final superior: integra los aciertos, corrige los errores y resuelve las contradicciones. No menciones que hubo varios modelos ni el proceso; entrega solo la mejor respuesta.\n\n';
+        p += `CONSULTA DEL USUARIO:\n${query}\n`;
+        (drafts || []).forEach((d, i) => { p += `\n--- RESPUESTA DEL MODELO ${i + 1} ---\n${d}\n`; });
+        p += '\n--- RESPUESTA FINAL SINTETIZADA ---';
+        return p;
+    }
+
+    // Mixture-of-Agents: envía la consulta a varios modelos EN PARALELO y luego pide a
+    // un sintetizador que combine sus respuestas. `opts.send(modelId, prompt)` devuelve
+    // el texto del modelo (inyectable para tests); `opts.synthesizer` es el modelo que
+    // sintetiza (por defecto el primero); `opts.onDraft(i, model, text)` es opcional.
+    async function runMixtureOfAgents(query, models, opts) {
+        opts = opts || {};
+        const send = opts.send;
+        if (typeof send !== 'function') throw new Error('runMixtureOfAgents: falta opts.send');
+        const list = (models || []).filter(Boolean);
+        if (!list.length) throw new Error('runMixtureOfAgents: no hay modelos');
+        const drafts = await Promise.all(list.map((m, i) =>
+            Promise.resolve()
+                .then(() => send(m, query))
+                .then((text) => { if (typeof opts.onDraft === 'function') { try { opts.onDraft(i, m, text); } catch (e) {} } return text; })
+                .catch((e) => `(el modelo ${m} falló: ${(e && e.message) || e})`)
+        ));
+        const synthesizer = opts.synthesizer || list[0];
+        const finalText = await send(synthesizer, buildMoASynthesisPrompt(query, drafts));
+        return { drafts, final: finalText, synthesizer };
+    }
+
     const AgentCore = {
         redactSecrets,
         toolCallsToTags,
@@ -375,7 +406,9 @@
         dockerWrap,
         checkDockerAvailable,
         parseSSEDeltas,
-        extractStreamDelta
+        extractStreamDelta,
+        buildMoASynthesisPrompt,
+        runMixtureOfAgents
     };
 
     if (typeof module !== 'undefined' && module.exports) {

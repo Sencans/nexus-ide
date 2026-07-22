@@ -389,6 +389,51 @@ test('parseSSEDeltas: ignora comentarios keep-alive, event: y JSON inválido', (
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Mixture-of-Agents (buildMoASynthesisPrompt / runMixtureOfAgents)
+// ─────────────────────────────────────────────────────────────────────────────
+test('buildMoASynthesisPrompt: incluye la consulta y todas las respuestas', () => {
+    const p = AC.buildMoASynthesisPrompt('¿cómo ordenar un array?', ['usa sort()', 'usa lodash']);
+    assert.ok(p.includes('¿cómo ordenar un array?'));
+    assert.ok(p.includes('usa sort()') && p.includes('usa lodash'));
+    assert.ok(/SINTETIZAD/.test(p));
+});
+
+test('runMixtureOfAgents: consulta los modelos EN PARALELO y luego sintetiza', async () => {
+    let active = 0, maxActive = 0;
+    const calls = [];
+    const send = (model, prompt) => new Promise((resolve) => {
+        calls.push({ model, prompt });
+        active++; maxActive = Math.max(maxActive, active);
+        setTimeout(() => { active--; resolve(/SINTETIZAD/.test(prompt) ? 'RESPUESTA FINAL' : `draft-${model}`); }, 20);
+    });
+    const res = await AC.runMixtureOfAgents('consulta X', ['a', 'b', 'c'], { synthesizer: 'a', send });
+    assert.ok(maxActive >= 3, 'los 3 drafts corren en paralelo (concurrencia >= 3)');
+    assert.deepStrictEqual(res.drafts, ['draft-a', 'draft-b', 'draft-c']);
+    assert.strictEqual(res.final, 'RESPUESTA FINAL');
+    const synthCall = calls[calls.length - 1];
+    assert.ok(synthCall.prompt.includes('draft-a') && synthCall.prompt.includes('draft-c'), 'el sintetizador ve las 3 respuestas');
+});
+
+test('runMixtureOfAgents: onDraft se llama por cada modelo', async () => {
+    const seen = [];
+    const send = (m) => Promise.resolve(`r-${m}`);
+    await AC.runMixtureOfAgents('q', ['x', 'y'], { synthesizer: 'x', send, onDraft: (i, m, t) => seen.push(m + ':' + t) });
+    assert.deepStrictEqual(seen.sort(), ['x:r-x', 'y:r-y']);
+});
+
+test('runMixtureOfAgents: un modelo que falla no rompe (su draft es el error)', async () => {
+    const send = (m) => m === 'bad' ? Promise.reject(new Error('boom')) : Promise.resolve(`ok-${m}`);
+    const res = await AC.runMixtureOfAgents('q', ['good', 'bad'], { synthesizer: 'good', send });
+    assert.strictEqual(res.drafts[0], 'ok-good');
+    assert.ok(res.drafts[1].includes('bad') && res.drafts[1].includes('boom'));
+});
+
+test('runMixtureOfAgents: valida send y lista de modelos', async () => {
+    await assert.rejects(() => AC.runMixtureOfAgents('q', ['a'], {}), /falta opts\.send/);
+    await assert.rejects(() => AC.runMixtureOfAgents('q', [], { send: () => {} }), /no hay modelos/);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Sandbox (dockerWrap / checkDockerAvailable / runCommandCaptured con sandbox)
 // ─────────────────────────────────────────────────────────────────────────────
 test('dockerWrap: envuelve el comando en docker run con mount, imagen y base64', () => {
