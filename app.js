@@ -3242,6 +3242,171 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
         window.startCronScheduler = startCronScheduler;
         window.tickCronScheduler = tickCronScheduler;
 
+        // ── Colaboración en tiempo real (LAN / VPN) — lado del renderer ───────────────
+        // Un peer ALOJA (arranca el servidor en el proceso principal) y comparte su IP;
+        // los demás se UNEN por WebSocket. Sincroniza chat y archivos (last-write-wins,
+        // confinados al workspace). Protocolo JSON: {t:'chat'|'file'|'sys', ...}.
+        window.NexusCollab = (function () {
+            const ipc = () => { try { return require('electron').ipcRenderer; } catch { return null; } };
+            let mode = null;   // 'host' | 'client' | null
+            let ws = null;
+            let myName = 'Invitado';
+            let peers = 0;
+            const listeners = {};
+            function emit(kind, data) { (listeners[kind] || []).forEach(fn => { try { fn(data); } catch (e) {} }); }
+            function on(kind, fn) { (listeners[kind] = listeners[kind] || []).push(fn); }
+
+            function applyIncoming(text) {
+                let msg; try { msg = JSON.parse(text); } catch { return; }
+                if (msg.t === 'chat') emit('chat', msg);
+                else if (msg.t === 'file') applyRemoteFile(msg);
+                else if (msg.t === 'sys') emit('chat', { name: '·', text: msg.text, sys: true });
+            }
+            function applyRemoteFile(msg) {
+                try {
+                    if (!msg.path || typeof msg.content !== 'string') return;
+                    const abs = (typeof resolveInWorkspace === 'function') ? resolveInWorkspace(workspaceRoot, msg.path) : null;
+                    if (!abs) { showToast(`⚠️ ${msg.name || 'Peer'} intentó escribir fuera del workspace (ignorado)`, 'warning'); return; }
+                    const parent = path.dirname(abs);
+                    if (!fs.existsSync(parent)) fs.mkdirSync(parent, { recursive: true });
+                    fs.writeFileSync(abs, msg.content, 'utf8');
+                    try { if (typeof fileModels !== 'undefined' && fileModels[abs]) fileModels[abs].setValue(msg.content); } catch (e) {}
+                    if (typeof renderExplorer === 'function') renderExplorer();
+                    showToast(`🔄 ${msg.name || 'Peer'} actualizó ${msg.path}`, 'info');
+                    emit('file', msg);
+                } catch (e) {}
+            }
+            function rawSend(obj) {
+                const text = JSON.stringify(obj);
+                if (mode === 'host') { const r = ipc(); if (r) r.send('collab-broadcast', text); }
+                else if (mode === 'client' && ws && ws.readyState === 1) ws.send(text);
+            }
+            return {
+                on,
+                isActive: () => mode !== null,
+                mode: () => mode,
+                setName: (n) => { if (n) myName = n; },
+                getName: () => myName,
+                peerCount: () => peers,
+                async host(opts) {
+                    opts = opts || {};
+                    const r = ipc(); if (!r) throw new Error('IPC no disponible');
+                    const token = opts.token || Math.random().toString(36).slice(2, 8);
+                    const res = await r.invoke('collab-start', { port: opts.port || 3737, token });
+                    if (!res || !res.ok) throw new Error((res && res.error) || 'no se pudo iniciar el servidor');
+                    mode = 'host';
+                    if (r.removeAllListeners) r.removeAllListeners('collab-event');
+                    r.on('collab-event', (_e, ev) => {
+                        if (ev.event === 'message') applyIncoming(ev.data.text);
+                        else if (ev.event === 'join') { peers = ev.data.count; emit('status', { peers, hosting: true }); showToast('👥 Un colaborador se unió', 'success'); }
+                        else if (ev.event === 'leave') { peers = ev.data.count; emit('status', { peers, hosting: true }); }
+                    });
+                    emit('status', { peers: 0, hosting: true });
+                    return { token, port: res.port, ips: res.ips || [] };
+                },
+                join(host, port, token, name) {
+                    if (name) myName = name;
+                    const url = `ws://${host}:${port}` + (token ? `?token=${encodeURIComponent(token)}` : '');
+                    try { ws = new WebSocket(url); } catch (e) { showToast('URL de sesión inválida', 'error'); return; }
+                    mode = 'client';
+                    ws.onopen = () => { emit('status', { connected: true }); rawSend({ t: 'sys', text: `${myName} se unió a la sesión` }); showToast('🔗 Conectado a la sesión', 'success'); };
+                    ws.onmessage = (e) => applyIncoming(typeof e.data === 'string' ? e.data : '');
+                    ws.onclose = () => { emit('status', { connected: false }); mode = null; ws = null; };
+                    ws.onerror = () => { showToast('⚠️ No se pudo conectar a la sesión', 'error'); };
+                },
+                chat(text) { if (!text) return; rawSend({ t: 'chat', name: myName, text }); emit('chat', { name: myName, text, self: true }); },
+                shareFile(relPath, content) { rawSend({ t: 'file', path: relPath, content, name: myName }); },
+                disconnect() {
+                    const r = ipc();
+                    if (mode === 'host' && r) r.invoke('collab-stop');
+                    if (ws) { try { ws.close(); } catch (e) {} }
+                    mode = null; ws = null; peers = 0;
+                    emit('status', { hosting: false, connected: false });
+                }
+            };
+        })();
+
+        // Panel de colaboración (modal). Se abre con openCollabPanel() o Ctrl+Alt+L.
+        window.openCollabPanel = function () {
+            if (document.getElementById('collab-overlay')) return;
+            const C = window.NexusCollab;
+            const ov = document.createElement('div');
+            ov.id = 'collab-overlay';
+            ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:100000;display:flex;align-items:center;justify-content:center;';
+            ov.innerHTML = `
+              <div style="width:460px;max-width:92vw;background:#0d1117;border:1px solid #7c3aed;border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.5);color:#e6edf3;font-size:13px;overflow:hidden;">
+                <div style="padding:14px 16px;border-bottom:1px solid #21262d;display:flex;justify-content:space-between;align-items:center;">
+                  <b>👥 Colaboración (LAN / VPN)</b>
+                  <span id="collab-close" style="cursor:pointer;color:#8b949e;">✕</span>
+                </div>
+                <div style="padding:16px;display:flex;flex-direction:column;gap:10px;">
+                  <input id="collab-name" placeholder="Tu nombre" value="${(C.getName() || '').replace(/"/g, '&quot;')}" style="background:#161b22;border:1px solid #30363d;border-radius:6px;color:#fff;padding:8px 10px;">
+                  <div id="collab-idle" style="display:flex;flex-direction:column;gap:10px;">
+                    <button id="collab-host-btn" style="background:#7c3aed;border:none;border-radius:6px;color:#fff;padding:10px;cursor:pointer;font-weight:600;">🖥️ Alojar una sesión (host)</button>
+                    <div style="border-top:1px solid #21262d;padding-top:10px;font-size:11px;color:#8b949e;">O únete a la sesión de alguien:</div>
+                    <div style="display:flex;gap:6px;">
+                      <input id="collab-host-ip" placeholder="IP del host (p. ej. 192.168.1.20)" style="flex:2;background:#161b22;border:1px solid #30363d;border-radius:6px;color:#fff;padding:8px 10px;">
+                      <input id="collab-port" placeholder="Puerto" value="3737" style="flex:1;background:#161b22;border:1px solid #30363d;border-radius:6px;color:#fff;padding:8px 10px;">
+                    </div>
+                    <input id="collab-token" placeholder="Token de sesión" style="background:#161b22;border:1px solid #30363d;border-radius:6px;color:#fff;padding:8px 10px;">
+                    <button id="collab-join-btn" style="background:#238636;border:none;border-radius:6px;color:#fff;padding:10px;cursor:pointer;font-weight:600;">🔗 Unirse</button>
+                  </div>
+                  <div id="collab-active" style="display:none;flex-direction:column;gap:8px;">
+                    <div id="collab-info" style="background:#161b22;border:1px solid #30363d;border-radius:6px;padding:10px;font-size:12px;line-height:1.6;"></div>
+                    <div id="collab-chat" style="height:150px;overflow-y:auto;background:#0b0f19;border:1px solid #21262d;border-radius:6px;padding:8px;font-size:12px;display:flex;flex-direction:column;gap:4px;"></div>
+                    <div style="display:flex;gap:6px;">
+                      <input id="collab-chat-input" placeholder="Mensaje al equipo…" style="flex:1;background:#161b22;border:1px solid #30363d;border-radius:6px;color:#fff;padding:8px 10px;">
+                      <button id="collab-send" style="background:#7c3aed;border:none;border-radius:6px;color:#fff;padding:8px 14px;cursor:pointer;">Enviar</button>
+                    </div>
+                    <button id="collab-leave" style="background:#3d1e1e;border:1px solid #852222;border-radius:6px;color:#ff8080;padding:8px;cursor:pointer;">Salir de la sesión</button>
+                  </div>
+                </div>
+              </div>`;
+            document.body.appendChild(ov);
+            const $ = (id) => document.getElementById(id);
+            const close = () => ov.remove();
+            $('collab-close').onclick = close;
+            ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
+
+            function showActive(infoHtml) {
+                $('collab-idle').style.display = 'none';
+                $('collab-active').style.display = 'flex';
+                if (infoHtml) $('collab-info').innerHTML = infoHtml;
+            }
+            function addChat(m) {
+                const el = document.createElement('div');
+                if (m.sys) { el.style.cssText = 'color:#8b949e;font-style:italic;'; el.textContent = m.text; }
+                else { el.innerHTML = `<b style="color:${m.self ? '#a78bfa' : '#58a6ff'};">${(m.name || '?')}:</b> ${String(m.text).replace(/</g, '&lt;')}`; }
+                const box = $('collab-chat'); box.appendChild(el); box.scrollTop = box.scrollHeight;
+            }
+            C.on('chat', addChat);
+            C.on('status', (s) => { if ($('collab-info') && (s.hosting)) { /* actualizar contador */ const cur = $('collab-info').getAttribute('data-base') || ''; $('collab-info').innerHTML = cur + `<br><b>Conectados:</b> ${C.peerCount()}`; } });
+
+            $('collab-host-btn').onclick = async () => {
+                C.setName($('collab-name').value.trim() || 'Host');
+                try {
+                    const info = await C.host({});
+                    const ipsLine = (info.ips.length ? info.ips.join(', ') : 'tu-IP-de-LAN/VPN');
+                    const base = `<b>¡Sesión iniciada!</b> Comparte esto con tu equipo:<br>• <b>IP:</b> ${ipsLine}<br>• <b>Puerto:</b> ${info.port}<br>• <b>Token:</b> <code>${info.token}</code>`;
+                    const infoEl = $('collab-info'); infoEl.setAttribute('data-base', base); infoEl.innerHTML = base + `<br><b>Conectados:</b> 0`;
+                    showActive();
+                } catch (e) { showToast('No se pudo alojar: ' + ((e && e.message) || e), 'error'); }
+            };
+            $('collab-join-btn').onclick = () => {
+                const ip = $('collab-host-ip').value.trim(), port = $('collab-port').value.trim() || '3737', token = $('collab-token').value.trim();
+                if (!ip) { showToast('Indica la IP del host', 'warning'); return; }
+                C.join(ip, port, token, $('collab-name').value.trim() || 'Invitado');
+                showActive(`Conectando a <b>${ip}:${port}</b>…`);
+            };
+            const sendChat = () => { const v = $('collab-chat-input').value.trim(); if (v) { C.chat(v); $('collab-chat-input').value = ''; } };
+            $('collab-send').onclick = sendChat;
+            $('collab-chat-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendChat(); });
+            $('collab-leave').onclick = () => { C.disconnect(); close(); showToast('Has salido de la sesión', 'info'); };
+
+            if (C.isActive()) showActive('<b>Sesión en curso.</b>');
+        };
+        document.addEventListener('keydown', (e) => { if (e.ctrlKey && e.altKey && (e.key === 'l' || e.key === 'L')) { e.preventDefault(); window.openCollabPanel(); } });
+
         function getChatContext() {
             const contextType = document.getElementById('chat-context-select').value;
             if (contextType === 'ninguno') {
@@ -11061,6 +11226,13 @@ if __name__ == "__main__":
                 }
 
                 fs.writeFileSync(activeFilePath, content, 'utf8');
+                // Colaboración en tiempo real: si hay sesión activa, comparte el archivo
+                // guardado con los demás peers (solo dentro del workspace).
+                try {
+                    if (window.NexusCollab && window.NexusCollab.isActive() && workspaceRoot && activeFilePath.startsWith(workspaceRoot)) {
+                        window.NexusCollab.shareFile(path.relative(workspaceRoot, activeFilePath).replace(/\\/g, '/'), content);
+                    }
+                } catch (e) {}
                 if (typeof remoteFilesMap !== 'undefined' && remoteFilesMap[activeFilePath]) {
                     uploadFileToRemote(activeFilePath, remoteFilesMap[activeFilePath]);
                 } else {

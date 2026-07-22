@@ -234,6 +234,35 @@ ipcMain.on('secure-decrypt', (event, b64) => {
   catch { event.returnValue = null; }
 });
 
+// ─── Colaboración en tiempo real (LAN / VPN) ──────────────────────────────────
+// El host aloja aquí un servidor WebSocket; los demás se conectan por su IP. Este
+// proceso actúa de hub: retransmite los mensajes de los peers y avisa a la UI del
+// host de altas/bajas y de los mensajes entrantes.
+const NexusCollab = require('./modules/collab-server.js');
+let collabServer = null;
+function collabEmit(event, data) {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('collab-event', { event, data });
+}
+ipcMain.handle('collab-start', async (event, opts) => {
+  opts = opts || {};
+  try {
+    if (collabServer) collabServer.stop();
+    collabServer = new NexusCollab.CollabServer({ token: opts.token || null });
+    collabServer.onMessage = (client, text) => collabEmit('message', { from: client.id, text });
+    collabServer.onJoin = (client) => collabEmit('join', { id: client.id, count: collabServer.count() });
+    collabServer.onLeave = (client) => collabEmit('leave', { id: client.id, count: collabServer.count() });
+    const port = await collabServer.start(opts.port || 3737);
+    const os = require('os');
+    const ips = [];
+    const ifs = os.networkInterfaces();
+    for (const name in ifs) for (const ni of ifs[name]) if (ni.family === 'IPv4' && !ni.internal) ips.push(ni.address);
+    return { ok: true, port, ips };
+  } catch (e) { return { ok: false, error: String((e && e.message) || e) }; }
+});
+ipcMain.handle('collab-stop', () => { if (collabServer) { collabServer.stop(); collabServer = null; } return { ok: true }; });
+ipcMain.on('collab-broadcast', (event, text) => { if (collabServer) collabServer.broadcast(String(text)); });
+ipcMain.handle('collab-status', () => ({ hosting: !!collabServer, peers: collabServer ? collabServer.count() : 0 }));
+
 // Helper para obtener la dirección IP local de la red WiFi/Ethernet
 const os = require('os');
 const http = require('http');
