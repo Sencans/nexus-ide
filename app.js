@@ -3844,6 +3844,12 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                                 <option value="always" ${localStorage.getItem('nexus_agent_permissions') !== 'never' ? 'selected' : ''}>⚠️ Pedir confirmación para todo</option>
                                 <option value="never" ${localStorage.getItem('nexus_agent_permissions') === 'never' ? 'selected' : ''}>⚡ No pedir permisos (Ejecutar directo)</option>
                             </select>
+                            <label style="font-size:11px;color:#8b949e;display:block;margin:10px 0 4px;">🔒 Sandbox de ejecución (aísla los comandos del agente)</label>
+                            <select id="cfg-sandbox" style="width:100%;box-sizing:border-box;background:#161b22;border:1px solid #30363d;border-radius:4px;color:#fff;padding:8px 12px;font-size:13px;outline:none;">
+                                <option value="off" ${localStorage.getItem('nexus_sandbox') !== 'docker' ? 'selected' : ''}>Directo en el host (sin aislar)</option>
+                                <option value="docker" ${localStorage.getItem('nexus_sandbox') === 'docker' ? 'selected' : ''}>🐳 Docker (aislado; requiere Docker instalado)</option>
+                            </select>
+                            <input id="cfg-sandbox-image" type="text" placeholder="Imagen Docker (p. ej. node:20-slim, python:3.12-slim)" value="${(localStorage.getItem('nexus_sandbox_image') || '').replace(/"/g, '&quot;')}" style="width:100%;box-sizing:border-box;background:#161b22;border:1px solid #30363d;border-radius:4px;color:#fff;padding:8px 12px;font-size:12px;outline:none;margin-top:6px;">
                         </div>
                         ${projectTypeSection}
                         <div style="border-top: 1px solid #30363d; margin-top: 6px; padding-top: 10px;">
@@ -4628,7 +4634,15 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
               
               const agentPermissions = document.getElementById('cfg-agent-permissions').value || 'always';
               localStorage.setItem('nexus_agent_permissions', agentPermissions);
-              
+
+              const sandboxEl = document.getElementById('cfg-sandbox');
+              if (sandboxEl) {
+                  localStorage.setItem('nexus_sandbox', sandboxEl.value || 'off');
+                  __sandboxDockerAvail = null; // re-comprobar Docker con el nuevo ajuste
+                  const imgEl = document.getElementById('cfg-sandbox-image');
+                  if (imgEl && imgEl.value.trim()) localStorage.setItem('nexus_sandbox_image', imgEl.value.trim());
+              }
+
               const appMode = document.getElementById('cfg-app-mode').value || 'full';
               localStorage.setItem('nexus_lite_mode', appMode === 'lite' ? 'true' : 'false');
               if (typeof window.applyLiteMode === 'function') {
@@ -14483,11 +14497,25 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
         // Ejecuta un comando CAPTURANDO su salida (para que el agente pueda OBSERVAR el
         // resultado en el bucle ReAct). Se muestra también en el terminal integrado. Con
         // timeout de 120 s para no colgarse con procesos interactivos/servidores.
-        // Delegado al núcleo agéntico testeable; le inyecta el cwd y el hook del terminal.
-        function runCommandCaptured(command) {
+        // Delegado al núcleo agéntico testeable; le inyecta el cwd, el hook del terminal
+        // y (si el usuario activó el sandbox y Docker está disponible) la config de Docker
+        // para ejecutar el comando aislado en un contenedor.
+        let __sandboxDockerAvail = null; // cache: null=desconocido, true/false
+        async function runCommandCaptured(command) {
+            let sandbox = null;
+            if (localStorage.getItem('nexus_sandbox') === 'docker') {
+                if (__sandboxDockerAvail === null) {
+                    __sandboxDockerAvail = await AgentCore.checkDockerAvailable();
+                    if (!__sandboxDockerAvail) showToast('⚠️ Sandbox activado pero Docker no está disponible; los comandos se ejecutan en el host.', 'warning');
+                }
+                if (__sandboxDockerAvail) {
+                    sandbox = { image: localStorage.getItem('nexus_sandbox_image') || 'node:20-slim', workspace: workspaceRoot };
+                }
+            }
             return AgentCore.runCommandCaptured(command, {
                 cwd: workspaceRoot,
-                onOutput: (typeof appendTerminalOutput === 'function') ? appendTerminalOutput : null
+                onOutput: (typeof appendTerminalOutput === 'function') ? appendTerminalOutput : null,
+                sandbox
             });
         }
 

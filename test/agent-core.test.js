@@ -350,6 +350,45 @@ test('runCommandCaptured: exec que lanza → code 1, no rompe', async () => {
     assert.ok(r.output.includes('Error al ejecutar') && r.output.includes('ENOENT'));
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Sandbox (dockerWrap / checkDockerAvailable / runCommandCaptured con sandbox)
+// ─────────────────────────────────────────────────────────────────────────────
+test('dockerWrap: envuelve el comando en docker run con mount, imagen y base64', () => {
+    const w = AC.dockerWrap('npm test', { image: 'node:20-slim', workspace: '/proj' });
+    assert.ok(w.startsWith('docker run --rm'));
+    assert.ok(w.includes('-v "/proj:/workspace"'));
+    assert.ok(w.includes('-w /workspace'));
+    assert.ok(w.includes('node:20-slim'));
+    assert.ok(w.includes(Buffer.from('npm test').toString('base64')), 'comando en base64 (sin problemas de escaping)');
+    assert.ok(!w.includes('--network none'), 'red permitida por defecto');
+});
+
+test('dockerWrap: network:false añade --network none; imagen por defecto', () => {
+    const w = AC.dockerWrap('ls', { workspace: '/p', network: false });
+    assert.ok(w.includes('--network none'));
+    assert.ok(w.includes('node:20-slim'), 'imagen por defecto');
+});
+
+test('runCommandCaptured: con sandbox ejecuta el comando docker-wrapped; onOutput muestra el original', async () => {
+    const cap = {};
+    const logs = [];
+    await AC.runCommandCaptured('npm test', {
+        cp: fakeCp(null, 'ok', '', cap),
+        sandbox: { image: 'node:20', workspace: '/w' },
+        onOutput: (t) => logs.push(t),
+    });
+    assert.ok(cap.cmd.startsWith('docker run'), 'exec recibe el comando docker-wrapped');
+    assert.ok(cap.cmd.includes('node:20'));
+    assert.ok(logs.some(l => l.includes('npm test') && !l.includes('docker run')), 'onOutput muestra el comando ORIGINAL, no el wrapper');
+});
+
+test('checkDockerAvailable: true si docker responde, false si error', async () => {
+    const ok = await AC.checkDockerAvailable({ exec: (c, o, cb) => cb(null, 'Docker version 24.0.5', '') });
+    assert.strictEqual(ok, true);
+    const no = await AC.checkDockerAvailable({ exec: (c, o, cb) => cb(new Error('not found'), '', '') });
+    assert.strictEqual(no, false);
+});
+
 test('runCommandCaptured: onOutput recibe comando y salida; cwd/shell según platform', async () => {
     const cap = {};
     const logs = [];

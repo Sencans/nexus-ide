@@ -264,18 +264,48 @@
         return parts.join('\n\n');
     }
 
+    // Envuelve un comando para ejecutarlo DENTRO de un contenedor Docker (sandbox),
+    // aislándolo del sistema de archivos del host salvo el workspace montado en
+    // /workspace. Usa base64 para pasar el comando sin problemas de escaping.
+    //   opts.image     imagen Docker (por defecto node:20-slim)
+    //   opts.workspace ruta del workspace a montar (host)
+    //   opts.network   true = permite red (por defecto true; false = --network none)
+    function dockerWrap(command, opts) {
+        opts = opts || {};
+        const image = opts.image || 'node:20-slim';
+        const workspace = opts.workspace || '.';
+        const b64 = Buffer.from(String(command), 'utf8').toString('base64');
+        const net = (opts.network === false) ? ' --network none' : '';
+        return `docker run --rm${net} -v "${workspace}:/workspace" -w /workspace ${image} sh -lc "echo ${b64} | base64 -d | sh"`;
+    }
+
+    // Comprueba si Docker está disponible (para decidir si se puede usar el sandbox).
+    function checkDockerAvailable(cpImpl) {
+        const cp = cpImpl || require('child_process');
+        return new Promise((resolve) => {
+            try {
+                cp.exec('docker --version', { timeout: 5000, windowsHide: true }, (err, stdout) => {
+                    resolve(!err && /docker/i.test(String(stdout || '')));
+                });
+            } catch { resolve(false); }
+        });
+    }
+
     // Ejecuta un comando capturando su salida (stdout/stderr + código). Dependencias
     // inyectables para tests: opts.cp (child_process), opts.cwd, opts.onOutput(text),
-    // opts.platform. Timeout de 120 s; la salida se recorta a 8000 caracteres.
+    // opts.platform. Si opts.sandbox está presente, ejecuta el comando dentro de Docker
+    // (aislado). Timeout de 120 s; la salida se recorta a 8000 caracteres.
     function runCommandCaptured(command, opts) {
         opts = opts || {};
         const cp = opts.cp || require('child_process');
         const onOutput = (typeof opts.onOutput === 'function') ? opts.onOutput : function () {};
         const isWin = (opts.platform || process.platform) === 'win32';
+        const sandboxed = !!opts.sandbox;
+        const toRun = sandboxed ? dockerWrap(command, opts.sandbox) : command;
         return new Promise((resolve) => {
             try {
-                onOutput(`\n$ ${command}\n`);
-                cp.exec(command, {
+                onOutput(`\n$ ${sandboxed ? '🔒 ' : ''}${command}\n`);
+                cp.exec(toRun, {
                     cwd: opts.cwd || undefined,
                     shell: isWin ? 'powershell.exe' : '/bin/bash',
                     timeout: 120000,
@@ -307,7 +337,9 @@
         resolveInWorkspace,
         grepWorkspace,
         executeReadTools,
-        runCommandCaptured
+        runCommandCaptured,
+        dockerWrap,
+        checkDockerAvailable
     };
 
     if (typeof module !== 'undefined' && module.exports) {
