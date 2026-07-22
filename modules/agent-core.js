@@ -393,6 +393,28 @@
         return { drafts, final: finalText, synthesizer };
     }
 
+    // Fallback entre modelos/proveedores: prueba cada modelo en orden y devuelve la
+    // primera respuesta correcta. Si uno falla (error de API, cuota, red) pasa al
+    // siguiente. `send(modelId)` es inyectable (tests). onFallback(from, to) opcional.
+    async function runWithFallback(models, send, onFallback) {
+        const list = (models || []).filter(Boolean);
+        if (typeof send !== 'function') throw new Error('runWithFallback: falta send');
+        if (!list.length) throw new Error('runWithFallback: no hay modelos');
+        let lastErr;
+        for (let i = 0; i < list.length; i++) {
+            try {
+                const result = await send(list[i]);
+                return { model: list[i], result, fellBack: i > 0 };
+            } catch (e) {
+                lastErr = e;
+                if (i + 1 < list.length && typeof onFallback === 'function') {
+                    try { onFallback(list[i], list[i + 1], e); } catch (err) {}
+                }
+            }
+        }
+        throw lastErr || new Error('todos los modelos fallaron');
+    }
+
     const AgentCore = {
         redactSecrets,
         toolCallsToTags,
@@ -408,7 +430,8 @@
         parseSSEDeltas,
         extractStreamDelta,
         buildMoASynthesisPrompt,
-        runMixtureOfAgents
+        runMixtureOfAgents,
+        runWithFallback
     };
 
     if (typeof module !== 'undefined' && module.exports) {

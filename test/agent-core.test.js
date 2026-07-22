@@ -389,6 +389,35 @@ test('parseSSEDeltas: ignora comentarios keep-alive, event: y JSON inválido', (
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// runWithFallback (fallback entre modelos/proveedores)
+// ─────────────────────────────────────────────────────────────────────────────
+test('runWithFallback: devuelve el primero que responde', async () => {
+    const send = (m) => Promise.resolve('r-' + m);
+    const r = await AC.runWithFallback(['a', 'b'], send);
+    assert.deepStrictEqual(r, { model: 'a', result: 'r-a', fellBack: false });
+});
+
+test('runWithFallback: salta al siguiente si uno falla; marca fellBack y avisa', async () => {
+    const send = (m) => (m === 'a' || m === 'b') ? Promise.reject(new Error('cuota ' + m)) : Promise.resolve('OK-' + m);
+    const hops = [];
+    const r = await AC.runWithFallback(['a', 'b', 'c'], send, (from, to) => hops.push(from + '->' + to));
+    assert.strictEqual(r.model, 'c');
+    assert.strictEqual(r.result, 'OK-c');
+    assert.strictEqual(r.fellBack, true);
+    assert.deepStrictEqual(hops, ['a->b', 'b->c']);
+});
+
+test('runWithFallback: si todos fallan, lanza el último error', async () => {
+    const send = (m) => Promise.reject(new Error('fail-' + m));
+    await assert.rejects(() => AC.runWithFallback(['a', 'b'], send), /fail-b/);
+});
+
+test('runWithFallback: valida send y lista', async () => {
+    await assert.rejects(() => AC.runWithFallback(['a'], null), /falta send/);
+    await assert.rejects(() => AC.runWithFallback([], () => {}), /no hay modelos/);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Mixture-of-Agents (buildMoASynthesisPrompt / runMixtureOfAgents)
 // ─────────────────────────────────────────────────────────────────────────────
 test('buildMoASynthesisPrompt: incluye la consulta y todas las respuestas', () => {

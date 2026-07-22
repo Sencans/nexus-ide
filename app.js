@@ -3945,6 +3945,8 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                                 <input id="cfg-streaming" type="checkbox" ${localStorage.getItem('nexus_streaming') === 'true' ? 'checked' : ''} style="cursor:pointer;width:16px;height:16px;">
                                 <label for="cfg-streaming" style="font-size:13px;color:#e6edf3;cursor:pointer;user-select:none;">⚡ Streaming de respuestas (mostrar el texto según se genera)</label>
                             </div>
+                            <label style="font-size:11px;color:#8b949e;display:block;margin:10px 0 4px;">🔁 Modelos de respaldo (fallback, separados por coma; si el principal falla)</label>
+                            <input id="cfg-fallback-models" type="text" placeholder="p. ej. gpt-4o-mini, claude-3-5-haiku, gemini-1.5-flash" value="${(localStorage.getItem('nexus_fallback_models') || '').replace(/"/g, '&quot;')}" style="width:100%;box-sizing:border-box;background:#161b22;border:1px solid #30363d;border-radius:4px;color:#fff;padding:8px 12px;font-size:12px;outline:none;">
                             <label style="font-size:11px;color:#8b949e;display:block;margin:10px 0 4px;">🔌 Servidores MCP (JSON: <code>[{"name","command","args"}]</code>)</label>
                             <textarea id="cfg-mcp-servers" placeholder='[{"name":"filesystem","command":"npx","args":["-y","@modelcontextprotocol/server-filesystem","."]}]' style="width:100%;box-sizing:border-box;background:#161b22;border:1px solid #30363d;border-radius:4px;color:#fff;padding:8px 12px;font-size:12px;outline:none;min-height:60px;resize:vertical;font-family:monospace;">${(localStorage.getItem('nexus_mcp_servers') || '')}</textarea>
                         </div>
@@ -4742,6 +4744,12 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
 
               const streamingEl = document.getElementById('cfg-streaming');
               if (streamingEl) localStorage.setItem('nexus_streaming', streamingEl.checked ? 'true' : 'false');
+
+              const fallbackEl = document.getElementById('cfg-fallback-models');
+              if (fallbackEl) {
+                  const fbVal = fallbackEl.value.trim();
+                  if (fbVal) localStorage.setItem('nexus_fallback_models', fbVal); else localStorage.removeItem('nexus_fallback_models');
+              }
 
               const mcpEl = document.getElementById('cfg-mcp-servers');
               if (mcpEl) {
@@ -19593,7 +19601,20 @@ Solicita las lecturas que necesites para EXPLORAR el código antes de modificarl
                                 __streamShown += delta;
                                 if (loadingMsg) { try { loadingMsg.textContent = __streamShown.slice(-1200); loadingMsg.style.whiteSpace = 'pre-wrap'; } catch (e) {} }
                             };
-                            let response = await sendRequestToAI(selectedModelId, textWithContextAndAttachments, sysPrompt, chatHistory.slice(0, -1), chatAbortController.signal, imgAttachments, __onToken);
+                            // Fallback entre proveedores: si hay modelos de respaldo configurados
+                            // (nexus_fallback_models) y el principal falla, se reintenta con el siguiente.
+                            const __fallbacks = (localStorage.getItem('nexus_fallback_models') || '').split(',').map(s => s.trim()).filter(Boolean).filter(m => m !== selectedModelId);
+                            let response;
+                            if (__fallbacks.length) {
+                                const __fb = await AgentCore.runWithFallback(
+                                    [selectedModelId, ...__fallbacks],
+                                    (m) => sendRequestToAI(m, textWithContextAndAttachments, sysPrompt, chatHistory.slice(0, -1), chatAbortController.signal, imgAttachments, __onToken),
+                                    (from, to) => { showToast(`⚠️ ${typeof getModelName === 'function' ? getModelName(from) : from} falló; probando ${typeof getModelName === 'function' ? getModelName(to) : to}…`, 'warning'); }
+                                );
+                                response = __fb.result;
+                            } else {
+                                response = await sendRequestToAI(selectedModelId, textWithContextAndAttachments, sysPrompt, chatHistory.slice(0, -1), chatAbortController.signal, imgAttachments, __onToken);
+                            }
                             // FIX #8: normalizar (fences markdown -> [WRITE_FILE]) ANTES del pre-flight,
                             // si no, una respuesta con fences se salta la validación.
                             response = normalizeAgentResponse(response);
