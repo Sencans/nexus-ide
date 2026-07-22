@@ -221,3 +221,146 @@ test('grepWorkspace: sin coincidencias / sin patrón / sin root', () => {
         fs.rmSync(dir, { recursive: true, force: true });
     }
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// executeReadTools  (read_file / list_dir / grep, confinamiento y redacción)
+// ─────────────────────────────────────────────────────────────────────────────
+test('executeReadTools: read_file devuelve contenido y REDACTA secretos', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-rt-'));
+    try {
+        fs.writeFileSync(path.join(dir, 'h.js'), 'const k="sk-proj-ABCDEFGHIJKLMNOPQRSTUVWX";\nsaluda();');
+        const out = await AC.executeReadTools(dir, [{ type: 'read_file', arg: 'h.js' }]);
+        assert.ok(out.includes('[READ_FILE: h.js]'));
+        assert.ok(out.includes('saluda();'));
+        assert.ok(out.includes('«SECRETO_REDACTADO»') && !out.includes('sk-proj-ABCDEF'));
+    } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+    }
+});
+
+test('executeReadTools: read_file trunca ficheros grandes', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-rt2-'));
+    try {
+        fs.writeFileSync(path.join(dir, 'big.txt'), 'x'.repeat(30000));
+        const out = await AC.executeReadTools(dir, [{ type: 'read_file', arg: 'big.txt' }]);
+        assert.ok(out.includes('truncado a 24000 caracteres'));
+    } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+    }
+});
+
+test('executeReadTools: RECHAZA lectura fuera del workspace (path traversal)', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-rt3-'));
+    try {
+        const out = await AC.executeReadTools(dir, [{ type: 'read_file', arg: '../../../etc/passwd' }]);
+        assert.ok(out.includes('fuera del workspace') && out.includes('denegado'));
+    } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+    }
+});
+
+test('executeReadTools: read_file inexistente y list_dir (filtra node_modules/.git)', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-rt4-'));
+    try {
+        fs.writeFileSync(path.join(dir, 'a.js'), '1');
+        fs.mkdirSync(path.join(dir, 'src'));
+        fs.mkdirSync(path.join(dir, 'node_modules'));
+        fs.mkdirSync(path.join(dir, '.git'));
+        const noExiste = await AC.executeReadTools(dir, [{ type: 'read_file', arg: 'nope.js' }]);
+        assert.ok(noExiste.includes('no existe o no es un archivo'));
+        const list = await AC.executeReadTools(dir, [{ type: 'list_dir', arg: '' }]);
+        assert.ok(list.includes('a.js') && list.includes('src/'));
+        assert.ok(!list.includes('node_modules') && !list.includes('.git'));
+    } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+    }
+});
+
+test('executeReadTools: grep delega en grepWorkspace', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-rt5-'));
+    try {
+        fs.writeFileSync(path.join(dir, 'a.js'), 'hola BUSCAME adios');
+        const out = await AC.executeReadTools(dir, [{ type: 'grep', arg: 'BUSCAME' }]);
+        assert.ok(out.includes('[GREP: BUSCAME]') && out.includes('a.js:1'));
+    } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+    }
+});
+
+test('executeReadTools: un error de fs (mock) no rompe, lo reporta', async () => {
+    // fsImpl mockeado que finge existir pero lanza al leer.
+    const fsMock = {
+        existsSync: () => true,
+        statSync: () => ({ isFile: () => true, isDirectory: () => false }),
+        readFileSync: () => { throw new Error('EACCES boom'); },
+    };
+    const out = await AC.executeReadTools(path.resolve('/proj'), [{ type: 'read_file', arg: 'x.js' }], fsMock);
+    assert.ok(out.includes('error:') && out.includes('EACCES boom'));
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// runCommandCaptured  (mock de child_process)
+// ─────────────────────────────────────────────────────────────────────────────
+// Helper: crea un cp falso cuyo exec responde con (err, stdout, stderr) dados,
+// y registra las opciones con las que fue llamado.
+function fakeCp(err, stdout, stderr, capture) {
+    return {
+        exec(cmd, opts, cb) {
+            if (capture) { capture.cmd = cmd; capture.opts = opts; }
+            cb(err, stdout, stderr);
+        }
+    };
+}
+
+test('runCommandCaptured: salida normal → output y code 0', async () => {
+    const r = await AC.runCommandCaptured('echo hi', { cp: fakeCp(null, 'hola\n', '') });
+    assert.strictEqual(r.code, 0);
+    assert.ok(r.output.includes('hola'));
+    assert.ok(!r.output.includes('código de salida'));
+});
+
+test('runCommandCaptured: incluye stderr', async () => {
+    const r = await AC.runCommandCaptured('build', { cp: fakeCp(null, 'ok', 'aviso importante') });
+    assert.ok(r.output.includes('ok') && r.output.includes('aviso importante'));
+});
+
+test('runCommandCaptured: código de salida distinto de 0', async () => {
+    const r = await AC.runCommandCaptured('falla', { cp: fakeCp({ code: 2 }, '', 'boom') });
+    assert.strictEqual(r.code, 2);
+    assert.ok(r.output.includes('[código de salida: 2]'));
+});
+
+test('runCommandCaptured: timeout (killed) se marca', async () => {
+    const r = await AC.runCommandCaptured('server', { cp: fakeCp({ killed: true, code: null }, 'parcial', '') });
+    assert.ok(r.output.includes('parcial'));
+    assert.ok(r.output.includes('timeout'));
+});
+
+test('runCommandCaptured: sin salida → "(sin salida)"; se recorta a 8000', async () => {
+    const vacio = await AC.runCommandCaptured('nada', { cp: fakeCp(null, '', '') });
+    assert.ok(vacio.output.includes('(sin salida)'));
+    const enorme = await AC.runCommandCaptured('spam', { cp: fakeCp(null, 'y'.repeat(20000), '') });
+    assert.ok(enorme.output.length <= 8000);
+});
+
+test('runCommandCaptured: exec que lanza → code 1, no rompe', async () => {
+    const cpThrows = { exec() { throw new Error('spawn ENOENT'); } };
+    const r = await AC.runCommandCaptured('x', { cp: cpThrows });
+    assert.strictEqual(r.code, 1);
+    assert.ok(r.output.includes('Error al ejecutar') && r.output.includes('ENOENT'));
+});
+
+test('runCommandCaptured: onOutput recibe comando y salida; cwd/shell según platform', async () => {
+    const cap = {};
+    const logs = [];
+    await AC.runCommandCaptured('mycmd', {
+        cp: fakeCp(null, 'RESULT', '', cap),
+        cwd: '/mi/proyecto',
+        platform: 'win32',
+        onOutput: (t) => logs.push(t),
+    });
+    assert.ok(logs.some(l => l.includes('mycmd')), 'onOutput recibe el comando');
+    assert.ok(logs.some(l => l.includes('RESULT')), 'onOutput recibe la salida');
+    assert.strictEqual(cap.opts.cwd, '/mi/proyecto');
+    assert.strictEqual(cap.opts.shell, 'powershell.exe');
+});

@@ -228,6 +228,76 @@
         return hits.join('\n') + (hits.length >= MAX_HITS ? '\n… (más resultados omitidos)' : '');
     }
 
+    // Ejecuta las herramientas de LECTURA solicitadas dentro de `root` (confinado) y
+    // devuelve un texto con los secretos redactados para el modelo. `fsImpl` es
+    // inyectable (tests). Delega en resolveInWorkspace/grepWorkspace/redactSecrets.
+    async function executeReadTools(root, actions, fsImpl) {
+        const fsMod = fsImpl || fs;
+        const MAX_FILE = 24000;
+        const parts = [];
+        for (const act of (actions || [])) {
+            try {
+                if (act.type === 'read_file') {
+                    const abs = resolveInWorkspace(root, act.arg);
+                    if (!abs) { parts.push(`[READ_FILE: ${act.arg}] → ⛔ fuera del workspace (denegado)`); continue; }
+                    if (!fsMod.existsSync(abs) || !fsMod.statSync(abs).isFile()) { parts.push(`[READ_FILE: ${act.arg}] → no existe o no es un archivo`); continue; }
+                    let content = fsMod.readFileSync(abs, 'utf8');
+                    let extra = '';
+                    if (content.length > MAX_FILE) { content = content.slice(0, MAX_FILE); extra = `\n… (truncado a ${MAX_FILE} caracteres)`; }
+                    parts.push(`[READ_FILE: ${act.arg}]\n\`\`\`\n${redactSecrets(content)}${extra}\n\`\`\``);
+                } else if (act.type === 'list_dir') {
+                    const abs = resolveInWorkspace(root, act.arg || '.');
+                    if (!abs) { parts.push(`[LIST_DIR: ${act.arg}] → ⛔ fuera del workspace (denegado)`); continue; }
+                    if (!fsMod.existsSync(abs) || !fsMod.statSync(abs).isDirectory()) { parts.push(`[LIST_DIR: ${act.arg}] → no existe o no es un directorio`); continue; }
+                    const entries = fsMod.readdirSync(abs, { withFileTypes: true })
+                        .filter(e => e.name !== 'node_modules' && e.name !== '.git')
+                        .slice(0, 200)
+                        .map(e => (e.isDirectory() ? e.name + '/' : e.name));
+                    parts.push(`[LIST_DIR: ${act.arg || '.'}]\n${entries.join('\n') || '(vacío)'}`);
+                } else if (act.type === 'grep') {
+                    parts.push(`[GREP: ${act.arg}]\n${grepWorkspace(root, act.arg)}`);
+                }
+            } catch (e) {
+                parts.push(`[${act.type}: ${act.arg}] → error: ${String((e && e.message) || e)}`);
+            }
+        }
+        return parts.join('\n\n');
+    }
+
+    // Ejecuta un comando capturando su salida (stdout/stderr + código). Dependencias
+    // inyectables para tests: opts.cp (child_process), opts.cwd, opts.onOutput(text),
+    // opts.platform. Timeout de 120 s; la salida se recorta a 8000 caracteres.
+    function runCommandCaptured(command, opts) {
+        opts = opts || {};
+        const cp = opts.cp || require('child_process');
+        const onOutput = (typeof opts.onOutput === 'function') ? opts.onOutput : function () {};
+        const isWin = (opts.platform || process.platform) === 'win32';
+        return new Promise((resolve) => {
+            try {
+                onOutput(`\n$ ${command}\n`);
+                cp.exec(command, {
+                    cwd: opts.cwd || undefined,
+                    shell: isWin ? 'powershell.exe' : '/bin/bash',
+                    timeout: 120000,
+                    maxBuffer: 2 * 1024 * 1024,
+                    windowsHide: true
+                }, (err, stdout, stderr) => {
+                    let out = '';
+                    if (stdout) out += String(stdout);
+                    if (stderr) out += (out ? '\n' : '') + String(stderr);
+                    const timedOut = !!(err && err.killed);
+                    const code = err ? (typeof err.code === 'number' ? err.code : 1) : 0;
+                    onOutput((out || '(sin salida)') + '\n');
+                    if (timedOut) out += `\n⏱️ [terminado por timeout de 120s]`;
+                    else if (code !== 0) out += `\n[código de salida: ${code}]`;
+                    resolve({ output: (out || '(sin salida)').slice(0, 8000), code });
+                });
+            } catch (e) {
+                resolve({ output: `Error al ejecutar: ${String((e && e.message) || e)}`, code: 1 });
+            }
+        });
+    }
+
     const AgentCore = {
         redactSecrets,
         toolCallsToTags,
@@ -235,7 +305,9 @@
         parseAgentActions,
         parseReadToolActions,
         resolveInWorkspace,
-        grepWorkspace
+        grepWorkspace,
+        executeReadTools,
+        runCommandCaptured
     };
 
     if (typeof module !== 'undefined' && module.exports) {
