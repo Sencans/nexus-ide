@@ -38,6 +38,20 @@ test('decodeFrames: decodifica un frame enmascarado (cliente→servidor) y respe
     assert.strictEqual(rest.length, 3, 'el frame incompleto queda en rest');
 });
 
+test('decodeFrames: rechaza un frame SIN máscara (cliente debe enmascarar)', () => {
+    const unmasked = Buffer.from([0x81, 0x02, 0x68, 0x69]); // FIN+texto, len 2, sin bit de máscara
+    const r = C.decodeFrames(unmasked, true); // requireMask=true (lado servidor)
+    assert.strictEqual(r.error, true);
+    assert.strictEqual(r.frames.length, 0);
+});
+
+test('decodeFrames: rechaza frame de control inválido (len > 125)', () => {
+    // ping (0x9) enmascarado con longitud declarada 126 → inválido para frames de control
+    const bad = Buffer.from([0x89, 0x80 | 126, 0x00, 0x7e, 1, 2, 3, 4]);
+    const r = C.decodeFrames(bad);
+    assert.strictEqual(r.error, true);
+});
+
 // ── Cliente WebSocket mínimo para los tests de integración ────────────────────
 function maskFrameRaw(str, opcode, fin) {
     const payload = Buffer.from(str, 'utf8');

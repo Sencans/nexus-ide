@@ -47,7 +47,7 @@ function encodeFrame(str, opcode) {
 // Decodifica los frames completos de un buffer (cliente→servidor, enmascarados).
 // Devuelve { frames: [{opcode, payload:Buffer, fin}], rest, error }. error=true si un
 // frame declara un payload mayor que MAX_PAYLOAD (el llamante debe cerrar la conexión).
-function decodeFrames(buf) {
+function decodeFrames(buf, requireMask) {
     const frames = [];
     let offset = 0;
     while (offset + 2 <= buf.length) {
@@ -61,6 +61,8 @@ function decodeFrames(buf) {
         if (len === 126) { if (p + 2 > buf.length) break; len = buf.readUInt16BE(p); p += 2; }
         else if (len === 127) { if (p + 8 > buf.length) break; len = Number(buf.readBigUInt64BE(p)); p += 8; }
         if (len > MAX_PAYLOAD) return { frames, rest: buf.slice(offset), error: true }; // frame gigante → abortar
+        if (requireMask && !masked) return { frames, rest: buf.slice(offset), error: true }; // cliente DEBE enmascarar (RFC 5.1)
+        if ((opcode & 0x08) && (len > 125 || !fin)) return { frames, rest: buf.slice(offset), error: true }; // frame de control inválido (RFC 5.5)
         let mask = null;
         if (masked) { if (p + 4 > buf.length) break; mask = buf.slice(p, p + 4); p += 4; }
         if (p + len > buf.length) break; // frame incompleto → espera más datos
@@ -133,7 +135,7 @@ class CollabServer {
         socket.on('data', (chunk) => {
             client.buf = Buffer.concat([client.buf, chunk]);
             if (client.buf.length > MAX_PAYLOAD + 1024) { this._remove(client); return; } // buffer desbordado → cerrar
-            const { frames, rest, error } = decodeFrames(client.buf);
+            const { frames, rest, error } = decodeFrames(client.buf, true); // frames de cliente: máscara obligatoria
             client.buf = rest;
             if (error) { this._remove(client); return; } // payload gigante → cerrar
             for (const f of frames) {
@@ -141,10 +143,11 @@ class CollabServer {
                 if (f.opcode === 0x9) { try { socket.write(encodeFrame(f.payload, 0xA)); } catch (e) {} continue; } // ping→pong (bytes exactos)
                 if (f.opcode === 0xA) { client.isAlive = true; continue; }                                 // pong recibido → vivo
                 if (f.opcode === 0x1 || f.opcode === 0x2 || f.opcode === 0x0) {
-                    // Reensamblado de mensajes fragmentados (respeta el bit FIN).
-                    if (f.opcode !== 0x0) client.assembling = { chunks: [f.payload], binary: f.opcode === 0x2 };
-                    else if (client.assembling) client.assembling.chunks.push(f.payload);
+                    // Reensamblado de mensajes fragmentados (respeta el bit FIN, con tope de tamaño).
+                    if (f.opcode !== 0x0) client.assembling = { chunks: [f.payload], binary: f.opcode === 0x2, size: f.payload.length };
+                    else if (client.assembling) { client.assembling.chunks.push(f.payload); client.assembling.size += f.payload.length; }
                     else continue; // continuación sin inicio → ignora
+                    if (client.assembling && client.assembling.size > MAX_PAYLOAD) { this._remove(client); return; } // anti-OOM
                     if (f.fin && client.assembling) {
                         const full = Buffer.concat(client.assembling.chunks);
                         const binary = client.assembling.binary;

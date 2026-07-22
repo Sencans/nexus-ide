@@ -3295,7 +3295,13 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
         function collabDiff(current, base) {
             const changed = [];
             for (const p in current) if (current[p] !== base[p]) changed.push({ path: p, content: current[p] });
-            for (const p in base) if (!(p in current)) changed.push({ path: p, deleted: true });
+            for (const p in base) if (!(p in current)) {
+                // Solo es un BORRADO si el archivo ya no existe en disco de verdad; si el
+                // scan lo omitió (>512KB, binario, tope de 3000) NO es un borrado (evita
+                // borrados falsos masivos que perderían datos de todos).
+                const abs = (typeof resolveInWorkspace === 'function') ? resolveInWorkspace(p) : null;
+                if (abs && !fs.existsSync(abs)) changed.push({ path: p, deleted: true });
+            }
             return changed;
         }
         // Aplica los cambios entrantes en el workspace (CONFINADOS + denylist) + editor +
@@ -3305,11 +3311,12 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
             for (const f of (files || [])) {
                 try {
                     if (!f || typeof f.path !== 'string') continue;
-                    const rel = f.path.replace(/\\/g, '/');
-                    if (COLLAB_SKIP.has(rel.split('/')[0]) || COLLAB_SECRET.test(rel)) continue; // no escribir en .git, node_modules, secretos…
                     const abs = (typeof resolveInWorkspace === 'function') ? resolveInWorkspace(f.path) : null;
                     if (!abs) continue; // fuera del workspace → ignorar (seguridad)
                     if (!collabRealpathSafe(abs)) continue; // symlink que escapa del workspace → ignorar
+                    // Denylist sobre la ruta YA RESUELTA (evita evasión con ../ hacia .git, node_modules, secretos).
+                    const rel = path.relative(path.resolve(workspaceRoot), abs).replace(/\\/g, '/');
+                    if (COLLAB_SKIP.has(rel.split('/')[0]) || COLLAB_SECRET.test(rel)) continue;
                     if (f.deleted) {
                         try { if (fs.existsSync(abs)) fs.unlinkSync(abs); } catch (e) {}
                         try { if (typeof fileModels !== 'undefined' && fileModels[abs]) delete fileModels[abs]; } catch (e) {}
@@ -3355,6 +3362,7 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                     cp.execFile(cmd, argsOf(tmp), opts, (err, stdout, stderr) => {
                         try { fs.unlinkSync(tmp); } catch (e) {}
                         if (err && (err.code === 'ENOENT' || /ENOENT|not found|no such file/i.test(String(err.message)))) { resolve({ ok: true }); return; }
+                        if (err && (err.killed || err.signal === 'SIGTERM')) { resolve({ ok: true }); return; } // timeout → no bloquear (no es un error de sintaxis)
                         if (err) { resolve({ ok: false, error: String(stderr || err.message || 'error de sintaxis').split('\n').filter(Boolean).slice(0, 2).join(' — ') }); return; }
                         resolve({ ok: true });
                     });
@@ -3441,7 +3449,8 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                 async host(opts) {
                     opts = opts || {};
                     const r = ipc(); if (!r) throw new Error('IPC no disponible');
-                    const token = opts.token || Math.random().toString(36).slice(2, 8);
+                    let token = opts.token;
+                    if (!token) { try { token = require('crypto').randomBytes(12).toString('hex'); } catch (e) { token = Math.random().toString(36).slice(2, 10); } }
                     const res = await r.invoke('collab-start', { port: opts.port || 3737, token });
                     if (!res || !res.ok) throw new Error((res && res.error) || 'no se pudo iniciar el servidor');
                     mode = 'host';
@@ -3453,8 +3462,9 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                         if (ev.event === 'message') { publishQueue = publishQueue.then(() => applyIncoming(ev.data.text)).catch(() => {}); }
                         else if (ev.event === 'join') {
                             peers = ev.data.count; emit('status', { peers, hosting: true }); showToast('👥 Un colaborador se unió', 'success');
-                            // Alinea SOLO al recién llegado con el proyecto central actual.
-                            collabCentralSnapshot = collabScanWorkspace();
+                            // Alinea SOLO al recién llegado con el ÚLTIMO estado central conocido
+                            // (revisado/publicado). NO se re-escanea el disco: eso inyectaría
+                            // ediciones locales del host aún NO publicadas ni revisadas.
                             const files = Object.keys(collabCentralSnapshot).map(p => ({ path: p, content: collabCentralSnapshot[p] }));
                             r.send('collab-send-to', { id: ev.data.id, text: JSON.stringify({ t: 'sync', from: myName + ' (central)', files }) });
                         }
@@ -3600,7 +3610,7 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                 try {
                     const res = await window.collabPublish();
                     if (res && res.blocked) {
-                        rev.style.display = 'block';
+                        rev.style.display = 'block'; rev.style.color = '#ff9b9b'; rev.style.borderColor = '#852222'; rev.style.background = '#2d1214';
                         rev.innerHTML = `<b>❌ Publicación bloqueada — corrige antes de publicar:</b><br>` +
                             res.issues.map(i => `• <b>${collabEsc(i.path)}</b>: ${collabEsc(i.error)}`).join('<br>');
                     } else if (res && res.published) {
@@ -3612,7 +3622,7 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
             };
             sub('rejected', (m) => {
                 const rev = $('collab-review'); if (!rev) return;
-                rev.style.display = 'block';
+                rev.style.display = 'block'; rev.style.color = '#ff9b9b'; rev.style.borderColor = '#852222'; rev.style.background = '#2d1214';
                 rev.innerHTML = `<b>❌ El central rechazó tu publicación:</b><br>` + (m.issues || []).map(i => `• <b>${collabEsc(i.path)}</b>: ${collabEsc(i.error)}`).join('<br>');
             });
             $('collab-leave').onclick = () => { C.disconnect(); close(); showToast('Has salido de la sesión', 'info'); };
