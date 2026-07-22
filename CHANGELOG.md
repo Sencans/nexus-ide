@@ -4,6 +4,9 @@ Todas las novedades notables de **Nexus IDE**. El formato sigue [Keep a Changelo
 
 ## [Sin publicar]
 
+### Interno
+- **Base de tests del núcleo agéntico**: la lógica pura del agente (redacción de secretos, parsing de acciones y de herramientas de lectura, conversión de *tool calls*, normalización de respuestas y confinamiento de rutas al workspace) se centraliza en un módulo testeable `modules/agent-core.js` — `app.js` la usa mediante *wrappers* finos (sin cambiar comportamiento). Nueva suite `test/agent-core.test.js` con **19 tests** usando el runner nativo de Node (`node --test`, cero dependencias): `npm test`. Nuevo workflow de CI (`.github/workflows/test.yml`) que ejecuta sintaxis + tests en cada push/PR.
+
 ### Añadido
 - **Memoria persistente del proyecto**: (1) el agente puede guardar hechos duraderos con `[REMEMBER: hecho]` (p. ej. «este proyecto usa Vite», «el estilo de commits es X»), que se persisten por proyecto y se **inyectan en el prompt en cada sesión** — memoria real cross-session; (2) la **ventana de contexto** que se envía al modelo pasa de **6 a 12 mensajes** y el historial en memoria/persistido por proyecto de 10 a 40, para no perder el hilo en tareas largas.
 - **Bucle agéntico ReAct: el agente OBSERVA el resultado de sus acciones y continúa**. Antes ejecutaba una sola pasada (respuesta → parse → ejecuta) y no veía qué pasó. Ahora los comandos se ejecutan **capturando su salida** (stdout/stderr, código de salida, con timeout de 120 s), y esa salida —junto con el resultado de las escrituras— se le devuelve al modelo para que revise, **corrija errores** (p. ej. un test que falla) o continúe con el siguiente paso, hasta 4 iteraciones. Cada acción sigue pasando por el **gate de permisos**, y la salida se **redacta** de secretos antes de enviarla al modelo.

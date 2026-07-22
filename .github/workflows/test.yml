@@ -1,0 +1,28 @@
+name: Tests
+
+# Ejecuta la suite del núcleo agéntico en cada push y pull request.
+# Es rápido y sin dependencias (usa el runner nativo `node --test`).
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Núcleo agéntico (node --test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Comprobación de sintaxis
+        run: |
+          node --check modules/agent-core.js
+          node --check main.js
+          node --check app.js
+      - name: Tests
+        run: npm test

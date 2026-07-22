@@ -3050,42 +3050,9 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
         };
 
         // Redacta secretos (API keys, tokens, contraseñas, claves privadas, connection
-        // strings) del contexto ANTES de enviarlo a un proveedor de IA en la nube. Un IDE
-        // manda a diario el código del usuario al modelo; sin esto, cualquier clave pegada
-        // en el archivo activo, un .env abierto o un fragmento de RAG se filtraría.
-        // Conservador: reemplaza solo patrones con forma clara de secreto para no romper
-        // código legítimo. Devuelve el texto con los secretos sustituidos por «SECRETO_REDACTADO».
-        function redactSecrets(text) {
-            if (!text || typeof text !== 'string') return text;
-            const R = '«SECRETO_REDACTADO»';
-            let out = text;
-            // Bloques de clave privada PEM (RSA/EC/OPENSSH/PGP...)
-            out = out.replace(/-----BEGIN (?:[A-Z0-9 ]+ )?PRIVATE KEY-----[\s\S]*?-----END (?:[A-Z0-9 ]+ )?PRIVATE KEY-----/g, R);
-            // Claves de proveedores con prefijo reconocible
-            out = out.replace(/\bsk-ant-[a-zA-Z0-9\-_]{20,}/g, R);              // Anthropic
-            out = out.replace(/\bsk-(?:proj-)?[a-zA-Z0-9\-_]{20,}/g, R);        // OpenAI (incl. sk-proj-)
-            out = out.replace(/\bAIza[0-9A-Za-z\-_]{20,}/g, R);               // Google API
-            out = out.replace(/\bgh[posru]_[A-Za-z0-9]{30,}\b/g, R);           // GitHub tokens
-            out = out.replace(/\bxox[baprs]-[A-Za-z0-9-]{10,}/g, R);          // Slack
-            out = out.replace(/\bAKIA[0-9A-Z]{16}\b/g, R);                     // AWS access key id
-            out = out.replace(/\bgsk_[A-Za-z0-9]{20,}/g, R);                   // Groq
-            out = out.replace(/\bxai-[A-Za-z0-9]{20,}/g, R);                   // xAI
-            out = out.replace(/\bsk-or-v1-[A-Za-z0-9]{20,}/g, R);             // OpenRouter
-            // JWT (header.payload.signature)
-            out = out.replace(/\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g, R);
-            // Cabeceras/tokens Bearer
-            out = out.replace(/\b(Bearer|Authorization:\s*Bearer)\s+[A-Za-z0-9._\-]{16,}/gi, '$1 ' + R);
-            // Contraseña embebida en connection strings (esquema://user:PASS@host)
-            out = out.replace(/\b([a-z][a-z0-9+.\-]*:\/\/[^:\/\s]+:)[^@\s]{3,}@/gi, '$1' + R + '@');
-            // Asignaciones tipo .env de claves sensibles con valor literal (no una variable).
-            out = out.replace(/\b([A-Z0-9_]*(?:API[_-]?KEY|SECRET|ACCESS[_-]?TOKEN|AUTH[_-]?TOKEN|PASSWORD|PASSWD|PRIVATE[_-]?KEY|CLIENT[_-]?SECRET|TOKEN)[A-Z0-9_]*)(\s*[:=]\s*)(["']?)([^\s"'`,;]{6,})\3/gi,
-                (m, key, sep, q, val) => {
-                    // No redactar si el valor parece una referencia a variable/env, no un literal.
-                    if (/^(process\.env|import\.meta|os\.environ|System\.getenv|None|null|undefined|true|false|\$\{|\$\(|process|env\.)/.test(val)) return m;
-                    return key + sep + q + R + q;
-                });
-            return out;
-        }
+        // strings) del contexto ANTES de enviarlo a un proveedor de IA en la nube.
+        // La lógica pura (y sus tests) viven en modules/agent-core.js.
+        function redactSecrets(text) { return AgentCore.redactSecrets(text); }
         window.redactSecrets = redactSecrets;
 
         // ── Memoria persistente del proyecto (hechos curados, cross-session) ──────────
@@ -14078,21 +14045,8 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
             { type: 'function', function: { name: 'grep', description: 'Busca un patrón de texto/regex en todo el proyecto.', parameters: { type: 'object', properties: { pattern: { type: 'string' } }, required: ['pattern'] } } },
             { type: 'function', function: { name: 'run_3d_script', description: 'Ejecuta un script JavaScript compatible con Babylon.js en el motor 3D.', parameters: { type: 'object', properties: { code: { type: 'string' } }, required: ['code'] } } },
         ];
-        function toolCallsToTags(toolCalls) {
-            let tags = '';
-            for (const tc of (toolCalls || [])) {
-                const fn = (tc && tc.function) || {};
-                let args = {};
-                try { args = JSON.parse(fn.arguments || '{}'); } catch { args = {}; }
-                if (fn.name === 'write_file' && args.path) tags += `\n[WRITE_FILE: ${args.path}]\n${args.content || ''}\n[END_WRITE_FILE]\n`;
-                else if (fn.name === 'run_command' && args.command) tags += `\n[RUN_COMMAND]\n${args.command}\n[END_RUN_COMMAND]\n`;
-                else if (fn.name === 'read_file' && args.path) tags += `\n[READ_FILE: ${args.path}]\n`;
-                else if (fn.name === 'list_dir') tags += `\n[LIST_DIR: ${args.path || ''}]\n`;
-                else if (fn.name === 'grep' && args.pattern) tags += `\n[GREP: ${args.pattern}]\n`;
-                else if (fn.name === 'run_3d_script' && args.code) tags += `\n[RUN_3D_SCRIPT]\n${args.code}\n[END_RUN_3D_SCRIPT]\n`;
-            }
-            return tags;
-        }
+        // Delegado al núcleo agéntico testeable (modules/agent-core.js).
+        function toolCallsToTags(toolCalls) { return AgentCore.toolCallsToTags(toolCalls); }
         function nativeToolsEnabled() { try { return localStorage.getItem('nexus_native_tools') === 'true'; } catch { return false; } }
 
         async function sendRequestToAI(modelId, promptText, systemText, history = [], signal = null, images = []) {
@@ -14341,186 +14295,18 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
                 .replace(/'/g, "&#039;");
         }
 
-        function normalizeAgentResponse(text) {
-            if (!text) return '';
-            
-            const markdownCodeBlockRegex = /```([a-zA-Z0-9+#\-]+)?\n([\s\S]*?)```/g;
-            let lastIndex = 0;
-            let result = '';
-            let match;
-            
-            while ((match = markdownCodeBlockRegex.exec(text)) !== null) {
-                const startIndex = match.index;
-                const lang = match[1] ? match[1].trim() : '';
-                const content = match[2];
-                
-                result += text.substring(lastIndex, startIndex);
-                
-                let fileName = null;
-                const lines = content.split('\n');
-                if (lines.length > 0) {
-                    const commentRegex = /^\s*(?:\/\/#?|#|<!--|\/\*)\s*([\w\-\./\\]+\.[a-zA-Z0-9]+)\s*(?:-->|\*\/)?\s*$/;
-                    for (let i = 0; i < Math.min(2, lines.length); i++) {
-                        const m = lines[i].match(commentRegex);
-                        if (m) {
-                            fileName = m[1].trim();
-                            break;
-                        }
-                    }
-                }
-                
-                if (!fileName) {
-                    const searchArea = text.substring(Math.max(0, startIndex - 150), startIndex);
-                    const fileInTextRegex = /(?:archivo|file|crear|escribir|guardar|en|para|código\s+de)\s+(?:el\s+|la\s+)?`?([\w\-\./\\]+\.[a-zA-Z0-9]+)`?/i;
-                    const mText = searchArea.match(fileInTextRegex);
-                    if (mText) {
-                        fileName = mText[1].trim();
-                    }
-                }
-                
-                if (fileName) {
-                    const prevTextSlice = text.substring(Math.max(0, startIndex - 50), startIndex);
-                    if (prevTextSlice.includes('[WRITE_FILE:') || content.includes('[END_WRITE_FILE]')) {
-                        result += match[0];
-                    } else {
-                        result += `[WRITE_FILE: ${fileName}]\n${content}\n[END_WRITE_FILE]`;
-                    }
-                } else if (lang && ['bash', 'sh', 'powershell', 'cmd', 'shell', 'terminal'].includes(lang.toLowerCase())) {
-                    const prevTextSlice = text.substring(Math.max(0, startIndex - 50), startIndex);
-                    if (prevTextSlice.includes('[RUN_COMMAND]') || content.includes('[END_RUN_COMMAND]')) {
-                        result += match[0];
-                    } else {
-                        const cmdText = content.trim();
-                        if (cmdText && cmdText.split('\n').length <= 5) {
-                            result += `[RUN_COMMAND]\n${cmdText}\n[END_RUN_COMMAND]`;
-                        } else {
-                            result += match[0];
-                        }
-                    }
-                } else {
-                    result += match[0];
-                }
-                
-                lastIndex = markdownCodeBlockRegex.lastIndex;
-            }
-            
-            result += text.substring(lastIndex);
-            return result;
-        }
+        // Delegado al núcleo agéntico testeable (modules/agent-core.js).
+        function normalizeAgentResponse(text) { return AgentCore.normalizeAgentResponse(text); }
 
-        function parseAgentActions(text) {
-            const actions = [];
-            const run3DScriptRegex = /\[RUN_3D_SCRIPT\]([\s\S]*?)\[END_RUN_3D_SCRIPT\]/g;
-            let match;
-            while ((match = run3DScriptRegex.exec(text)) !== null) {
-                actions.push({
-                    type: '3d_script',
-                    content: match[1].trim(),
-                    label: 'Ejecutar Script en el Motor 3D'
-                });
-            }
-
-            const writeFileRegex = /\[WRITE_FILE:\s*(.+?)\]([\s\S]*?)\[END_WRITE_FILE\]/g;
-            while ((match = writeFileRegex.exec(text)) !== null) {
-                actions.push({
-                    type: 'write_file',
-                    path: match[1].trim(),
-                    content: match[2],
-                    label: `Escribir archivo: ${match[1].trim()}`
-                });
-            }
-
-            const runCommandRegex = /\[RUN_COMMAND\]([\s\S]*?)\[END_RUN_COMMAND\]/g;
-            while ((match = runCommandRegex.exec(text)) !== null) {
-                actions.push({
-                    type: 'run_command',
-                    command: match[1].trim(),
-                    label: `Ejecutar comando: ${match[1].trim()}`
-                });
-            }
-
-            // Parse skill tags: [SKILL: id arguments]
-            const skillRegex = /\[SKILL:\s*([a-zA-Z0-9_]+?)(?:\s+([\s\S]*?))?\]/g;
-            while ((match = skillRegex.exec(text)) !== null) {
-                const skillId = match[1].trim();
-                const args = match[2] ? match[2].trim() : '';
-                actions.push({
-                    type: 'run_skill',
-                    skillId: skillId,
-                    args: args,
-                    label: `Ejecutar Habilidad IA: ${skillId}`
-                });
-            }
-
-            return actions;
-        }
+        // Delegado al núcleo agéntico testeable (modules/agent-core.js).
+        function parseAgentActions(text) { return AgentCore.parseAgentActions(text); }
 
         // ── Herramientas de LECTURA del agente (seguras: solo lectura, confinadas al
-        // workspace). Le dan "ojos" al agente para explorar el repo antes de actuar. ──
-        function parseReadToolActions(text) {
-            const actions = [];
-            if (!text) return actions;
-            let m;
-            const reRead = /\[READ_FILE:\s*([^\]]+?)\]/g;
-            while ((m = reRead.exec(text)) !== null) actions.push({ type: 'read_file', arg: m[1].trim() });
-            const reList = /\[LIST_DIR:\s*([^\]]*?)\]/g;
-            while ((m = reList.exec(text)) !== null) actions.push({ type: 'list_dir', arg: m[1].trim() });
-            const reGrep = /\[GREP:\s*([^\]]+?)\]/g;
-            while ((m = reGrep.exec(text)) !== null) actions.push({ type: 'grep', arg: m[1].trim() });
-            return actions;
-        }
-
-        // Resuelve una ruta y GARANTIZA que queda dentro del workspace (evita que el
-        // agente —o una inyección de prompt en un archivo— lea ~/.ssh/id_rsa y demás).
-        function resolveInWorkspace(p) {
-            if (!workspaceRoot) return null;
-            const root = path.resolve(workspaceRoot);
-            const resolved = path.resolve(root, p || '.');
-            if (resolved !== root && !resolved.startsWith(root + path.sep)) return null;
-            return resolved;
-        }
-
-        // Búsqueda de texto recursiva y acotada dentro del workspace.
-        function grepWorkspace(pattern) {
-            const fs = require('fs');
-            if (!workspaceRoot || !pattern) return '(sin patrón o sin workspace abierto)';
-            let rx = null;
-            try { rx = new RegExp(pattern, 'i'); } catch { rx = null; }
-            const SKIP = new Set(['node_modules', '.git', 'dist', 'build', '.cache', '.next']);
-            const BIN = /\.(png|jpe?g|gif|webp|ico|pdf|zip|gz|exe|dll|so|bin|mp4|mp3|wav|ttf|woff2?|glb|gltf)$/i;
-            const hits = [];
-            const MAX_HITS = 60, MAX_FILES = 2000;
-            let filesScanned = 0;
-            const root = path.resolve(workspaceRoot);
-            const walk = (dir) => {
-                if (hits.length >= MAX_HITS || filesScanned >= MAX_FILES) return;
-                let entries;
-                try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
-                for (const e of entries) {
-                    if (hits.length >= MAX_HITS || filesScanned >= MAX_FILES) return;
-                    if (SKIP.has(e.name)) continue;
-                    const full = path.join(dir, e.name);
-                    if (e.isDirectory()) { walk(full); }
-                    else if (e.isFile() && !BIN.test(e.name)) {
-                        filesScanned++;
-                        let text;
-                        try { if (fs.statSync(full).size > 524288) continue; text = fs.readFileSync(full, 'utf8'); } catch { continue; }
-                        const lines = text.split('\n');
-                        for (let i = 0; i < lines.length; i++) {
-                            const hit = rx ? rx.test(lines[i]) : lines[i].includes(pattern);
-                            if (hit) {
-                                const rel = path.relative(root, full).replace(/\\/g, '/');
-                                hits.push(`${rel}:${i + 1}: ${redactSecrets(lines[i].trim().slice(0, 200))}`);
-                                if (hits.length >= MAX_HITS) break;
-                            }
-                        }
-                    }
-                }
-            };
-            walk(root);
-            if (!hits.length) return '(sin coincidencias)';
-            return hits.join('\n') + (hits.length >= MAX_HITS ? '\n… (más resultados omitidos)' : '');
-        }
+        // workspace). La lógica pura vive en modules/agent-core.js (testeable); aquí
+        // sólo se le inyecta el workspaceRoot actual. ──
+        function parseReadToolActions(text) { return AgentCore.parseReadToolActions(text); }
+        function resolveInWorkspace(p) { return AgentCore.resolveInWorkspace(workspaceRoot, p); }
+        function grepWorkspace(pattern) { return AgentCore.grepWorkspace(workspaceRoot, pattern); }
 
         // Ejecuta las lecturas solicitadas y devuelve un texto (redactado) para el modelo.
         async function executeReadTools(actions) {
