@@ -67,6 +67,18 @@ flowchart LR
 | **Automatización** | *Cron scheduler* con entrega a Telegram/Discord, *streaming* SSE |
 | **Seguridad** | Redacción de secretos, *sandbox* Docker, cifrado con `safeStorage`, CSP, verificación de *host-key* SSH (TOFU) |
 
+### ⚡ Rendimiento del núcleo
+
+El núcleo agéntico es JavaScript puro **sin dependencias**. Estas cifras salen de `npm run bench` (medido con `node:perf_hooks`, **reales de la máquina que lo ejecuta**, no inventadas):
+
+<div align="center">
+
+<img src="docs/benchmark.svg" alt="Benchmark del núcleo de Nexus IDE" width="90%">
+
+</div>
+
+> **Reprodúcelo tú:** `npm run bench -- --svg` regenera el gráfico con los números de tu equipo. Con una API key (`NEXUS_BENCH_KEY=sk-…`) también mide la **latencia real** del proveedor (tiempo hasta el primer token + total). Módulo del núcleo carga en **&lt;1 ms** y la suite de **64 tests** corre en unos pocos segundos.
+
 ## 📑 Tabla de Contenidos
 
 - [Nexus IDE en números](#-nexus-ide-en-números)

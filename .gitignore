@@ -42,3 +42,4 @@ electron_run.log
 electron_err.log
 renderer_errors.log
 app_screenshot.png
+docs/benchmark.json

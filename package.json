@@ -8,6 +8,7 @@
   "scripts": {
     "start": "electron .",
     "test": "node --test",
+    "bench": "node benchmark/bench.js",
     "dist": "electron-packager . nexus-ide --platform=win32 --arch=x64 --overwrite",
     "dist:win": "electron-builder --win",
     "dist:linux": "electron-builder --linux AppImage deb rpm pacman",
