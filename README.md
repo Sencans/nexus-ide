@@ -77,7 +77,7 @@ El núcleo agéntico es JavaScript puro **sin dependencias**. Estas cifras salen
 
 </div>
 
-> **Reprodúcelo tú:** `npm run bench -- --svg` regenera el gráfico con los números de tu equipo. Con una API key (`NEXUS_BENCH_KEY=sk-…`) también mide la **latencia real** del proveedor (tiempo hasta el primer token + total). Módulo del núcleo carga en **&lt;1 ms** y la suite de **64 tests** corre en unos pocos segundos.
+> **Reprodúcelo tú:** `npm run bench -- --svg` regenera el gráfico con los números de tu equipo. Con una API key (`NEXUS_BENCH_KEY=sk-…`) también mide la **latencia real** del proveedor (tiempo hasta el primer token + total). Módulo del núcleo carga en **&lt;1 ms** y la suite de **64 tests** corre en unos pocos segundos. Además, un workflow de CI ([`benchmark.yml`](.github/workflows/benchmark.yml)) **regenera este gráfico y lo adjunta a cada Release** automáticamente.
 
 ## 📑 Tabla de Contenidos
 

@@ -1,0 +1,50 @@
+name: Benchmark
+
+# En cada Release publicada: mide el rendimiento REAL del núcleo agéntico, adjunta el
+# gráfico y el JSON como assets de la Release, y actualiza docs/benchmark.svg en main
+# (para que el gráfico del README quede fresco). También se puede lanzar a mano.
+# Es rápido y sin dependencias: el benchmark solo usa Node y los módulos locales.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  benchmark:
+    name: Benchmark del núcleo
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (main)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Ejecutar benchmark + generar gráfico
+        run: npm run bench -- --svg
+
+      - name: Adjuntar el benchmark a la Release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ github.event.release.tag_name }}" docs/benchmark.svg docs/benchmark.json --clobber
+
+      - name: Actualizar el gráfico en main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/benchmark.svg
+          if git diff --staged --quiet; then
+            echo "Sin cambios en el gráfico de benchmark."
+          else
+            git commit -m "chore(bench): actualizar gráfico de rendimiento [skip ci]"
+            git push origin HEAD:main || echo "Push omitido (main avanzó durante el job)."
+          fi
