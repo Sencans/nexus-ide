@@ -21,8 +21,55 @@
 
 Nexus IDE es un **entorno de desarrollo integrado (IDE) de escritorio** construido sobre **Electron**, **HTML5/CSS3 (Glassmorphism)** y **Node.js**. Combina un rendimiento fuera de línea ultrarrápido con herramientas avanzadas para desarrollo de software, modelado y renderizado 3D, y asistencia interactiva mediante inteligencia artificial multi-proveedor.
 
+## 📊 Nexus IDE en números
+
+<div align="center">
+
+<img src="docs/stats.svg" alt="Estadísticas de Nexus IDE" width="92%">
+
+![Tests](https://img.shields.io/badge/tests-64_passing-3fb950?style=flat-square)
+![Proveedores IA](https://img.shields.io/badge/proveedores_IA-18-7c3aed?style=flat-square)
+![Capacidades agénticas](https://img.shields.io/badge/capacidades_agénticas-13-a78bfa?style=flat-square)
+![Módulos](https://img.shields.io/badge/módulos-6-58a6ff?style=flat-square)
+![CI](https://img.shields.io/badge/CI-passing-3fb950?style=flat-square&logo=githubactions&logoColor=white)
+
+</div>
+
+> Cifras **reales** del repositorio (no benchmarks inventados): `npm test` corre **64 tests** en cada push, el motor soporta **18 proveedores de IA** (13 en la nube + 5 locales) y el núcleo agéntico implementa **13 capacidades**, cubiertas por tests deterministas.
+
+### 🔄 Cómo trabaja el agente
+
+Nexus no solo "responde": **explora el código, actúa, observa el resultado y corrige** — un bucle agéntico real (ReAct):
+
+```mermaid
+flowchart LR
+  U([Consulta]) --> P[Razona]
+  P --> R{¿Explorar?}
+  R -->|Sí| READ[Read tools · MCP · grep]
+  READ --> P
+  R -->|No| ACT[Actúa: escribe / ejecuta]
+  ACT --> OBS[Observa la salida]
+  OBS --> D{¿Errores?}
+  D -->|Sí| P
+  D -->|No| MEM[Recuerda / aprende skill]
+  MEM --> DONE([Respuesta])
+```
+
+### 🤖 Capacidades agénticas
+
+| Categoría | Capacidades |
+|-----------|-------------|
+| **Percepción** | Read tools confinadas al workspace (`READ_FILE`/`LIST_DIR`/`GREP`), contexto del archivo activo, RAG |
+| **Acción** | Escritura de archivos, ejecución de comandos con captura de salida, *tool-calling* nativo, gate de permisos |
+| **Razonamiento** | Bucle ReAct (observa → corrige), multi-agente Planner→Coder→Reviewer, Mixture-of-Agents (`/moa`) |
+| **Memoria** | Hechos persistentes *cross-session* (`[REMEMBER]`), historial por proyecto, auto-skills (`[LEARN_SKILL]`) |
+| **Extensibilidad** | Cliente MCP (servidores de herramientas), 18 proveedores, *fallback* entre modelos |
+| **Automatización** | *Cron scheduler* con entrega a Telegram/Discord, *streaming* SSE |
+| **Seguridad** | Redacción de secretos, *sandbox* Docker, cifrado con `safeStorage`, CSP, verificación de *host-key* SSH (TOFU) |
+
 ## 📑 Tabla de Contenidos
 
+- [Nexus IDE en números](#-nexus-ide-en-números)
 - [Características principales](#-características-principales)
 - [Requisitos e instalación](#️-requisitos-e-instalación)
 - [Compilación y distribución](#-compilación-y-distribución)
