@@ -14028,6 +14028,36 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
         }
 
 
+        // ── Tool-calling nativo (function calling) para proveedores OpenAI-compat ──────
+        // Esquema de herramientas del agente en formato OpenAI. Los tool_calls que
+        // devuelva el modelo se convierten a las MISMAS etiquetas de texto que ya usa el
+        // pipeline (toolCallsToTags), así el resto del flujo (loop de lectura, Cardinal,
+        // ejecución con permisos) no cambia. Opt-in vía flag nexus_native_tools.
+        const AGENT_TOOLS_SCHEMA = [
+            { type: 'function', function: { name: 'write_file', description: 'Crea o sobrescribe un archivo con su contenido COMPLETO (sin resúmenes ni elipsis).', parameters: { type: 'object', properties: { path: { type: 'string', description: 'Ruta relativa o absoluta del archivo' }, content: { type: 'string', description: 'Contenido completo del archivo' } }, required: ['path', 'content'] } } },
+            { type: 'function', function: { name: 'run_command', description: 'Ejecuta un comando en la terminal del sistema (PowerShell en Windows, Bash en Unix).', parameters: { type: 'object', properties: { command: { type: 'string' } }, required: ['command'] } } },
+            { type: 'function', function: { name: 'read_file', description: 'Lee un archivo del workspace para ver su contenido.', parameters: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] } } },
+            { type: 'function', function: { name: 'list_dir', description: 'Lista archivos y carpetas de un directorio del workspace (path vacío = raíz).', parameters: { type: 'object', properties: { path: { type: 'string' } }, required: [] } } },
+            { type: 'function', function: { name: 'grep', description: 'Busca un patrón de texto/regex en todo el proyecto.', parameters: { type: 'object', properties: { pattern: { type: 'string' } }, required: ['pattern'] } } },
+            { type: 'function', function: { name: 'run_3d_script', description: 'Ejecuta un script JavaScript compatible con Babylon.js en el motor 3D.', parameters: { type: 'object', properties: { code: { type: 'string' } }, required: ['code'] } } },
+        ];
+        function toolCallsToTags(toolCalls) {
+            let tags = '';
+            for (const tc of (toolCalls || [])) {
+                const fn = (tc && tc.function) || {};
+                let args = {};
+                try { args = JSON.parse(fn.arguments || '{}'); } catch { args = {}; }
+                if (fn.name === 'write_file' && args.path) tags += `\n[WRITE_FILE: ${args.path}]\n${args.content || ''}\n[END_WRITE_FILE]\n`;
+                else if (fn.name === 'run_command' && args.command) tags += `\n[RUN_COMMAND]\n${args.command}\n[END_RUN_COMMAND]\n`;
+                else if (fn.name === 'read_file' && args.path) tags += `\n[READ_FILE: ${args.path}]\n`;
+                else if (fn.name === 'list_dir') tags += `\n[LIST_DIR: ${args.path || ''}]\n`;
+                else if (fn.name === 'grep' && args.pattern) tags += `\n[GREP: ${args.pattern}]\n`;
+                else if (fn.name === 'run_3d_script' && args.code) tags += `\n[RUN_3D_SCRIPT]\n${args.code}\n[END_RUN_3D_SCRIPT]\n`;
+            }
+            return tags;
+        }
+        function nativeToolsEnabled() { try { return localStorage.getItem('nexus_native_tools') === 'true'; } catch { return false; } }
+
         async function sendRequestToAI(modelId, promptText, systemText, history = [], signal = null, images = []) {
             const apiKey = getApiKeyForModel(modelId);
             if (!apiKey) {
@@ -14042,6 +14072,7 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
                 headers: { 'Content-Type': 'application/json' },
                 signal: signal
             };
+            let sentTools = false; // ¿se envió el parámetro 'tools' en esta petición? (para fallback)
             
             // conversational memory is limited to the last 6 messages
             // Slice history to the last 5 messages, and combined with current prompt we get 6 total.
@@ -14124,7 +14155,14 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
                 if (LOCAL_AI_PROVIDERS.has(provider) && (cleanModelId === 'custom' || cleanModelId === '')) {
                     cleanModelId = localStorage.getItem(localModelKey(provider)) || LOCAL_AI_DEFAULT_MODELS[provider];
                 }
-                options.body = JSON.stringify({ model: cleanModelId, messages: messages });
+                const openaiBody = { model: cleanModelId, messages: messages };
+                // Tool-calling nativo: solo para proveedores en la nube (los locales suelen
+                // no soportarlo bien) y si el usuario lo activó. Con fallback si lo rechaza.
+                if (nativeToolsEnabled() && !LOCAL_AI_PROVIDERS.has(provider)) {
+                    openaiBody.tools = AGENT_TOOLS_SCHEMA;
+                    sentTools = true;
+                }
+                options.body = JSON.stringify(openaiBody);
             }
             else if (provider === 'anthropic') {
                 url = 'https://api.anthropic.com/v1/messages';
@@ -14158,17 +14196,34 @@ ${!validationResult.success ? `NOTA: La validación del código falló tras vari
                 });
             }
             
-            const response = await nodeHttpRequest(url, options);
+            let response = await nodeHttpRequest(url, options);
+            // Fallback: si enviamos 'tools' y el proveedor lo rechaza, reintentar sin ellos
+            // (algunos endpoints OpenAI-compat no soportan function-calling).
+            if (!response.ok && sentTools) {
+                try {
+                    const retryBody = JSON.parse(options.body);
+                    delete retryBody.tools;
+                    options.body = JSON.stringify(retryBody);
+                    sentTools = false;
+                    response = await nodeHttpRequest(url, options);
+                } catch (e) { /* si el reintento tampoco va, cae al throw de abajo */ }
+            }
             if (!response.ok) {
                 const errText = await response.text();
                 throw new Error(`API Error: ${response.status} - ${errText}`);
             }
-            
+
             const data = await response.json();
             if (provider === 'google') {
                 return data.candidates[0].content.parts[0].text;
             } else if (OPENAI_COMPAT_PROVIDERS.has(provider)) {
-                return data.choices[0].message.content;
+                const msg = (data.choices && data.choices[0] && data.choices[0].message) || {};
+                // Si el modelo usó function-calling, convertir los tool_calls a las
+                // etiquetas de texto que ya entiende el pipeline; si no, devolver el texto.
+                if (msg.tool_calls && msg.tool_calls.length) {
+                    return (msg.content || '') + toolCallsToTags(msg.tool_calls);
+                }
+                return msg.content || '';
             } else if (provider === 'anthropic') {
                 return data.content[0].text;
             }
