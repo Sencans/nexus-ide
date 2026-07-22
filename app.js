@@ -930,6 +930,67 @@ if (mesh) {
         let apiKeysState = {};
         let ptyProcess = null;
 
+        // ─── Cifrado de secretos (API keys / contraseñas SSH) ──────────────────
+        // En disco los secretos se cifran con el almacén del SO (DPAPI/Keychain/
+        // libsecret) vía safeStorage en el proceso principal. Formato persistido:
+        //   'v2:' + base64(cifrado)   → cifrado con safeStorage
+        //   base64 puro (btoa)        → formato antiguo, se migra al cargar
+        // En MEMORIA las claves siguen en base64 plano (btoa del texto), así
+        // getApiKeyForModel y todas las lecturas no cambian.
+        let __secureAvail = null;
+        function secureAvailable() {
+            if (__secureAvail !== null) return __secureAvail;
+            try { __secureAvail = require('electron').ipcRenderer.sendSync('secure-available') === true; }
+            catch { __secureAvail = false; }
+            return __secureAvail;
+        }
+        // Texto plano → string persistible.
+        function secureSeal(plain) {
+            const s = String(plain == null ? '' : plain);
+            try {
+                const enc = require('electron').ipcRenderer.sendSync('secure-encrypt', s);
+                if (enc) return 'v2:' + enc;
+            } catch {}
+            try { return btoa(s); } catch { return btoa(unescape(encodeURIComponent(s))); }
+        }
+        // String persistido ('v2:...' o base64 antiguo) → texto plano.
+        function secureOpen(stored) {
+            if (!stored) return '';
+            if (typeof stored === 'string' && stored.startsWith('v2:')) {
+                try {
+                    const dec = require('electron').ipcRenderer.sendSync('secure-decrypt', stored.slice(3));
+                    return dec == null ? '' : dec;
+                } catch { return ''; }
+            }
+            try { return atob(stored); } catch { return ''; }
+        }
+        // Persiste apiKeysState cifrando cada clave (memoria base64 → 'v2:...').
+        function persistApiKeys() {
+            const out = {};
+            for (const [id, v] of Object.entries(apiKeysState)) {
+                if (!v) continue;
+                let plain = '';
+                try { plain = v.key ? atob(v.key) : ''; } catch { plain = ''; }
+                out[id] = { key: secureSeal(plain), status: v.status };
+            }
+            try { localStorage.setItem('nexus_apis', JSON.stringify(out)); } catch {}
+        }
+        // Carga apiKeysState descifrando (acepta formato antiguo) y migra a cifrado.
+        function loadApiKeys() {
+            let stored = {};
+            try { stored = JSON.parse(localStorage.getItem('nexus_apis') || '{}'); } catch { stored = {}; }
+            apiKeysState = {};
+            let needsMigration = false;
+            for (const [id, v] of Object.entries(stored)) {
+                if (!v || typeof v.key === 'undefined') continue;
+                if (typeof v.key === 'string' && !v.key.startsWith('v2:')) needsMigration = true;
+                const plain = secureOpen(v.key);
+                apiKeysState[id] = { key: btoa(plain), status: v.status };
+            }
+            // Migrar claves antiguas (base64) a cifrado, solo si safeStorage existe.
+            if (needsMigration && secureAvailable()) persistApiKeys();
+        }
+
         // ─── MULTI-PROYECTOS Y SESIONES ───────────────────────────────────────
         const defaultChatHtml = `
             <div style="background:#1e1e1e; border:1px solid #333; padding:12px; border-radius:8px; line-height: 1.5;">
@@ -4475,7 +4536,7 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                     localStorage.setItem(localModelKey(id), modelInput.value.trim() || LOCAL_AI_DEFAULT_MODELS[id]);
                 }
                 apiKeysState[id] = { key: btoa('local-active'), status: 'valid' };
-                localStorage.setItem('nexus_apis', JSON.stringify(apiKeysState));
+                persistApiKeys();
                 showToast('Configuración local guardada', 'success');
                 const statusEl = document.getElementById('status-' + id);
                 if (statusEl) statusEl.textContent = '🟢';
@@ -4488,7 +4549,7 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
             const input = document.getElementById('cfg-key-input');
             if (input && input.value.trim()) {
                 apiKeysState[id] = { key: btoa(input.value.trim()), status: 'valid' };
-                localStorage.setItem('nexus_apis', JSON.stringify(apiKeysState));
+                persistApiKeys();
                 showToast(NexusLocalization.t('toast_key_saved') || 'Clave guardada con éxito', 'success');
                 const statusEl = document.getElementById('status-' + id);
                 if (statusEl) statusEl.textContent = '🟢';
@@ -4504,7 +4565,7 @@ transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
                 localStorage.removeItem(localModelKey(id));
             }
             delete apiKeysState[id];
-            localStorage.setItem('nexus_apis', JSON.stringify(apiKeysState));
+            persistApiKeys();
             showToast(NexusLocalization.t('toast_settings_deleted') || 'Configuración eliminada', 'warning');
             const statusEl = document.getElementById('status-' + id);
             if (statusEl) statusEl.textContent = '⚪';
@@ -17069,7 +17130,7 @@ void AMyActor::Tick(float DeltaTime)
                     authSel.value = srv.authMethod || 'password';
                     
                     if (srv.authMethod === 'password') {
-                        passInp.value = srv.password ? atob(srv.password) : '';
+                        passInp.value = srv.password ? secureOpen(srv.password) : '';
                         keyInp.value = '';
                     } else {
                         passInp.value = '';
@@ -17133,7 +17194,7 @@ void AMyActor::Tick(float DeltaTime)
                     port,
                     username,
                     authMethod,
-                    password: password ? btoa(password) : '',
+                    password: password ? secureSeal(password) : '',
                     privateKeyPath
                 };
                 
@@ -17715,7 +17776,7 @@ void AMyActor::Tick(float DeltaTime)
                 autoDetectEnginePaths();
                 setPerspective('code');
                 syncEngineUI();
-                try { apiKeysState = JSON.parse(localStorage.getItem('nexus_apis') || '{}'); } catch { apiKeysState = {}; }
+                loadApiKeys();
 
                 // Aplicar configuraciones guardadas al arrancar (idioma, tema, etc.)
                 applySettings(getSavedSettings());

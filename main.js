@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, Tray, Menu, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Tray, Menu, screen, safeStorage } = require('electron');
 const path = require('path');
 
 let mainWindow = null;
@@ -161,6 +161,26 @@ ipcMain.handle('select-file', async (event, options) => {
   });
   if (result.canceled || result.filePaths.length === 0) return null;
   return result.filePaths;
+});
+
+// ─── Cifrado de secretos con el almacén del sistema operativo ──────────────
+// safeStorage usa DPAPI (Windows), Keychain (macOS) o libsecret/kwallet (Linux).
+// Síncronos (sendSync) para poder cifrar/descifrar sin refactor async en el
+// renderer. Devuelven null si el cifrado no está disponible (p.ej. Linux sin
+// keyring) para que el renderer degrade a base64 sin romperse.
+ipcMain.on('secure-available', (event) => {
+  try { event.returnValue = safeStorage.isEncryptionAvailable() === true; }
+  catch { event.returnValue = false; }
+});
+ipcMain.on('secure-encrypt', (event, plain) => {
+  try {
+    if (!safeStorage.isEncryptionAvailable()) { event.returnValue = null; return; }
+    event.returnValue = safeStorage.encryptString(String(plain)).toString('base64');
+  } catch { event.returnValue = null; }
+});
+ipcMain.on('secure-decrypt', (event, b64) => {
+  try { event.returnValue = safeStorage.decryptString(Buffer.from(String(b64), 'base64')); }
+  catch { event.returnValue = null; }
 });
 
 // Helper para obtener la dirección IP local de la red WiFi/Ethernet

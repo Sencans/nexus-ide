@@ -2,6 +2,11 @@
 
 Todas las novedades notables de **Nexus IDE**. El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/) y el proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
 
+## [Sin publicar]
+
+### Seguridad
+- **Cifrado de secretos en reposo**: las claves de API y las contraseñas SSH ya no se guardan en base64 reversible, sino **cifradas con el almacén de credenciales del sistema operativo** (DPAPI en Windows, Keychain en macOS, libsecret/kwallet en Linux) mediante el `safeStorage` de Electron. Formato nuevo con prefijo `v2:`; las claves antiguas en base64 se leen y **migran automáticamente** a cifrado al arrancar. Si el sistema no ofrece almacén seguro (p. ej. Linux sin keyring), degrada a base64 sin romperse.
+
 ## [2.1.0] — 2026-07-21
 
 Ronda de calidad: implementación real del bot de Discord, reparación de varios subsistemas que "parecían vivos pero estaban rotos", y más modularización del código.

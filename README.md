@@ -49,7 +49,7 @@ Nexus IDE es un **entorno de desarrollo integrado (IDE) de escritorio** construi
 * **Proveedores compatibles**: **Google Gemini**, **OpenAI**, **Anthropic Claude**, **Groq**, **Mistral**, **DeepSeek**, **Moonshot (Kimi)**, **xAI (Grok)** y **Ollama** (ejecución 100% local).
 * **Agentes colaborativos**: múltiples modelos discuten y colaboran simultáneamente para resolver problemas de código.
 * **Avatar/compañero flotante (AIRI)**: overlay de escritorio transparente que flota sobre cualquier aplicación (fuera de la ventana del IDE), con soporte para **imágenes/GIF**, **modelos 3D/VTuber (GLB, GLTF, VRM)** y un holograma por defecto. Arrastrable por toda la pantalla, con rotación y zoom del modelo 3D.
-* **Seguridad de datos**: tus claves API se guardan localmente en el almacenamiento aislado de tu máquina (`localStorage`).
+* **Seguridad de datos**: tus claves API y contraseñas SSH se **cifran con el almacén del sistema operativo** (DPAPI en Windows, Keychain en macOS, libsecret/kwallet en Linux) mediante el `safeStorage` de Electron; nunca se guardan en texto plano.
 
 ### 🎮 Integración de Motores 3D (Godot y Unreal Engine 5)
 * **Godot & Unreal Engine IPC Bridge**: ejecuta proyectos y abre editores desde el IDE mediante hilos asíncronos y sockets portables.
@@ -135,7 +135,7 @@ nexus-ide/
 
 ## 🔒 Privacidad y API Keys
 
-Toda la configuración del usuario, las rutas de directorios abiertas y las claves de API se persisten de forma **aislada en el `localStorage`** del cliente. **Ninguna clave de API ni archivo personal se envía a servidores externos ni se empaqueta en la distribución ejecutable.**
+Toda la configuración del usuario y las rutas de directorios abiertas se persisten de forma **aislada en el `localStorage`** del cliente. Los **secretos** (claves de API y contraseñas SSH) se **cifran con el almacén de credenciales del sistema operativo** (DPAPI / Keychain / libsecret) vía `safeStorage`, de modo que **no se guardan en texto plano** en disco. **Ninguna clave de API ni archivo personal se envía a servidores externos ni se empaqueta en la distribución ejecutable.**
 
 ---
 
